@@ -5,8 +5,7 @@
   <PropertyGroup />
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(SolutionDir)thirdparty\glm;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>GLM_SWIZZLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)\thirdparty\jsoncpp;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>    
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup />
