@@ -29,7 +29,7 @@ void setCurrentVertexSource(const GLVertexSource& vertex_source)
 
 void draw(int vertex_start, int vertex_count)
 {    
-    glDrawArrays(_current_vertex_source->vertexCount(), vertex_start, vertex_count);
+    glDrawArrays(GL_TRIANGLES, vertex_start, vertex_count);
 }
 
 

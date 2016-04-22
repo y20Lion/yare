@@ -67,10 +67,10 @@ void GLProgram::_linkProgram()
     }
 }
 
-GLProgramUptr createProgram(const std::string& vertex_shader_source, const std::string& fragment_shader_source)
+Uptr<GLProgram> createProgram(const std::string& vertex_shader_source, const std::string& fragment_shader_source)
 {    
     GLProgramDesc program_desc;
     program_desc.shaders.push_back(ShaderDesc(vertex_shader_source, GL_VERTEX_SHADER));
     program_desc.shaders.push_back(ShaderDesc(fragment_shader_source, GL_FRAGMENT_SHADER));
-    return GLProgramUptr(new GLProgram(program_desc));
+    return std::make_unique<GLProgram>(program_desc);
 }

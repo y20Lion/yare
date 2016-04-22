@@ -2,4 +2,6 @@
 
 #include <string>
 
-void import(const std::string& filename);
+class Scene;
+
+void import3DY(const std::string& filename, Scene* scene);

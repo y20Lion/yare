@@ -33,6 +33,5 @@ private:
     DISALLOW_COPY_AND_ASSIGN(GLProgram)
     GLuint _program_id;
 };
-DECLARE_STD_PTR(GLProgram)
 
-GLProgramUptr createProgram(const std::string& vertex_shader_source, const std::string& fragment_shader_source);
+Uptr<GLProgram> createProgram(const std::string& vertex_shader_source, const std::string& fragment_shader_source);

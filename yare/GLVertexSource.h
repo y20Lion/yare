@@ -30,4 +30,3 @@ private:
     GLenum _primitive_type;
     int _vertex_count;
 };
-DECLARE_STD_PTR(GLVertexSource)

@@ -1,6 +1,7 @@
 #include "GLBuffer.h"
 
 GLBuffer::GLBuffer(const GLBufferDesc& desc)
+: _size_bytes(desc.size_bytes)
 {
     glCreateBuffers(1, &_buffer_id);
     glNamedBufferStorage(_buffer_id, desc.size_bytes, nullptr, desc.flags);
@@ -16,15 +17,20 @@ void* GLBuffer::map(GLenum access)
     return glMapNamedBuffer(_buffer_id, access);
 }
 
+void* GLBuffer::mapRange(std::int64_t offset, std::int64_t length, GLenum access)
+{
+	return glMapNamedBufferRange(_buffer_id, offset, length, access);
+}
+
 void GLBuffer::unmap()
 {
     glUnmapNamedBuffer(_buffer_id);
 }
 
-GLBufferUptr createVertexBuffer(std::int64_t size_bytes)
+Uptr<GLBuffer> createVertexBuffer(std::int64_t size_bytes)
 {
     GLBufferDesc desc;
     desc.flags = GL_MAP_WRITE_BIT;
     desc.size_bytes = size_bytes;
-    return GLBufferUptr(new GLBuffer(desc));
+    return std::make_unique<GLBuffer>(desc);
 }

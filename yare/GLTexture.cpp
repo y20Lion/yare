@@ -26,5 +26,5 @@ GLTexture2D::~GLTexture2D()
     
 void GLTexture2D::setData(int level, GLenum data_format, GLenum data_type, void* data)
 {
-    glTextureSubImage2D(_texture_id, level, 0, 0, _width, _height, data_format, data_type, data);
+	glTextureSubImage2D(_texture_id, level, 0, 0, _width, _height, data_format, data_type, data);
 }

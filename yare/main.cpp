@@ -85,7 +85,7 @@ int main()
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);   
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
-    GLFWwindow* window = glfwCreateWindow(640, 480, "MyWindow", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(1024, 768, "MyWindow", NULL, NULL);
     
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
@@ -111,33 +111,11 @@ int main()
         " { \n"
         "   gl_FragColor = vec4(1.0, 1.0, 0.0, 1.0);//vec4(texture(checkerboard, uv).rgb, 1.0); \n"
         " }\n";
-
-    import("D:\\test.bin");
-
-    /*auto program = createProgram(vertex_source, fragment_source);
-
-    auto positions_buffer = createVertexBuffer(sizeof(Vec3)*6);
-    auto ptr = positions_buffer->map(GL_WRITE_ONLY);
-    memcpy(ptr, quad_vertices, sizeof(Vec3)*6);
-    positions_buffer->unmap();*/
-
-    /*GLTexture2DDesc tex_desc;
-    tex_desc.width = 2;
-    tex_desc.height = 2;
-    tex_desc.levels = 1;
-    tex_desc.internal_format = GL_RGBA8;
-    GLTexture2D texture(tex_desc);
-    texture.setData(0, GL_RGB, GL_FLOAT, pix_data);
-
-    GLProgramResources prog_resources;
-    prog_resources.setTexture(3, texture);*/
-    
-    /*GLVertexSource quad_source;
-    quad_source.setVertexBuffer(*positions_buffer);
-    quad_source.setVertexAttribute(1, 3, GL_FLOAT, 0, 0);*/
         
     
     Renderer renderer;
+	import3DY("D:\\test.bin", renderer.scene());
+
     CameraManipulator camera_manipulator(&renderer.scene()->camera.point_of_view);
     while (!glfwWindowShouldClose(window))
     {

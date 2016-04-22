@@ -27,6 +27,6 @@ private:
     DISALLOW_COPY_AND_ASSIGN(GLRenderTarget)
     GLuint _render_target_id;
 };
-DECLARE_STD_PTR(GLRenderTarget)
+
 
 class GLDefaultRT : private GLRenderTarget

@@ -28,7 +28,7 @@ static glm::mat4x3 _toMat4x3(const glm::mat4& matrix)
 void Scene::update()
 {
     auto mat = glm::lookAt(camera.point_of_view.from, camera.point_of_view.to, camera.point_of_view.up);
-    _matrix_view_world = glm::perspective(3.14f/2.0f, 1.0f, 0.5f, 1000.0f) * mat;
+    _matrix_view_world = glm::perspective(3.14f/2.0f, 1.0f, 0.05f, 100.0f) * mat;
         /** glm::frustum(camera.frustum.left, camera.frustum.right,
                        camera.frustum.bottom, camera.frustum.top,
                        camera.frustum.near, camera.frustum.far);*/
@@ -50,7 +50,7 @@ Scene createBasicScene()
     memcpy(ptr, quad_vertices, sizeof(glm::vec3)*6);
     positions_buffer->unmap();
     
-    GLVertexSourceSptr quad_source = GLVertexSourceSptr(new GLVertexSource());
+    Sptr<GLVertexSource> quad_source = std::make_shared<GLVertexSource>();
     quad_source->setVertexBuffer(*positions_buffer);
     quad_source->setVertexAttribute(1, 3, GL_FLOAT, 0, 0);
     quad_source->setVertexCount(6);
@@ -60,7 +60,7 @@ Scene createBasicScene()
 
     surface_instance.matrix_world_local = glm::mat4x3(1.0);
     surface_instance.mesh = quad_source;
-    scene.surfaces.push_back(surface_instance);
+   /* scene.surfaces.push_back(surface_instance);
 
     surface_instance.matrix_world_local = _toMat4x3(glm::rotate(float(M_PI/2.0), glm::vec3(0.0f,1.0f,0.0f)));
     scene.surfaces.push_back(surface_instance);
@@ -69,7 +69,7 @@ Scene createBasicScene()
     scene.surfaces.push_back(surface_instance);
 
     surface_instance.matrix_world_local = _toMat4x3(glm::rotate(float(M_PI), glm::vec3(0.0f,1.0f,0.0f)));
-    scene.surfaces.push_back(surface_instance);
+    scene.surfaces.push_back(surface_instance);*/
 
     return scene;
 }

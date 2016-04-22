@@ -12,8 +12,9 @@ public:
     Scene* scene() { return &_scene; }
 
     glm::vec3 pickPosition(int x, int y);
+
 private:
     DISALLOW_COPY_AND_ASSIGN(Renderer)
     Scene _scene;
-    GLProgramUptr _draw_mesh;
+    Uptr<GLProgram> _draw_mesh;
 };

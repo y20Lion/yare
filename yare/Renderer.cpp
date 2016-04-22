@@ -45,6 +45,6 @@ void Renderer::render()
         //GLDevice::setUniformMatrix4(loc.t_view_local, render_data.matrix_view_local);
         glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(render_data.matrix_view_local));
         GLDevice::setCurrentVertexSource(*surface.mesh);        
-        GLDevice::draw(0, 6);
+        GLDevice::draw(0, surface.mesh->vertexCount());
     }
 }

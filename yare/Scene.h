@@ -11,7 +11,7 @@
 struct SurfaceInstance
 {
     glm::mat4x3 matrix_world_local;    
-    GLVertexSourceSptr mesh;
+    Sptr<GLVertexSource> mesh;
 };
 
 enum class LightType { Point, Spot };
