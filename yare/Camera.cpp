@@ -6,9 +6,9 @@
 using namespace glm;
 
 PointOfView::PointOfView()
-     : from(vec3(0.0, 0.0, 3.0))
+     : from(vec3(3.0, 0.0, 0.0))
      , to(vec3(0.0, 0.0, 0.0))
-     , up(vec3(0.0, 1.0, 0.0))
+     , up(vec3(0.0, 0.0, 1.0))
 {
 }
 

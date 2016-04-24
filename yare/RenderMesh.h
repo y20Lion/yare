@@ -32,15 +32,17 @@ public:
 	int triangleCount() const { return _triangle_count; }
 	int vertexCount() const { return _vertex_count; }
 
+    struct Field
+    {
+        int components;
+        GLenum component_type;
+        std::int64_t offset;
+        std::int64_t size;
+    };
+    const Field& fieldInfo(const std::string& vertex_field) const { return _fields.at(vertex_field); }
+
 private:
-    DISALLOW_COPY_AND_ASSIGN(RenderMesh)
-	struct Field
-	{
-		int components;
-		GLenum component_type;
-		std::int64_t offset;
-		std::int64_t size;
-	};
+    DISALLOW_COPY_AND_ASSIGN(RenderMesh)	
 
 	std::map<std::string, Field> _fields;
 	int _triangle_count;

@@ -6,6 +6,8 @@
 
 #include "RenderMesh.h"
 #include "Scene.h"
+#include "ShadeTreeNode.h"
+#include "ShadeTreeMaterial.h"
 
 using namespace std;
 using namespace glm;
@@ -22,6 +24,8 @@ Uptr<RenderMesh> readMesh(const Json::Value& mesh_object, std::ifstream& data_fi
 	int vertex_count = mesh_object["VertexCount"].asInt();
 	int triangle_count = mesh_object["TriangleCount"].asInt();
 	const auto& fields = mesh_object["Fields"];
+	if (vertex_count == 0)
+		return nullptr;
 
 	std::vector<VertexField> mesh_fields;
 	for (const auto& field : fields)
@@ -62,6 +66,54 @@ mat4x3 readMatrix4x3(const Json::Value& json_matrix)
 	return matrix;
 }
 
+void readNodeSlots(const Json::Value& json_slots, std::map<std::string, ShadeTreeNodeSlot>& slots)
+{
+    for (const auto& json_slot : json_slots)
+    {
+        ShadeTreeNodeSlot slot;
+        slot.name = json_slot["Name"].asString();
+        slot.default_value = vec4(0.0);
+        slot.type = ShadeTreeNodeSlotType::Float;
+        if (json_slot.isMember("DefaultValue"))
+        {
+            int value_components = json_slot["DefaultValue"].size();
+            for (int i = 0; i < value_components; ++i)
+                slot.default_value[i] = json_slot["DefaultValue"][i].asFloat();
+
+            if (value_components == 1)
+                slot.type = ShadeTreeNodeSlotType::Float;
+            else if (slot.name == "Normal")
+                slot.type = ShadeTreeNodeSlotType::Normal;
+            else
+                slot.type = ShadeTreeNodeSlotType::Vec3;
+        }        
+
+        for (const auto& json_link : json_slot["Links"])
+        {
+            Link link;
+            link.node_name = json_link["Node"].asString();
+            link.slot_name = json_link["Slot"].asString();
+            slot.links.push_back(link);
+        }
+        
+        slots[slot.name] = slot;
+    }    
+}
+
+Uptr<ShadeTreeMaterial> readMaterial(const Json::Value& json_material)
+{
+    Uptr<ShadeTreeMaterial> material = std::make_unique<ShadeTreeMaterial>();
+    for (const auto& json_node : json_material["Nodes"])
+    {
+        auto node = createShadeTreeNode(json_node["Type"].asString());
+        node->name = json_node["Name"].asString();
+        readNodeSlots(json_node["InputSlots"], node->input_slots);
+        readNodeSlots(json_node["OutputSlots"], node->output_slots);
+        material->tree_nodes[json_node["Name"].asString()] = std::move(node);
+    }
+    return material;
+}
+
 void import3DY(const std::string& filename, Scene* scene)
 {
 	std::ifstream data_file("D:\\test.bin", std::ifstream::binary);
@@ -71,15 +123,29 @@ void import3DY(const std::string& filename, Scene* scene)
 	json_file >> root;
 	json_file.close();
 
+    const auto& json_materials = root["Materials"];
+    std::map<std::string, Sptr<ShadeTreeMaterial>> materials;
+    for (const auto& json_material : json_materials)
+    {
+        auto material = readMaterial(json_material);
+        material->compile();
+        materials[json_material["Name"].asString()] = std::move(material);
+    }
+
 	const auto& json_surfaces = root["Surfaces"];
 	for (const auto& json_surface : json_surfaces)
 	{			
 		auto render_mesh = readMesh(json_surface["Mesh"], data_file);
+		if (!render_mesh)
+			continue;
 		const auto& json_matrix = json_surface["WorldToLocalMatrix"];
 		
 		SurfaceInstance surface_instance;
 		surface_instance.mesh = createVertexSource(*render_mesh);
 		surface_instance.matrix_world_local = readMatrix4x3(json_matrix);
+        surface_instance.material = materials.at(json_surface["Material"].asString());
 		scene->surfaces.push_back(surface_instance);
 	}
+
+   
 }

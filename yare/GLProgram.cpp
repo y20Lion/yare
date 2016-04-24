@@ -1,6 +1,7 @@
 #include "GLProgram.h"
 
 #include <assert.h>
+#include <fstream>
 
 #include "error.h"
 
@@ -30,6 +31,21 @@ GLProgram::~GLProgram()
     glDeleteProgram(_program_id);
 }
 
+static void _writeShaderSourceToFile(GLuint shader)
+{
+    int count = 0;
+    glGetShaderiv(shader, GL_SHADER_SOURCE_LENGTH, &count);
+    std::string source_code;
+    source_code.resize(count);
+
+    int dummy = 0;
+    glGetShaderSource(shader, count, &dummy, (GLchar*)source_code.data());
+
+    std::ofstream myfile("D:\\shader_dump.txt");
+    myfile << source_code;
+    myfile.close();
+}
+
 GLuint GLProgram::_createAndCompileShader(const ShaderDesc& shader_desc)
 {
     GLuint shader = glCreateShader(shader_desc.type);
@@ -46,6 +62,7 @@ GLuint GLProgram::_createAndCompileShader(const ShaderDesc& shader_desc)
         std::string error_log;
         error_log.resize(log_length);
         glGetShaderInfoLog(shader, log_length, &log_length, (GLchar*)error_log.data());
+        _writeShaderSourceToFile(shader);
         RUNTIME_ERROR(error_log);
     }
     return shader;

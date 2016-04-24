@@ -8,10 +8,13 @@
 #include "Camera.h"
 #include "GLVertexSource.h"
 
+class ShadeTreeMaterial;
+
 struct SurfaceInstance
 {
     glm::mat4x3 matrix_world_local;    
     Sptr<GLVertexSource> mesh;
+    Sptr<ShadeTreeMaterial> material;
 };
 
 enum class LightType { Point, Spot };

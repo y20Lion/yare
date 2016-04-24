@@ -52,7 +52,7 @@ Scene createBasicScene()
     
     Sptr<GLVertexSource> quad_source = std::make_shared<GLVertexSource>();
     quad_source->setVertexBuffer(*positions_buffer);
-    quad_source->setVertexAttribute(1, 3, GL_FLOAT, 0, 0);
+    quad_source->setVertexAttribute(1, 3, GL_FLOAT, 0, 0); // TODO cleanup
     quad_source->setVertexCount(6);
     
     SurfaceInstance surface_instance;

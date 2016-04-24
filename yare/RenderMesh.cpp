@@ -79,7 +79,8 @@ Uptr<GLVertexSource> createVertexSource(const RenderMesh& mesh)
 {
 	auto vertex_source = std::make_unique<GLVertexSource>();
 	vertex_source->setVertexBuffer(mesh.vertexBuffer());
-	vertex_source->setVertexAttribute(1, 3, GL_FLOAT, 0, 0);
+	vertex_source->setVertexAttribute(1, 3, GL_FLOAT, 0, mesh.fieldInfo("position").offset);
+    vertex_source->setVertexAttribute(2, 3, GL_FLOAT, 0, mesh.fieldInfo("normal").offset);
 	vertex_source->setVertexCount(mesh.vertexCount());
 
 	return vertex_source;

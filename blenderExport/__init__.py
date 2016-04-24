@@ -94,6 +94,8 @@ def writeMesh(binary_file, mesh):
     
     return json_mesh
 
+    
+    
 def writeMatrix(mat):
     result = []
     for column_index in range(4):
@@ -103,6 +105,53 @@ def writeMatrix(mat):
     
 def hasMesh(object):
     return hasattr(object.data, "polygons")
+
+def writeInputValue(input):
+    if hasattr(input.default_value, '__getitem__'):
+        return input.default_value[:] 
+    else: 
+        return input.default_value
+    
+def writeNode(node):
+    json_node = {}
+    
+    json_inputs = []
+    for input in node.inputs:
+        json_links = [{'Node':link.from_node.name, 'Slot':link.from_socket.identifier } for link in input.links]
+        if hasattr(input, 'default_value'):                            
+            json_inputs.append({'Name':input.identifier, 'Links':json_links, 'DefaultValue':writeInputValue(input) })
+        else:
+            json_inputs.append({'Name':input.identifier, 'Links':json_links })
+        
+    json_outputs = []    
+    for output in node.outputs:
+        json_links = [{'Node':link.from_node.name, 'Slot':link.from_socket.identifier } for link in input.links]
+        json_outputs.append({'Name':output.identifier, 'Links':json_links })
+        
+    json_node = {'Name': node.name, 'Type': node.type, 'InputSlots':json_inputs, 'OutputSlots':json_outputs}
+    return json_node
+    
+def writeMaterials():
+    json_materials = []
+    already_written_materials = set()
+    for object in bpy.context.scene.objects:
+        if not hasattr(object.data, "materials"):
+            continue
+        if not len(object.data.materials):
+            continue
+        material = object.data.materials[0]
+        if material.node_tree is None:
+            continue
+        if (material.name in already_written_materials):
+            continue
+        
+        json_nodes = []        
+        for node in material.node_tree.nodes:
+            json_nodes.append(writeNode(node))
+        json_materials.append({'Name':material.name, 'Nodes':json_nodes})
+        already_written_materials.add(material.name)
+    return json_materials
+        
     
 class Export3DY(bpy.types.Operator, ExportHelper):
     bl_idname = "export.3dy"
@@ -117,6 +166,8 @@ class Export3DY(bpy.types.Operator, ExportHelper):
     def execute(self, context):
         filepath = 'D:/test'
         binary_file = open(filepath+'.bin', "wb")
+        
+        json_materials = writeMaterials()
         json_surfaces = []
         bpy.ops.wm.console_toggle()
         bpy.ops.object.make_single_user(type='ALL', object=True, obdata=True)
@@ -132,7 +183,7 @@ class Export3DY(bpy.types.Operator, ExportHelper):
 
             mesh = object.to_mesh(bpy.context.scene, True, "PREVIEW")
             json_mesh = writeMesh(binary_file, mesh)
-            json_surface = {'Name':object.name, 'Mesh':json_mesh, 'WorldToLocalMatrix':writeMatrix(object.matrix_world) }
+            json_surface = {'Name':object.name, 'Mesh':json_mesh, 'Material':object.data.materials[0].name, 'WorldToLocalMatrix':writeMatrix(object.matrix_world) }
             json_surfaces.append(json_surface)
             i+= 1
             updateProgress("progress", i/object_count)            
@@ -140,7 +191,7 @@ class Export3DY(bpy.types.Operator, ExportHelper):
         binary_file_size = binary_file.tell()
         binary_file.close()
         
-        root = {'DataBlocksFile':{'Path':'test.bin', 'Bytes':binary_file_size }, 'Surfaces':json_surfaces} 
+        root = {'DataBlocksFile':{'Path':'test.bin', 'Bytes':binary_file_size }, 'Surfaces':json_surfaces, 'Materials': json_materials} 
         with open(filepath+'.json', 'w') as json_file:
             json.dump(root, json_file, indent=1)
         return {'FINISHED'}
