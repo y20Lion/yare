@@ -11,9 +11,11 @@ bl_info = {
     "warning": "Bug free edition.",
     "category": "Import-Export"}
     
-from array import array
 import json
 import bpy
+import mathutils
+import os
+from array import array
 from bpy_extras.io_utils import ExportHelper
 from bpy.props import *
 
@@ -50,9 +52,9 @@ def writeMesh(binary_file, mesh):
         has_uv = True
     else:
         has_uv = False
-    has_uv = False    
-    if has_uv:
-        mesh.calc_tangents(active_uv_layer.name)
+    #has_uv = False    
+    #if has_uv:
+    #    mesh.calc_tangents(active_uv_layer.name)
         
     
     output_positions = array('f', [])
@@ -62,14 +64,16 @@ def writeMesh(binary_file, mesh):
     output_uvs = array('f', [])
     
     loop_idx = 0
+    vertex_count=0
     for face in mesh.polygons:
         smooth = face.use_smooth
         normal = face.normal[:]
         
-        iter_vertices = face.vertices
+        iter_vertices = (0, 1, 2)
         if len(face.vertices) >= 4:
-            iter_vertices = face.vertices[0],face.vertices[1],face.vertices[2],face.vertices[2], face.vertices[3], face.vertices[0] 
-        for vidx in iter_vertices:
+            iter_vertices = (0, 1, 2, 2, 3, 0)
+        for i in iter_vertices:
+            vidx = face.vertices[i]
             vertex = mesh.vertices[vidx]            
             if smooth:
                 normal = vertex.normal[:]
@@ -77,18 +81,23 @@ def writeMesh(binary_file, mesh):
             output_positions.extend(vertex.co[:])            
             output_normals.extend(normal[:])
             if has_uv:
-                output_tangents.extend(mesh.loops[loop_idx].tangent[:])
-                output_binormals.extend(mesh.loops[loop_idx].bitangent[:])
-                output_uvs.extend(active_uv_layer.data[loop_idx].uv.to_2d()[:])
-            loop_idx += 1
-    json_mesh = {'Id':mesh.name, 'TriangleCount':len(mesh.polygons), 'VertexCount':loop_idx} 
+                #output_tangents.extend(mesh.loops[loop_idx].tangent[:])
+                #output_binormals.extend(mesh.loops[loop_idx].bitangent[:])
+                output_uvs.extend(active_uv_layer.data[loop_idx+i].uv.to_2d()[:])
+                print(active_uv_layer.data[0].uv.to_2d()[:])
+                print(active_uv_layer.data[1].uv.to_2d()[:])
+                print(active_uv_layer.data[2].uv.to_2d()[:])
+                print(active_uv_layer.data[3].uv.to_2d()[:])
+            vertex_count += 1
+        loop_idx += len(face.vertices)
+    json_mesh = {'Id':mesh.name, 'TriangleCount':len(mesh.polygons), 'VertexCount':vertex_count} 
     #print(loop_idx*3*4)    
     json_mesh_fields = []    
     writeMeshField(json_mesh_fields, 'position', 3, output_positions, binary_file)
     writeMeshField(json_mesh_fields, 'normal', 3, output_normals, binary_file)
     if has_uv:
-        writeMeshField(json_mesh_fields, 'tangent', 3, output_tangents, binary_file)
-        writeMeshField(json_mesh_fields, 'binormal', 3, output_binormals, binary_file)
+        #writeMeshField(json_mesh_fields, 'tangent', 3, output_tangents, binary_file)
+        #writeMeshField(json_mesh_fields, 'binormal', 3, output_binormals, binary_file)
         writeMeshField(json_mesh_fields, 'uv', 2, output_uvs, binary_file)    
     json_mesh['Fields'] = json_mesh_fields
     
@@ -111,8 +120,21 @@ def writeInputValue(input):
         return input.default_value[:] 
     else: 
         return input.default_value
+
+def toScalingMatrix(vector):
+    return mathutils.Matrix(((vector.x, 0.0, 0.0), (0.0, vector.y, 0.0), (0.0, 0.0, vector.z))).to_4x4()
+        
+def writeTexImageNodeProperties(node, json_node, collected_textures):
+    transform = node.texture_mapping
+    mat_loc = mathutils.Matrix.Translation(transform.translation)
+    mat_sca = toScalingMatrix(transform.scale)
+    mat_rot = transform.rotation.to_matrix().to_4x4()
+    mat_out = mat_loc * mat_rot * mat_sca
+    json_node["TransformMatrix"] = writeMatrix(mat_out)
+    json_node["Image"] = node.image.name
+    collected_textures.add(node.image.name)
     
-def writeNode(node):
+def writeNode(node, collected_textures):
     json_node = {}
     
     json_inputs = []
@@ -125,13 +147,16 @@ def writeNode(node):
         
     json_outputs = []    
     for output in node.outputs:
-        json_links = [{'Node':link.from_node.name, 'Slot':link.from_socket.identifier } for link in input.links]
+        json_links = [{'Node':link.from_node.name, 'Slot':link.from_socket.identifier } for link in output.links]
         json_outputs.append({'Name':output.identifier, 'Links':json_links })
         
     json_node = {'Name': node.name, 'Type': node.type, 'InputSlots':json_inputs, 'OutputSlots':json_outputs}
+    if node.type == 'TEX_IMAGE':
+        writeTexImageNodeProperties(node, json_node, collected_textures)
+    
     return json_node
     
-def writeMaterials():
+def writeMaterials(collected_textures):
     json_materials = []
     already_written_materials = set()
     for object in bpy.context.scene.objects:
@@ -147,27 +172,39 @@ def writeMaterials():
         
         json_nodes = []        
         for node in material.node_tree.nodes:
-            json_nodes.append(writeNode(node))
+            json_nodes.append(writeNode(node, collected_textures))
         json_materials.append({'Name':material.name, 'Nodes':json_nodes})
         already_written_materials.add(material.name)
     return json_materials
-        
+
+def writeTextures(texture_names, output_folder_path):
+    json_textures = []
+    for texture_name in texture_names:
+        image = bpy.data.images[texture_name]
+        scene=bpy.context.scene
+        scene.render.image_settings.file_format=image.file_format
+        texture_path = output_folder_path+texture_name
+        image.save_render(texture_path,scene)
+        json_textures.append({'Name':texture_name, 'Path':texture_path})
+    return json_textures
     
 class Export3DY(bpy.types.Operator, ExportHelper):
     bl_idname = "export.3dy"
     bl_label = "Export to 3DY"
     filename_ext = ".3dy"
-
-    filter_glob = StringProperty(
-            default="*.3dy",
-            options={'HIDDEN'},
-            )
+    filter_glob = StringProperty(default="*.3dy", options={'HIDDEN'})    
+    filepath = StringProperty(subtype='FILE_PATH')
     
     def execute(self, context):
-        filepath = 'D:/test'
-        binary_file = open(filepath+'.bin', "wb")
+        output_path = self.filepath+'/'
+        if not os.path.exists(self.filepath):
+            os.makedirs(self.filepath)
         
-        json_materials = writeMaterials()
+        binary_file = open(output_path+'data.bin', "wb")
+        
+        textures = set()
+        json_materials = writeMaterials(textures)
+        json_textures = writeTextures(textures,output_path)
         json_surfaces = []
         bpy.ops.wm.console_toggle()
         bpy.ops.object.make_single_user(type='ALL', object=True, obdata=True)
@@ -176,10 +213,6 @@ class Export3DY(bpy.types.Operator, ExportHelper):
         for object in bpy.context.scene.objects:
             if not hasMesh(object):                    
                     continue
-            
-            #object.modifiers.new('triangulate_for_export', 'TRIANGULATE') 
-            #bpy.context.scene.objects.active = object
-            #bpy.ops.object.modifier_apply(modifier = 'triangulate_for_export')
 
             mesh = object.to_mesh(bpy.context.scene, True, "PREVIEW")
             json_mesh = writeMesh(binary_file, mesh)
@@ -191,8 +224,10 @@ class Export3DY(bpy.types.Operator, ExportHelper):
         binary_file_size = binary_file.tell()
         binary_file.close()
         
-        root = {'DataBlocksFile':{'Path':'test.bin', 'Bytes':binary_file_size }, 'Surfaces':json_surfaces, 'Materials': json_materials} 
-        with open(filepath+'.json', 'w') as json_file:
+        root = {'Surfaces':json_surfaces} 
+        root['Textures'] = json_textures
+        root['Materials'] = json_materials
+        with open(output_path+'structure.json', 'w') as json_file:
             json.dump(root, json_file, indent=1)
         return {'FINISHED'}
     

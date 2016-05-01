@@ -38,15 +38,15 @@
 ///////////////////////////////////////////////////////////////////////////////////
 // Version
 
-#define GLM_VERSION					97
+#define GLM_VERSION					98
 #define GLM_VERSION_MAJOR			0
 #define GLM_VERSION_MINOR			9
-#define GLM_VERSION_PATCH			7
-#define GLM_VERSION_REVISION		3
+#define GLM_VERSION_PATCH			8
+#define GLM_VERSION_REVISION		0
 
 #if(defined(GLM_MESSAGES) && !defined(GLM_MESSAGE_VERSION_DISPLAYED))
 #	define GLM_MESSAGE_VERSION_DISPLAYED
-#	pragma message ("GLM: version 0.9.7.3")
+#	pragma message ("GLM: version 0.9.8.0")
 #endif//GLM_MESSAGE
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -62,6 +62,7 @@
 #define GLM_PLATFORM_UNIX			0x00400000
 #define GLM_PLATFORM_QNXNTO			0x00800000
 #define GLM_PLATFORM_WINCE			0x01000000
+#define GLM_PLATFORM_CYGWIN			0x02000000
 
 #ifdef GLM_FORCE_PLATFORM_UNKNOWN
 #	define GLM_PLATFORM GLM_PLATFORM_UNKNOWN
@@ -422,8 +423,14 @@
 #		define GLM_ARCH (GLM_ARCH_AVX2 | GLM_ARCH_AVX | GLM_ARCH_SSE4 | GLM_ARCH_SSE3 | GLM_ARCH_SSE2)
 #	elif defined(__AVX__)
 #		define GLM_ARCH (GLM_ARCH_AVX | GLM_ARCH_SSE4 | GLM_ARCH_SSE3 | GLM_ARCH_SSE2)
-#	elif _M_IX86_FP == 2
+#	elif defined(_M_X64)
 #		define GLM_ARCH (GLM_ARCH_SSE2)
+#	elif defined(_M_IX86_FP)
+#		if _M_IX86_FP >= 2
+#			define GLM_ARCH (GLM_ARCH_SSE2)
+#		else
+#			define GLM_ARCH (GLM_ARCH_PURE)
+#		endif
 #	else
 #		define GLM_ARCH (GLM_ARCH_PURE)
 #	endif
@@ -596,7 +603,7 @@
 #		else
 #			define GLM_LANG (GLM_LANG_CXX | GLM_MSC_EXT)
 #		endif
-#	else // Unkown compiler
+#	else // Unknown compiler
 #		if __cplusplus >= 201402L
 #			define GLM_LANG GLM_LANG_CXX14
 #		elif __cplusplus >= 201103L
@@ -662,7 +669,7 @@
 #	define GLM_HAS_CXX11_STL ((GLM_LANG & GLM_LANG_CXX0X_FLAG) && \
 		((GLM_COMPILER & GLM_COMPILER_GCC) && (GLM_COMPILER >= GLM_COMPILER_GCC48)) || \
 		((GLM_COMPILER & GLM_COMPILER_VC) && (GLM_COMPILER >= GLM_COMPILER_VC2013)) || \
-		((GLM_COMPILER & GLM_COMPILER_INTEL) && (GLM_COMPILER >= GLM_COMPILER_INTEL15)))
+		((GLM_PLATFORM != GLM_PLATFORM_WINDOWS) && (GLM_COMPILER & GLM_COMPILER_INTEL) && (GLM_COMPILER >= GLM_COMPILER_INTEL15)))
 #endif
 
 // N1720
@@ -893,6 +900,39 @@
 #endif//GLM_MESSAGE
 
 ///////////////////////////////////////////////////////////////////////////////////
+// Clip control
+
+#ifdef GLM_DEPTH_ZERO_TO_ONE // Legacy 0.9.8 development
+#	error Define GLM_FORCE_DEPTH_ZERO_TO_ONE instead of GLM_DEPTH_ZERO_TO_ONE to use 0 to 1 clip space.
+#endif
+
+#define GLM_DEPTH_ZERO_TO_ONE				0x00000001
+#define GLM_DEPTH_NEGATIVE_ONE_TO_ONE		0x00000002
+
+#ifdef GLM_FORCE_DEPTH_ZERO_TO_ONE
+#	define GLM_DEPTH_CLIP_SPACE GLM_DEPTH_ZERO_TO_ONE
+#else
+#	define GLM_DEPTH_CLIP_SPACE GLM_DEPTH_NEGATIVE_ONE_TO_ONE
+#endif
+
+///////////////////////////////////////////////////////////////////////////////////
+// Coordinate system, define GLM_FORCE_LEFT_HANDED before including GLM
+// to use left handed coordinate system by default.
+
+#ifdef GLM_LEFT_HANDED // Legacy 0.9.8 development
+#	error Define GLM_FORCE_LEFT_HANDED instead of GLM_LEFT_HANDED left handed coordinate system by default.
+#endif
+
+#define GLM_LEFT_HANDED				0x00000001	// For DirectX, Metal, Vulkan
+#define GLM_RIGHT_HANDED			0x00000002	// For OpenGL, default in GLM
+
+#ifdef GLM_FORCE_LEFT_HANDED
+#	define GLM_COORDINATE_SYSTEM GLM_LEFT_HANDED
+#else
+#	define GLM_COORDINATE_SYSTEM GLM_RIGHT_HANDED
+#endif 
+
+///////////////////////////////////////////////////////////////////////////////////
 // Qualifiers
 
 #if (GLM_COMPILER & GLM_COMPILER_VC) || ((GLM_COMPILER & GLM_COMPILER_INTEL) && (GLM_PLATFORM & GLM_PLATFORM_WINDOWS))
@@ -900,22 +940,22 @@
 #	define GLM_ALIGN(x) __declspec(align(x))
 #	define GLM_ALIGNED_STRUCT(x) struct __declspec(align(x))
 #	define GLM_ALIGNED_TYPEDEF(type, name, alignment) typedef __declspec(align(alignment)) type name
-#	define GLM_RESTRICT __declspec(restrict)
-#	define GLM_RESTRICT_VAR __restrict
+#	define GLM_RESTRICT_FUNC __declspec(restrict)
+#	define GLM_RESTRICT __restrict
 #elif GLM_COMPILER & (GLM_COMPILER_GCC | GLM_COMPILER_APPLE_CLANG | GLM_COMPILER_LLVM | GLM_COMPILER_CUDA | GLM_COMPILER_INTEL)
 #	define GLM_DEPRECATED __attribute__((__deprecated__))
 #	define GLM_ALIGN(x) __attribute__((aligned(x)))
 #	define GLM_ALIGNED_STRUCT(x) struct __attribute__((aligned(x)))
 #	define GLM_ALIGNED_TYPEDEF(type, name, alignment) typedef type name __attribute__((aligned(alignment)))
+#	define GLM_RESTRICT_FUNC __restrict__
 #	define GLM_RESTRICT __restrict__
-#	define GLM_RESTRICT_VAR __restrict__
 #else
 #	define GLM_DEPRECATED
 #	define GLM_ALIGN
 #	define GLM_ALIGNED_STRUCT(x) struct
 #	define GLM_ALIGNED_TYPEDEF(type, name, alignment) typedef type name
+#	define GLM_RESTRICT_FUNC
 #	define GLM_RESTRICT
-#	define GLM_RESTRICT_VAR
 #endif//GLM_COMPILER
 
 #if GLM_HAS_DEFAULTED_FUNCTIONS
@@ -952,37 +992,16 @@
 namespace glm
 {
 	using std::size_t;
-#	if defined(GLM_FORCE_SIZE_T_LENGTH) || defined(GLM_FORCE_SIZE_FUNC)
+#	if defined(GLM_FORCE_SIZE_T_LENGTH)
 		typedef size_t length_t;
 #	else
 		typedef int length_t;
 #	endif
-
-namespace detail
-{
-#	ifdef GLM_FORCE_SIZE_FUNC
-		typedef size_t component_count_t;
-#	else
-		typedef length_t component_count_t;
-#	endif
-
-	template <typename genType>
-	GLM_FUNC_QUALIFIER GLM_CONSTEXPR component_count_t component_count(genType const & m)
-	{
-#		ifdef GLM_FORCE_SIZE_FUNC
-			return m.size();
-#		else
-			return m.length();
-#		endif
-	}
-}//namespace detail
 }//namespace glm
 
 #if defined(GLM_MESSAGES) && !defined(GLM_MESSAGE_FORCE_SIZE_T_LENGTH)
 #	define GLM_MESSAGE_FORCE_SIZE_T_LENGTH
-#	if defined GLM_FORCE_SIZE_FUNC
-#		pragma message("GLM: .length() is replaced by .size() and returns a std::size_t")
-#	elif defined GLM_FORCE_SIZE_T_LENGTH
+#	if defined GLM_FORCE_SIZE_T_LENGTH
 #		pragma message("GLM: .length() returns glm::length_t, a typedef of std::size_t")
 #	else
 #		pragma message("GLM: .length() returns glm::length_t, a typedef of int following the GLSL specification")

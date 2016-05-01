@@ -5,6 +5,8 @@
 
 #include "tools.h"
 
+namespace yare {
+
 struct GLBufferDesc
 {
     std::int64_t size_bytes;
@@ -30,4 +32,6 @@ private:
 	std::int64_t _size_bytes;
 };
 
-Uptr<GLBuffer> createVertexBuffer(std::int64_t size_bytes);
+Uptr<GLBuffer> createBuffer(std::int64_t size_bytes);
+
+}

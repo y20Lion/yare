@@ -3,11 +3,16 @@
 #include <fstream>
 #include <json/json.h>
 #include <iostream>
+#include <glm/gtc/type_ptr.hpp>
 
+#include "GLTexture.h"
 #include "RenderMesh.h"
 #include "Scene.h"
 #include "ShadeTreeNode.h"
 #include "ShadeTreeMaterial.h"
+#include "TextureImporter.h"
+
+namespace yare {
 
 using namespace std;
 using namespace glm;
@@ -45,8 +50,8 @@ Uptr<RenderMesh> readMesh(const Json::Value& mesh_object, std::ifstream& data_fi
 		data_file.seekg(address, std::ios::beg);
 		auto name = field["Name"].asString();
 		char* vertex_field = (char*)render_mesh->mapVertices(name);
-		auto var = size / 3 / 4 ;
-		assert(var == vertex_count);
+		//auto var = size / 3 / 4 ;
+		//assert(var == vertex_count);
 		data_file.read(vertex_field, size);
 		render_mesh->unmapVertices();
 	}
@@ -100,37 +105,80 @@ void readNodeSlots(const Json::Value& json_slots, std::map<std::string, ShadeTre
     }    
 }
 
-Uptr<ShadeTreeMaterial> readMaterial(const Json::Value& json_material)
+
+typedef std::map<std::string, Sptr<GLTexture>> TextureMap;
+typedef std::map<std::string, Sptr<ShadeTreeMaterial>> MaterialMap;
+
+void readTexImageNodeProperties(const Json::Value& json_node, const TextureMap& textures, TexImageNode* node)
+{
+    node->texture = textures.at(json_node["Image"].asString());
+    node->texture_transform = readMatrix4x3(json_node["TransformMatrix"]);
+}
+
+Uptr<ShadeTreeMaterial> readMaterial(const Json::Value& json_material, const TextureMap& textures)
 {
     Uptr<ShadeTreeMaterial> material = std::make_unique<ShadeTreeMaterial>();
+    material->name = json_material["Name"].asString();
     for (const auto& json_node : json_material["Nodes"])
     {
         auto node = createShadeTreeNode(json_node["Type"].asString());
+        if (node == nullptr)
+            return nullptr;
         node->name = json_node["Name"].asString();
         readNodeSlots(json_node["InputSlots"], node->input_slots);
-        readNodeSlots(json_node["OutputSlots"], node->output_slots);
+        readNodeSlots(json_node["OutputSlots"], node->output_slots); 
+        if (node->type == "TEX_IMAGE")
+            readTexImageNodeProperties(json_node, textures, (TexImageNode*)node.get());
+
         material->tree_nodes[json_node["Name"].asString()] = std::move(node);
     }
     return material;
 }
 
+
+MaterialMap readMaterials(const Json::Value& json_materials, const TextureMap& textures)
+{
+    MaterialMap materials;
+    for (const auto& json_material : json_materials)
+    {
+        auto material = readMaterial(json_material, textures);
+        if (material)
+        {
+            material->compile();
+            materials[json_material["Name"].asString()] = std::move(material);
+        }
+        else
+        {
+            materials[json_material["Name"].asString()] = (*materials.begin()).second;
+        }
+
+    }
+    return materials;
+}
+
+std::map<std::string, Sptr<GLTexture>> readTextures(const Json::Value& json_textures)
+{
+    std::map<std::string, Sptr<GLTexture>> textures;
+    for (const auto& json_texture : json_textures)
+    {
+        const auto& texture_name = json_texture["Name"].asString();
+        const auto& texture_path = json_texture["Path"].asString();
+        textures[texture_name] = TextureImporter::importTextureFromFile(texture_path.c_str());
+    }
+    return textures;
+}
+
 void import3DY(const std::string& filename, Scene* scene)
 {
-	std::ifstream data_file("D:\\test.bin", std::ifstream::binary);
+	std::ifstream data_file(filename+"\\data.bin", std::ifstream::binary);
 
 	Json::Value root;
-	std::ifstream json_file("D:\\test.json");
+	std::ifstream json_file(filename+"\\structure.json");
 	json_file >> root;
 	json_file.close();
 
-    const auto& json_materials = root["Materials"];
-    std::map<std::string, Sptr<ShadeTreeMaterial>> materials;
-    for (const auto& json_material : json_materials)
-    {
-        auto material = readMaterial(json_material);
-        material->compile();
-        materials[json_material["Name"].asString()] = std::move(material);
-    }
+    auto textures = readTextures(root["Textures"]);
+    auto materials = readMaterials(root["Materials"], textures);    
 
 	const auto& json_surfaces = root["Surfaces"];
 	for (const auto& json_surface : json_surfaces)
@@ -145,7 +193,7 @@ void import3DY(const std::string& filename, Scene* scene)
 		surface_instance.matrix_world_local = readMatrix4x3(json_matrix);
         surface_instance.material = materials.at(json_surface["Material"].asString());
 		scene->surfaces.push_back(surface_instance);
-	}
+	}   
+}
 
-   
 }

@@ -5,6 +5,8 @@
 
 #include "tools.h"
 
+namespace yare {
+
 class GLBuffer;
 
 class GLVertexSource
@@ -30,3 +32,5 @@ private:
     GLenum _primitive_type;
     int _vertex_count;
 };
+
+}

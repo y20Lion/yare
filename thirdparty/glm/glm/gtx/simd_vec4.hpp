@@ -99,11 +99,6 @@ namespace detail
 		typedef tvec4<float, defaultp> pure_type;
 		typedef tvec4<bool, highp> bool_type;
 
-#		ifdef GLM_META_PROG_HELPERS
-			static GLM_RELAXED_CONSTEXPR length_t components = 4;
-			static GLM_RELAXED_CONSTEXPR precision prec = defaultp;
-#		endif//GLM_META_PROG_HELPERS
-
 #ifdef GLM_SIMD_ENABLE_XYZW_UNION
 		union
 		{
@@ -167,15 +162,15 @@ namespace detail
 		//////////////////////////////////////
 		// Swizzle operators
 
-		template <comp X, comp Y, comp Z, comp W>
+		template <comp X_, comp Y_, comp Z_, comp W_>
 		fvec4SIMD& swizzle();
-		template <comp X, comp Y, comp Z, comp W>
+		template <comp X_, comp Y_, comp Z_, comp W_>
 		fvec4SIMD swizzle() const;
-		template <comp X, comp Y, comp Z>
+		template <comp X_, comp Y_, comp Z_>
 		fvec4SIMD swizzle() const;
-		template <comp X, comp Y>
+		template <comp X_, comp Y_>
 		fvec4SIMD swizzle() const;
-		template <comp X>
+		template <comp X_>
 		fvec4SIMD swizzle() const;
 	};
 }//namespace detail

@@ -51,7 +51,6 @@ void print(const fvec4SIMD &v)
 }
 #endif
 
-
 //////////////////////////////////////
 // Implicit basic constructors
 

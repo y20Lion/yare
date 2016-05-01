@@ -1,5 +1,7 @@
 #include "GLBuffer.h"
 
+namespace yare {
+
 GLBuffer::GLBuffer(const GLBufferDesc& desc)
 : _size_bytes(desc.size_bytes)
 {
@@ -27,10 +29,12 @@ void GLBuffer::unmap()
     glUnmapNamedBuffer(_buffer_id);
 }
 
-Uptr<GLBuffer> createVertexBuffer(std::int64_t size_bytes)
+Uptr<GLBuffer> createBuffer(std::int64_t size_bytes)
 {
     GLBufferDesc desc;
     desc.flags = GL_MAP_WRITE_BIT;
     desc.size_bytes = size_bytes;
     return std::make_unique<GLBuffer>(desc);
+}
+
 }

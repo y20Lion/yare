@@ -3,11 +3,15 @@
 #include <GL/glew.h>
 #include "tools.h"
 
+namespace yare {
+
 struct GLTexture2DDesc
 {
     int width, height;
-    int levels;
-    GLenum internal_format;
+    bool mipmapped;
+    void* texture_pixels;
+    bool texture_pixels_in_bgr;
+    GLenum internal_format;    
 };
 
 class GLTexture
@@ -27,9 +31,12 @@ class GLTexture2D : public GLTexture
 public:
     GLTexture2D(const GLTexture2DDesc& desc);
     virtual ~GLTexture2D();
-    
-    void setData(int level, GLenum data_format, GLenum data_type, void* data);
+
 private:
     int _width, _height;
     DISALLOW_COPY_AND_ASSIGN(GLTexture2D)
 };
+
+Uptr<GLTexture2D> createMipmappedTexture2D(int width, int height, GLenum internal_format, void* pixels, bool pixels_in_bgr=false);
+
+}

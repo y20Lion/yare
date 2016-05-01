@@ -29,9 +29,6 @@
 /// @author Christophe Riccio
 ///////////////////////////////////////////////////////////////////////////////////
 
-#if !(GLM_COMPILER & GLM_COMPILER_GCC)
-#	define GLM_META_PROG_HELPERS
-#endif
 #define GLM_SWIZZLE
 #include <glm/vector_relational.hpp>
 #include <glm/vec2.hpp>
@@ -155,6 +152,26 @@ int test_vec4_ctor()
 			Error += Tests[i] == glm::vec4(1, 2, 3, 4) ? 0 : 1;
 	}
 	
+	return Error;
+}
+
+int test_bvec4_ctor()
+{
+	int Error = 0;
+
+	glm::bvec4 const A(true);
+	glm::bvec4 const B(true);
+	glm::bvec4 const C(false);
+	glm::bvec4 const D = A && B;
+	glm::bvec4 const E = A && C;
+	glm::bvec4 const F = A || C;
+	bool const G = A == C;
+	bool const H = A != C;
+
+	Error += D == glm::bvec4(true) ? 0 : 1;
+	Error += E == glm::bvec4(false) ? 0 : 1;
+	Error += F == glm::bvec4(true) ? 0 : 1;
+
 	return Error;
 }
 
@@ -475,11 +492,6 @@ int main()
 	glm::vec4 v;
 	assert(v.length() == 4);
 
-#	ifdef GLM_META_PROG_HELPERS
-		assert(glm::vec4::components == glm::vec4().length());
-		assert(glm::vec4::components == 4);
-#	endif
-
 #	ifdef NDEBUG
 		std::size_t const Size(1000000);
 		Error += test_vec4_perf_AoS(Size);
@@ -487,6 +499,7 @@ int main()
 #	endif//NDEBUG
 
 	Error += test_vec4_ctor();
+	Error += test_bvec4_ctor();
 	Error += test_vec4_size();
 	Error += test_vec4_operators();
 	Error += test_vec4_swizzle_partial();

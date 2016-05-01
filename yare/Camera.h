@@ -3,6 +3,8 @@
 #include <glm/vec3.hpp>
 #include <glm/fwd.hpp>
 
+namespace yare {
+
 struct PointOfView
 {
     PointOfView();
@@ -26,3 +28,5 @@ public:
     Frustum frustum;
     PointOfView point_of_view;
 };
+
+}

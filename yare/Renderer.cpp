@@ -7,11 +7,17 @@
 #include "GLProgram.h"
 #include "ShadeTreeMaterial.h"
 
-const char* vertex_source = 
+namespace yare {
+
+    const char* vertex_source =
         " #version 450 \n"
         " layout(location=1) in vec3 position; \n"
         " layout(location=1) in vec3 normal; \n"
-        " layout(location=3) uniform mat4 t_view_local; \n"
+        //" layout(location=3) uniform mat4 t_view_local; \n"
+        " layout(std140, binding=3) uniform MatUniform \n"
+        " { \n"
+        "   mat4 t_view_local; \n"
+        " }; \n"
         " out vec3 attr_normal; \n"
         " void main() \n"
         " { \n"
@@ -29,17 +35,37 @@ const char* fragment_source =
 Renderer::Renderer()
     : _scene(createBasicScene())
 {
-    _draw_mesh = createProgram(vertex_source, fragment_source);    
+    _draw_mesh = createProgram(vertex_source, fragment_source);  
+    _uniforms_buffer = createBuffer(256* 1000);
 }
-struct Locations
+
+struct UniformsData
 {
-    int position;
-    int t_view_local;
+    glm::mat4 matrix_view_local;
+    glm::mat4 normal_matrix_view_local;
 };
+
+static size_t _alignSize(size_t real_size, int aligned_size)
+{
+    return (real_size + aligned_size - 1) & -aligned_size;
+}
 
 void Renderer::render()
 {
     _scene.update();
+
+    int uniform_buffer_align_size;
+    glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &uniform_buffer_align_size);
+    size_t element_size = _alignSize(sizeof(UniformsData), uniform_buffer_align_size);
+
+    char* buffer = (char*)_uniforms_buffer->mapRange(0, element_size * 1000, GL_MAP_WRITE_BIT);
+    for (int i = 0; i < _scene.surfaces_render_data.size(); ++i)
+    {
+        ((UniformsData*)buffer)->matrix_view_local = _scene.surfaces_render_data[i].matrix_view_local;
+        ((UniformsData*)buffer)->normal_matrix_view_local =  _scene.surfaces_render_data[i].normal_matrix_world_local;
+        buffer += element_size;
+    }
+    _uniforms_buffer->unmap();
 
     /*for (int i = 0; i < _scene.surfaces_render_data.size(); ++i)
     {
@@ -51,6 +77,7 @@ void Renderer::render()
         GLDevice::setCurrentVertexSource(*surface.mesh);        
         GLDevice::draw(0, surface.mesh->vertexCount());
     }*/
+    //GLuint index = glGetUniformBlockIndex?(GLuint program?, "MatUniform"?);
 
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -60,9 +87,15 @@ void Renderer::render()
         const auto& render_data = _scene.surfaces_render_data[i];
         const auto& surface = _scene.surfaces[i];
 
-        GLDevice::setCurrentProgram(surface.material->program());        
-        glUniformMatrix4fv(3, 1, GL_FALSE, glm::value_ptr(render_data.matrix_view_local));
+        surface.material->bindTextures();
+
+        GLDevice::setCurrentProgram(surface.material->program());
+        glBindBufferRange(GL_UNIFORM_BUFFER, 3, _uniforms_buffer->id(), element_size * i, 16);
+        
+        //glUniformMatrix4fv(3, 1, GL_FALSE, glm::value_ptr(render_data.matrix_view_local));
         GLDevice::setCurrentVertexSource(*surface.mesh);
         GLDevice::draw(0, surface.mesh->vertexCount());
     }
 }
+
+} // namespace yare

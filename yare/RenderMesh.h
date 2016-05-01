@@ -6,6 +6,8 @@
 
 #include "GLBuffer.h"
 
+namespace yare {
+
 class GLProgram;
 class GLVertexSource;
 
@@ -16,7 +18,7 @@ struct VertexField
     GLenum component_type;
 };
 
-class RenderMesh
+class RenderMesh // TODO Yvain handle indexed meshes
 {
 public:
     RenderMesh(int triangle_count, int vertex_count, const std::vector<VertexField>& fields);
@@ -53,3 +55,5 @@ private:
 
 //Uptr<GLVertexSource> createVertexSource(const RenderMesh& mesh, const std::vector<std::pair<std::string, int>> field_to_attribute_binding);
 Uptr<GLVertexSource> createVertexSource(const RenderMesh& mesh);
+
+}

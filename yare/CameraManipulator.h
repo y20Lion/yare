@@ -3,6 +3,8 @@
 #include <glm/vec2.hpp>
 #include "Camera.h"
 
+namespace yare {
+
 enum class CameraAction {None, Zoom, Pan, Orbit};
 
 class CameraManipulator
@@ -27,3 +29,5 @@ private:
     glm::vec2 _mouse_start_pos;
     PointOfView _start_pov;
 };
+
+}

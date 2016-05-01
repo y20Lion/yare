@@ -29,9 +29,6 @@
 /// @author Christophe Riccio
 ///////////////////////////////////////////////////////////////////////////////////
 
-#if !(GLM_COMPILER & GLM_COMPILER_GCC)
-#	define GLM_META_PROG_HELPERS
-#endif
 #define GLM_SWIZZLE
 #include <glm/vector_relational.hpp>
 #include <glm/vec2.hpp>
@@ -39,6 +36,7 @@
 #if GLM_HAS_TRIVIAL_QUERIES
 #	include <type_traits>
 #endif
+
 
 int test_vec2_operators()
 {
@@ -299,7 +297,6 @@ int test_vec2_size()
 	Error += 16 == sizeof(glm::highp_dvec2) ? 0 : 1;
 	Error += glm::vec2().length() == 2 ? 0 : 1;
 	Error += glm::dvec2().length() == 2 ? 0 : 1;
-	Error += glm::vec2::components == 2 ? 0 : 1;
 
 	return Error;
 }
@@ -337,11 +334,6 @@ int main()
 
 	glm::vec2 v;
 	assert(v.length() == 2);
-
-#	ifdef GLM_META_PROG_HELPERS
-		assert(glm::vec2::components == glm::vec2().length());
-		assert(glm::vec2::components == 2);
-#	endif
 
 	Error += test_vec2_size();
 	Error += test_vec2_ctor();

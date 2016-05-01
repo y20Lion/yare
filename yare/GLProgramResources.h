@@ -3,6 +3,8 @@
 #include <GL/glew.h>
 #include <map>
 
+namespace yare {
+
 class GLTexture;
 
 class GLProgramResources
@@ -18,5 +20,7 @@ public:
     void bindResources() const;
 
 private:
-    std::map<GLuint, GLuint> _bind_slot_to_texture; 
+    std::map<GLuint, GLuint> _bind_slot_to_texture;
 };
+
+}

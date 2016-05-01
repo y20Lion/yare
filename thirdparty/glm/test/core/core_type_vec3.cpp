@@ -29,9 +29,6 @@
 /// @author Christophe Riccio
 ///////////////////////////////////////////////////////////////////////////////////
 
-#if !(GLM_COMPILER & GLM_COMPILER_GCC)
-#	define GLM_META_PROG_HELPERS
-#endif
 #define GLM_SWIZZLE
 #include <glm/vector_relational.hpp>
 #include <glm/geometric.hpp>
@@ -266,7 +263,6 @@ int test_vec3_size()
 	Error += 24 == sizeof(glm::highp_dvec3) ? 0 : 1;
 	Error += glm::vec3().length() == 3 ? 0 : 1;
 	Error += glm::dvec3().length() == 3 ? 0 : 1;
-	Error += glm::vec3::components == 3 ? 0 : 1;
 	return Error;
 }
 
@@ -499,11 +495,6 @@ int main()
 
 	glm::vec3 v;
 	assert(v.length() == 3);
-
-#	ifdef GLM_META_PROG_HELPERS
-		assert(glm::vec3::components == glm::vec3().length());
-		assert(glm::vec3::components == 3);
-#	endif
 
 	Error += test_vec3_ctor();
 	Error += test_vec3_operators();

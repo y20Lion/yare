@@ -7,9 +7,11 @@
 #include "GLVertexSource.h"
 
 
-static const GLVertexSource* _current_vertex_source = nullptr;
 
-namespace GLDevice {
+
+namespace yare { namespace GLDevice {
+
+static const GLVertexSource* _current_vertex_source = nullptr;
 
 void setCurrentProgram(const GLProgram& program)
 {
@@ -32,5 +34,4 @@ void draw(int vertex_start, int vertex_count)
     glDrawArrays(GL_TRIANGLES, vertex_start, vertex_count);
 }
 
-
-}
+}}

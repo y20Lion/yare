@@ -16,6 +16,8 @@
 #include "CameraManipulator.h"
 #include "Importer3DY.h"
 
+using namespace yare;
+
 void __stdcall printGLDebugMessage(GLenum source, GLenum type, GLuint id, GLenum severity,
                                    GLsizei length, const GLchar* message, const void* userparam)
 {
@@ -94,34 +96,13 @@ int main()
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
     glDebugMessageCallback(&printGLDebugMessage, nullptr);
-    
-    const char* vertex_source = 
-        " #version 450 \n"
-        " layout(location=1) in vec3 position; \n"
-        " out vec2 uv; \n"
-        " void main() \n"
-        " { \n"
-        "   gl_Position = vec4(position, 1.0); \n"
-        "   uv = position.xy; \n"
-        " }\n";
-    const char* fragment_source = 
-        " #version 450 \n"
-        " in vec2 uv; \n"
-        //" layout(binding = 3) uniform sampler2D checkerboard; \n"
-        " void main() \n"
-        " { \n"
-        "   gl_FragColor = vec4(1.0, 1.0, 0.0, 1.0);//vec4(texture(checkerboard, uv).rgb, 1.0); \n"
-        " }\n";
-        
-    
+   
     Renderer renderer;
-	import3DY("D:\\test.bin", renderer.scene());
+	import3DY("D:\\BlenderTests\\testNodeGraph.3dy", renderer.scene());
 
     CameraManipulator camera_manipulator(&renderer.scene()->camera.point_of_view);
     while (!glfwWindowShouldClose(window))
     {
-        
-
         renderer.render();
 
         handleInputs(window, &camera_manipulator);

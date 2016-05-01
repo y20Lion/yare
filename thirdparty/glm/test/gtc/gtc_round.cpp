@@ -174,7 +174,7 @@ namespace isPowerOfTwo
 	}
 }//isPowerOfTwo
 
-namespace ceilPowerOfTwo
+namespace ceilPowerOfTwo_advanced
 {
 	template <typename genIUType>
 	GLM_FUNC_QUALIFIER genIUType highestBitValue(genIUType Value)
@@ -292,6 +292,72 @@ namespace ceilPowerOfTwo
 
 		return Error;
 	}
+}//namespace ceilPowerOfTwo_advanced
+
+namespace roundPowerOfTwo
+{
+	int test()
+	{
+		int Error = 0;
+		
+		glm::uint32 const A = glm::roundPowerOfTwo(7u);
+		Error += A == 8u ? 0 : 1;
+		
+		glm::uint32 const B = glm::roundPowerOfTwo(15u);
+		Error += B == 16u ? 0 : 1;
+
+		glm::uint32 const C = glm::roundPowerOfTwo(31u);
+		Error += C == 32u ? 0 : 1;
+		
+		glm::uint32 const D = glm::roundPowerOfTwo(9u);
+		Error += D == 8u ? 0 : 1;
+		
+		glm::uint32 const E = glm::roundPowerOfTwo(17u);
+		Error += E == 16u ? 0 : 1;
+		
+		glm::uint32 const F = glm::roundPowerOfTwo(33u);
+		Error += F == 32u ? 0 : 1;
+		
+		return Error;
+	}
+}//namespace roundPowerOfTwo
+
+namespace floorPowerOfTwo
+{
+	int test()
+	{
+		int Error = 0;
+		
+		glm::uint32 const A = glm::floorPowerOfTwo(7u);
+		Error += A == 4u ? 0 : 1;
+		
+		glm::uint32 const B = glm::floorPowerOfTwo(15u);
+		Error += B == 8u ? 0 : 1;
+		
+		glm::uint32 const C = glm::floorPowerOfTwo(31u);
+		Error += C == 16u ? 0 : 1;
+		
+		return Error;
+	}
+}//namespace floorPowerOfTwo
+
+namespace ceilPowerOfTwo
+{
+	int test()
+	{
+		int Error = 0;
+		
+		glm::uint32 const A = glm::ceilPowerOfTwo(7u);
+		Error += A == 8u ? 0 : 1;
+		
+		glm::uint32 const B = glm::ceilPowerOfTwo(15u);
+		Error += B == 16u ? 0 : 1;
+		
+		glm::uint32 const C = glm::ceilPowerOfTwo(31u);
+		Error += C == 32u ? 0 : 1;
+		
+		return Error;
+	}
 }//namespace ceilPowerOfTwo
 
 namespace floorMultiple
@@ -354,7 +420,7 @@ namespace ceilMultiple
 		};
 
 		int Error(0);
-		
+
 		for(std::size_t i = 0, n = sizeof(Data) / sizeof(type<glm::float64>); i < n; ++i)
 		{
 			glm::float64 Result = glm::ceilMultiple(Data[i].Source, Data[i].Multiple);
@@ -364,10 +430,37 @@ namespace ceilMultiple
 		return Error;
 	}
 
+	int test_int()
+	{
+		type<int> const Data[] = 
+		{
+			{3, 4, 4, 0},
+			{7, 4, 8, 0},
+			{5, 4, 8, 0},
+			{1, 4, 4, 0},
+			{1, 3, 3, 0},
+			{4, 3, 6, 0},
+			{4, 1, 4, 0},
+			{1, 1, 1, 0},
+			{7, 1, 7, 0},
+		};
+
+		int Error(0);
+
+		for(std::size_t i = 0, n = sizeof(Data) / sizeof(type<int>); i < n; ++i)
+		{
+			int Result = glm::ceilMultiple(Data[i].Source, Data[i].Multiple);
+			Error += Data[i].Return == Result ? 0 : 1;
+		}
+
+		return Error;
+	}
+
 	int test()
 	{
 		int Error(0);
 
+		Error += test_int();
 		Error += test_float();
 
 		return Error;
@@ -379,8 +472,11 @@ int main()
 	int Error(0);
 
 	Error += isPowerOfTwo::test();
+	Error += floorPowerOfTwo::test();
+	Error += roundPowerOfTwo::test();
 	Error += ceilPowerOfTwo::test();
-
+	Error += ceilPowerOfTwo_advanced::test();
+	
 #	ifdef NDEBUG
 		Error += ceilPowerOfTwo::perf();
 #	endif//NDEBUG

@@ -7,6 +7,8 @@
 
 #include "Camera.h"
 
+namespace yare {
+
 using namespace glm;
 
  CameraManipulator::CameraManipulator(PointOfView* manipulated_pov)
@@ -79,4 +81,6 @@ void CameraManipulator::_motionOrbit(const vec2& mouse_current_pos)
     auto rotate_around_z = translate(_pov->to) * rotate(-angle_delta.x, vec3(0.0f, 0.0f, 1.0f)) * translate(-_pov->to);
     _pov->up = transformDirection(rotate_around_z, up_after_first_rotation);
     _pov->from = transformPosition(rotate_around_z, from_after_first_rotation);
+}
+
 }

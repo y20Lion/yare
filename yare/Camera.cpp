@@ -3,12 +3,14 @@
 #include <glm/mat4x4.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+namespace yare {
+
 using namespace glm;
 
 PointOfView::PointOfView()
-     : from(vec3(3.0, 0.0, 0.0))
-     , to(vec3(0.0, 0.0, 0.0))
-     , up(vec3(0.0, 0.0, 1.0))
+    : from(vec3(3.0, 0.0, 0.0))
+    , to(vec3(0.0, 0.0, 0.0))
+    , up(vec3(0.0, 0.0, 1.0))
 {
 }
 
@@ -19,7 +21,7 @@ mat4 PointOfView::lookAtMatrix() const
 
 vec3 PointOfView::rightDirection() const
 {
-    return normalize(cross(to-from, up));
+    return normalize(cross(to - from, up));
 }
 
 Frustum::Frustum()
@@ -30,4 +32,6 @@ Frustum::Frustum()
     , near(1.0)
     , far(100.0)
 {
+}
+
 }

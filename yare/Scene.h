@@ -2,11 +2,14 @@
 
 #include <vector>
 #include <glm/mat4x3.hpp>
+#include <glm/mat3x3.hpp>
 #include <glm/mat4x4.hpp>
 
 #include "tools.h"
 #include "Camera.h"
 #include "GLVertexSource.h"
+
+namespace yare {
 
 class ShadeTreeMaterial;
 
@@ -32,7 +35,8 @@ struct Light
 
 struct SurfaceRenderData
 {
-    glm::mat4x4 matrix_view_local;
+    glm::mat4 matrix_view_local;
+    glm::mat3 normal_matrix_world_local;
 };
 
 class Scene
@@ -51,3 +55,4 @@ public:
 
 Scene createBasicScene();
 
+}

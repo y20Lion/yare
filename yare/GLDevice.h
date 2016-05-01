@@ -1,13 +1,16 @@
 #pragma once
 
+namespace yare { 
+
 class GLBuffer;
 class GLProgram;
 class GLProgramResources;
 class GLVertexSource;
 class GLRenderTarget;
 
-namespace GLDevice
+namespace GLDevice 
 {
+
     /*void blit(const GLRenderTarget& src_render_target, int attachment, GLRenderTarget& dst_render_target, int attachment);
     void blitDepth(const GLRenderTarget& src_render_target, GLRenderTarget& dst_render_target);
     void read(const GLRenderTarget& render_target, int attachment);*/
@@ -21,5 +24,7 @@ namespace GLDevice
     // draw calls
     void drawIndexed();
     void draw(int vertex_start, int vertex_count);
+}
+
 }
 

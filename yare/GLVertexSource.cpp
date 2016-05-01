@@ -2,6 +2,8 @@
 
 #include "GLBuffer.h"
 
+namespace yare {
+
 GLVertexSource::GLVertexSource()
     : _primitive_type(GL_TRIANGLES)
     , _vertex_count(0)
@@ -34,4 +36,6 @@ void GLVertexSource::setVertexBuffer(const GLBuffer& vertex_buffer)
     glBindVertexArray(_vao_id);
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer.id());
     glBindVertexArray(0);
+}
+
 }

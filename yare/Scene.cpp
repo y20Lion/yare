@@ -5,6 +5,9 @@
 
 #include "GLBuffer.h"
 #include <iostream>
+
+namespace yare {
+
 static glm::mat4 _toMat4(const glm::mat4x3& matrix)
 {
     glm::mat4 result;
@@ -35,8 +38,9 @@ void Scene::update()
             
     surfaces_render_data.resize(surfaces.size());
     for (int i = 0; i < surfaces_render_data.size(); ++i)
-    {
+    {      
         surfaces_render_data[i].matrix_view_local = _matrix_view_world * _toMat4(surfaces[i].matrix_world_local);
+        surfaces_render_data[i].normal_matrix_world_local = glm::mat3(transpose(inverse(_toMat4(surfaces[i].matrix_world_local))));
     }
 }
 
@@ -45,7 +49,7 @@ glm::vec3 quad_vertices[6] = { glm::vec3(1.0, 1.0, -1.0), glm::vec3(-1.0, 1.0, -
 
 Scene createBasicScene()
 {
-    auto positions_buffer = createVertexBuffer(sizeof(glm::vec3)*6);
+    auto positions_buffer = createBuffer(sizeof(glm::vec3)*6);
     auto ptr = positions_buffer->map(GL_WRITE_ONLY);
     memcpy(ptr, quad_vertices, sizeof(glm::vec3)*6);
     positions_buffer->unmap();
@@ -73,3 +77,5 @@ Scene createBasicScene()
 
     return scene;
 }
+
+}  // namespace yare

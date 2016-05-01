@@ -2,6 +2,8 @@
 
 #include "GLTexture.h"
 
+namespace yare {
+
 GLProgramResources::GLProgramResources()
 {
 
@@ -21,4 +23,6 @@ void GLProgramResources::bindResources() const
 {
     for (const auto& slot_texture_pair : _bind_slot_to_texture)
         glBindTextures(slot_texture_pair.first, 1, &slot_texture_pair.second);
+}
+
 }

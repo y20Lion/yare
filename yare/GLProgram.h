@@ -6,6 +6,8 @@
 
 #include "tools.h"
 
+namespace yare {
+
 struct ShaderDesc
 {
     ShaderDesc(const std::string& code, GLenum type) : code(code), type(type) {}
@@ -35,3 +37,5 @@ private:
 };
 
 Uptr<GLProgram> createProgram(const std::string& vertex_shader_source, const std::string& fragment_shader_source);
+
+}

@@ -4,6 +4,8 @@
 #include "Scene.h"
 #include "GLProgram.h"
 
+namespace yare {
+
 class Renderer
 {
 public:
@@ -17,4 +19,7 @@ private:
     DISALLOW_COPY_AND_ASSIGN(Renderer)
     Scene _scene;
     Uptr<GLProgram> _draw_mesh;
+    Uptr<GLBuffer> _uniforms_buffer;
 };
+
+}

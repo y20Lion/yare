@@ -98,7 +98,7 @@ int test_ctr()
 	};
 	
 #endif//GLM_HAS_INITIALIZER_LISTS
-	
+
 	return Error;
 }
 
@@ -140,11 +140,6 @@ namespace cast
 int main()
 {
 	int Error = 0;
-
-#ifdef GLM_META_PROG_HELPERS
-		assert(glm::mat2x4::rows == glm::mat2x4::row_type::components);
-		assert(glm::mat2x4::cols == glm::mat2x4::col_type::components);
-#endif
 
 	Error += cast::test();
 	Error += test_ctr();

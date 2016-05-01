@@ -5,6 +5,8 @@
 
 #include "error.h"
 
+namespace yare {
+
 GLProgram::GLProgram(const GLProgramDesc& desc)
 {
     _program_id = glCreateProgram();
@@ -90,4 +92,6 @@ Uptr<GLProgram> createProgram(const std::string& vertex_shader_source, const std
     program_desc.shaders.push_back(ShaderDesc(vertex_shader_source, GL_VERTEX_SHADER));
     program_desc.shaders.push_back(ShaderDesc(fragment_shader_source, GL_FRAGMENT_SHADER));
     return std::make_unique<GLProgram>(program_desc);
+}
+
 }
