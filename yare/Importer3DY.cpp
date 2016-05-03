@@ -24,6 +24,21 @@ void readDataBlock(const Json::Value& json_object, uint64_t* address, uint64_t* 
 	*size = datablock["Size"].asUInt64();
 }
 
+FieldName _fieldName(const std::string& field_name)
+{
+    if (field_name == "position")
+        return FieldName::Position;
+    else if (field_name == "normal")
+        return FieldName::Normal;
+    else if (field_name == "uv")
+        return FieldName::Uv0;
+    else
+    {
+        assert(false);
+        return FieldName::Position;
+    }
+}
+
 Uptr<RenderMesh> readMesh(const Json::Value& mesh_object, std::ifstream& data_file)
 {
 	int vertex_count = mesh_object["VertexCount"].asInt();
@@ -38,7 +53,7 @@ Uptr<RenderMesh> readMesh(const Json::Value& mesh_object, std::ifstream& data_fi
 		VertexField mesh_field;
 		mesh_field.components = field["Components"].asInt();
 		mesh_field.component_type = GL_FLOAT;
-		mesh_field.name = field["Name"].asString();
+		mesh_field.name = _fieldName(field["Name"].asString());
 		mesh_fields.push_back(mesh_field);
 	}
 
@@ -48,7 +63,7 @@ Uptr<RenderMesh> readMesh(const Json::Value& mesh_object, std::ifstream& data_fi
 		uint64_t address, size;
 		readDataBlock(field, &address, &size);
 		data_file.seekg(address, std::ios::beg);
-		auto name = field["Name"].asString();
+		auto name = _fieldName(field["Name"].asString());
 		char* vertex_field = (char*)render_mesh->mapVertices(name);
 		//auto var = size / 3 / 4 ;
 		//assert(var == vertex_count);
@@ -189,7 +204,7 @@ void import3DY(const std::string& filename, Scene* scene)
 		const auto& json_matrix = json_surface["WorldToLocalMatrix"];
 		
 		SurfaceInstance surface_instance;
-		surface_instance.mesh = createVertexSource(*render_mesh);
+		surface_instance.mesh = std::move(render_mesh);
 		surface_instance.matrix_world_local = readMatrix4x3(json_matrix);
         surface_instance.material = materials.at(json_surface["Material"].asString());
 		scene->surfaces.push_back(surface_instance);

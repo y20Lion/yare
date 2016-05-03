@@ -36,9 +36,12 @@ enum class ShadeTreeNodeType {DiffuseBSDF, GlossyBSDF, OutputMaterial, MixBSDF, 
 
 struct ShadeTreeEvaluation
 {    
+    ShadeTreeEvaluation() : uv_needed(false) {}
+    
     std::set<std::string> evaluted_nodes;
     std::vector<std::string> glsl_code;    
     std::vector<std::pair<Sptr<GLTexture>, std::string>> glsl_textures;
+    bool uv_needed;
 
     bool isNodeAlreadyEvaluated(const std::string& node_name) const;
     void addNodeCode(const std::string& node_name, const std::string& node_code);

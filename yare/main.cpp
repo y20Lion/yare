@@ -6,12 +6,7 @@
 #include <assert.h>
 #include <iostream>
 
-#include "GLProgram.h"
-#include "GLProgramResources.h"
 #include "GLBuffer.h"
-#include "GLDevice.h"
-#include "GLTexture.h"
-#include "GLVertexSource.h"
 #include "Renderer.h"
 #include "CameraManipulator.h"
 #include "Importer3DY.h"
@@ -22,13 +17,13 @@ void __stdcall printGLDebugMessage(GLenum source, GLenum type, GLuint id, GLenum
                                    GLsizei length, const GLchar* message, const void* userparam)
 {
     std::cout << message << std::endl;
-    assert(severity == GL_DEBUG_SEVERITY_NOTIFICATION);
+    assert(severity == GL_DEBUG_SEVERITY_NOTIFICATION || severity == GL_DEBUG_SEVERITY_LOW);
 }
 
 bool initGlewWithDummyWindow()
 {
     glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
-    GLFWwindow* window = glfwCreateWindow(640, 480, "MyWindow", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(640, 480, "DummyWindow", NULL, NULL);
     glfwMakeContextCurrent(window);
 
     auto glew_result = glewInit();
@@ -89,7 +84,7 @@ int main()
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);   
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
     GLFWwindow* window = glfwCreateWindow(1024, 768, "MyWindow", NULL, NULL);
-    
+
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
 

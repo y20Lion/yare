@@ -56,7 +56,7 @@ RenderMesh::~RenderMesh()
 
 }
 
-void* RenderMesh::mapVertices(const std::string& vertex_field)
+void* RenderMesh::mapVertices(FieldName vertex_field)
 {
 	const auto& field = _fields.at(vertex_field);
 	return _vertex_buffer->mapRange(field.offset, field.size, GL_MAP_WRITE_BIT);
@@ -77,13 +77,28 @@ void RenderMesh::unmapTriangleIndices()
 
 }
 
+Uptr<GLVertexSource> createVertexSource(const RenderMesh& mesh, int fields_bitmask)
+{
+    auto vertex_source = std::make_unique<GLVertexSource>();   
+    for (int i = 0; i < 32; ++i)
+    {
+        auto mesh_field = (1 << i);
+        if (fields_bitmask & mesh_field)
+        {
+            auto field_info = mesh.fieldInfo((FieldName)mesh_field);
+            vertex_source->setVertexAttribute(i, field_info.components, GL_FLOAT, 0, field_info.offset);
+        }
+    }
+    return vertex_source;
+}
+
 Uptr<GLVertexSource> createVertexSource(const RenderMesh& mesh)
 {
 	auto vertex_source = std::make_unique<GLVertexSource>();
 	vertex_source->setVertexBuffer(mesh.vertexBuffer());
-	vertex_source->setVertexAttribute(1, 3, GL_FLOAT, 0, mesh.fieldInfo("position").offset);
-    vertex_source->setVertexAttribute(2, 3, GL_FLOAT, 0, mesh.fieldInfo("normal").offset);
-    vertex_source->setVertexAttribute(3, 2, GL_FLOAT, 0, mesh.fieldInfo("uv").offset);
+	vertex_source->setVertexAttribute(1, 3, GL_FLOAT, 0, mesh.fieldInfo(FieldName::Position).offset);
+    vertex_source->setVertexAttribute(2, 3, GL_FLOAT, 0, mesh.fieldInfo(FieldName::Normal).offset);
+    vertex_source->setVertexAttribute(3, 2, GL_FLOAT, 0, mesh.fieldInfo(FieldName::Uv0).offset);
 	vertex_source->setVertexCount(mesh.vertexCount());
 
 	return vertex_source;

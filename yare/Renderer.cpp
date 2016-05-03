@@ -12,8 +12,7 @@ namespace yare {
     const char* vertex_source =
         " #version 450 \n"
         " layout(location=1) in vec3 position; \n"
-        " layout(location=1) in vec3 normal; \n"
-        //" layout(location=3) uniform mat4 t_view_local; \n"
+        " layout(location=2) in vec3 normal; \n"
         " layout(std140, binding=3) uniform MatUniform \n"
         " { \n"
         "   mat4 t_view_local; \n"
@@ -36,7 +35,7 @@ Renderer::Renderer()
     : _scene(createBasicScene())
 {
     _draw_mesh = createProgram(vertex_source, fragment_source);  
-    _uniforms_buffer = createBuffer(256* 1000);
+    _uniforms_buffer = createBuffer(256* 1500);
 }
 
 struct UniformsData
@@ -58,11 +57,11 @@ void Renderer::render()
     glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &uniform_buffer_align_size);
     size_t element_size = _alignSize(sizeof(UniformsData), uniform_buffer_align_size);
 
-    char* buffer = (char*)_uniforms_buffer->mapRange(0, element_size * 1000, GL_MAP_WRITE_BIT);
-    for (int i = 0; i < _scene.surfaces_render_data.size(); ++i)
+    char* buffer = (char*)_uniforms_buffer->mapRange(0, element_size * 1500, GL_MAP_WRITE_BIT);
+    for (int i = 0; i < _scene.main_view_surface_data.size(); ++i)
     {
-        ((UniformsData*)buffer)->matrix_view_local = _scene.surfaces_render_data[i].matrix_view_local;
-        ((UniformsData*)buffer)->normal_matrix_view_local =  _scene.surfaces_render_data[i].normal_matrix_world_local;
+        ((UniformsData*)buffer)->matrix_view_local = _scene.main_view_surface_data[i].matrix_view_local;
+        ((UniformsData*)buffer)->normal_matrix_view_local =  _scene.main_view_surface_data[i].normal_matrix_world_local;
         buffer += element_size;
     }
     _uniforms_buffer->unmap();
@@ -77,24 +76,23 @@ void Renderer::render()
         GLDevice::setCurrentVertexSource(*surface.mesh);        
         GLDevice::draw(0, surface.mesh->vertexCount());
     }*/
-    //GLuint index = glGetUniformBlockIndex?(GLuint program?, "MatUniform"?);
 
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
-    for (int i = 0; i < _scene.surfaces_render_data.size(); ++i)
+    for (int i = 0; i < _scene.main_view_surface_data.size(); ++i)
     {
-        const auto& render_data = _scene.surfaces_render_data[i];
+        const auto& render_data = _scene.main_view_surface_data[i];
         const auto& surface = _scene.surfaces[i];
 
         surface.material->bindTextures();
 
         GLDevice::setCurrentProgram(surface.material->program());
-        glBindBufferRange(GL_UNIFORM_BUFFER, 3, _uniforms_buffer->id(), element_size * i, 16);
+        glBindBufferRange(GL_UNIFORM_BUFFER, 3, _uniforms_buffer->id(), element_size * i, 16); //TODO yvain fixme
         
         //glUniformMatrix4fv(3, 1, GL_FALSE, glm::value_ptr(render_data.matrix_view_local));
-        GLDevice::setCurrentVertexSource(*surface.mesh);
-        GLDevice::draw(0, surface.mesh->vertexCount());
+        GLDevice::setCurrentVertexSource(*render_data.vertex_source);
+        GLDevice::draw(0, render_data.vertex_source->vertexCount());
     }
 }
 

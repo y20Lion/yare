@@ -81,7 +81,7 @@ void GLProgram::_linkProgram()
         glGetProgramiv(_program_id, GL_INFO_LOG_LENGTH, &log_length);
         std::string error_log;
         error_log.resize(log_length);
-        glGetProgramInfoLog(_program_id, log_length, &log_length, (GLchar*)error_log.data());
+        glGetProgramInfoLog(_program_id, log_length, &log_length, (GLchar*)error_log.data());        
         RUNTIME_ERROR(error_log);
     }
 }

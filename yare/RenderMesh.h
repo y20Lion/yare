@@ -11,12 +11,21 @@ namespace yare {
 class GLProgram;
 class GLVertexSource;
 
+enum class FieldName {
+    Position = 0, Normal = 1 << 1,
+    Uv0 = 1 << 2, Tangent0 = 1 << 3, Binormal0 = 1 << 4,
+    Uv1 = 1 << 5, Tangent1 = 1 << 6, Binormal1 = 1 << 7,
+    Uv2 = 1 << 8, Tangent2 = 1 << 9, Binormal2 = 1 << 10
+};
+
 struct VertexField
 {
-    std::string name;
+    FieldName name;
     int components;
     GLenum component_type;
 };
+
+
 
 class RenderMesh // TODO Yvain handle indexed meshes
 {
@@ -24,7 +33,7 @@ public:
     RenderMesh(int triangle_count, int vertex_count, const std::vector<VertexField>& fields);
     ~RenderMesh();
 
-    void* mapVertices(const std::string& vertex_field);
+    void* mapVertices(FieldName vertex_field);
     void unmapVertices();
 
     void* mapTrianglesIndices();
@@ -41,19 +50,19 @@ public:
         std::int64_t offset;
         std::int64_t size;
     };
-    const Field& fieldInfo(const std::string& vertex_field) const { return _fields.at(vertex_field); }
+    const Field& fieldInfo(FieldName vertex_field) const { return _fields.at(vertex_field); }
 
 private:
     DISALLOW_COPY_AND_ASSIGN(RenderMesh)	
 
-	std::map<std::string, Field> _fields;
+	std::map<FieldName, Field> _fields;
 	int _triangle_count;
 	int _vertex_count;
     //GLBuffer _index_buffer;
     Uptr<GLBuffer> _vertex_buffer;
 };
 
-//Uptr<GLVertexSource> createVertexSource(const RenderMesh& mesh, const std::vector<std::pair<std::string, int>> field_to_attribute_binding);
+Uptr<GLVertexSource> createVertexSource(const RenderMesh& mesh, int fields_bitmask);
 Uptr<GLVertexSource> createVertexSource(const RenderMesh& mesh);
 
 }

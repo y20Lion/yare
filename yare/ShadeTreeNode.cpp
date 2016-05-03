@@ -143,7 +143,8 @@ void TexImageNode::evaluate(const ShadeTreeParams& params, const std::string& ou
         return;
 
     //std::string uv = _evaluateInputSlot(params, "Vector", evaluation);
-    
+    evaluation.uv_needed = true;
+
     std::string glsl_color = _toGLSLVarName(name, "Color");
     std::string glsl_alpha = _toGLSLVarName(name, "Alpha");
     

@@ -21,12 +21,13 @@ ShadeTreeMaterial::~ShadeTreeMaterial()
 }
 
 const char* _material_vert_shader =
-" #version 450 \n"
 " layout(location=1) in vec3 position; \n"
 " layout(location=2) in vec3 normal; \n"
 " layout(location=3) in vec2 uv; \n"
 " out vec3 attr_normal; \n"
+" #ifdef USE_UV \n"
 " out vec2 attr_uv; \n"
+" #endif \n"
 " layout(std140, binding=3) uniform MatUniform \n"
 " { \n"
 "   mat4 matrix_view_local; \n"
@@ -37,20 +38,23 @@ const char* _material_vert_shader =
 " { \n"
 "   gl_Position =  matrix_view_local * vec4(position, 1.0); \n"
 "   attr_normal =  normal_matrix_world_local*normal; \n"
+" #ifdef USE_UV \n"
 "   attr_uv =  uv; \n"
+" #endif \n"
 " }\n";
 
 static const char* _material_frag_shader_begin =
-"#version 450 \n"
 "vec3 light_direction = vec3(0.0, 0.2, 1.0);\n "
 "vec3 light_color = vec3(1.0, 1.0, 1.0);\n "
 "in vec3 attr_normal; \n"
-"in vec2 attr_uv; \n"; // TODO Yvain make that optional
+" #ifdef USE_UV \n"
+"in vec2 attr_uv; \n"
+" #endif \n";
 static const char* _material_frag_shader_middle =
 "\n "
 "vec3 evalDiffuseBSDF(vec3 color, vec3 normal)\n "
 "{\n "
-"	return /*max(dot(normalize(normal), light_direction),0.0) **/ color * light_color;\n "
+"	return max(dot(normalize(normal), light_direction),0.02) * color * light_color;\n " // boohoo an ambient
 "}\n "
 "\n "
 "void sampleTexture(sampler2D tex, vec3 uvw, mat3x2 transform, out vec3 color, out float alpha)\n "
@@ -84,7 +88,10 @@ void ShadeTreeMaterial::compile()
     ShadeTreeEvaluation evaluation;
     output_node->evaluate(eval_params, "shading_result", evaluation);
 
-    std::string fragment_shader = _material_frag_shader_begin;
+    std::string fragment_shader = "#version 450 \n";
+    if (evaluation.uv_needed)
+        fragment_shader += "#define USE_UV \n";
+    fragment_shader += _material_frag_shader_begin;
 
     _used_textures.clear();
     for (const auto& glsl_texture : evaluation.glsl_textures)
@@ -100,7 +107,12 @@ void ShadeTreeMaterial::compile()
 
     fragment_shader.append(_material_frag_shader_end);
 
-    _program = createProgram(_material_vert_shader, fragment_shader);
+    std::string vertex_shader = "#version 450 \n";
+    if (evaluation.uv_needed)
+        vertex_shader += "#define USE_UV \n";
+    vertex_shader += _material_vert_shader;
+
+    _program = createProgram(vertex_shader, fragment_shader);
 }
 
 void ShadeTreeMaterial::bindTextures()

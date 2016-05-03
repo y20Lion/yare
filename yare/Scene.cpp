@@ -1,10 +1,12 @@
 #include "Scene.h"
 
+#include <iostream>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/transform.hpp>
 
 #include "GLBuffer.h"
-#include <iostream>
+#include "RenderMesh.h"
+
 
 namespace yare {
 
@@ -36,20 +38,22 @@ void Scene::update()
                        camera.frustum.bottom, camera.frustum.top,
                        camera.frustum.near, camera.frustum.far);*/
             
-    surfaces_render_data.resize(surfaces.size());
-    for (int i = 0; i < surfaces_render_data.size(); ++i)
+    main_view_surface_data.resize(surfaces.size());
+    for (int i = 0; i < main_view_surface_data.size(); ++i)
     {      
-        surfaces_render_data[i].matrix_view_local = _matrix_view_world * _toMat4(surfaces[i].matrix_world_local);
-        surfaces_render_data[i].normal_matrix_world_local = glm::mat3(transpose(inverse(_toMat4(surfaces[i].matrix_world_local))));
+        if (main_view_surface_data[i].vertex_source == nullptr)
+            main_view_surface_data[i].vertex_source = createVertexSource(*surfaces[i].mesh);
+        main_view_surface_data[i].matrix_view_local = _matrix_view_world * _toMat4(surfaces[i].matrix_world_local);
+        main_view_surface_data[i].normal_matrix_world_local = glm::mat3(transpose(inverse(_toMat4(surfaces[i].matrix_world_local))));
     }
 }
 
-glm::vec3 quad_vertices[6] = { glm::vec3(1.0, 1.0, -1.0), glm::vec3(-1.0, 1.0, -1.0), glm::vec3(-1.0, -1.0, -1.0),
-                          glm::vec3(1.0, 1.0, -1.0), glm::vec3(-1.0, -1.0, -1.0), glm::vec3( 1.0f, -1.0, -1.0) };
+/*glm::vec3 quad_vertices[6] = { glm::vec3(1.0, 1.0, -1.0), glm::vec3(-1.0, 1.0, -1.0), glm::vec3(-1.0, -1.0, -1.0),
+                          glm::vec3(1.0, 1.0, -1.0), glm::vec3(-1.0, -1.0, -1.0), glm::vec3( 1.0f, -1.0, -1.0) };*/
 
 Scene createBasicScene()
 {
-    auto positions_buffer = createBuffer(sizeof(glm::vec3)*6);
+   /* auto positions_buffer = createBuffer(sizeof(glm::vec3)*6);
     auto ptr = positions_buffer->map(GL_WRITE_ONLY);
     memcpy(ptr, quad_vertices, sizeof(glm::vec3)*6);
     positions_buffer->unmap();
@@ -63,7 +67,7 @@ Scene createBasicScene()
     Scene scene;
 
     surface_instance.matrix_world_local = glm::mat4x3(1.0);
-    surface_instance.mesh = quad_source;
+    surface_instance.mesh = quad_source;*/
    /* scene.surfaces.push_back(surface_instance);
 
     surface_instance.matrix_world_local = _toMat4x3(glm::rotate(float(M_PI/2.0), glm::vec3(0.0f,1.0f,0.0f)));
@@ -74,7 +78,7 @@ Scene createBasicScene()
 
     surface_instance.matrix_world_local = _toMat4x3(glm::rotate(float(M_PI), glm::vec3(0.0f,1.0f,0.0f)));
     scene.surfaces.push_back(surface_instance);*/
-
+    Scene scene;
     return scene;
 }
 
