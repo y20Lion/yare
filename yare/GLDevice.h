@@ -6,7 +6,9 @@ class GLBuffer;
 class GLProgram;
 class GLProgramResources;
 class GLVertexSource;
-class GLRenderTarget;
+class GLFramebuffer;
+class GLSampler;
+class GLTexture;
 
 namespace GLDevice 
 {
@@ -16,13 +18,13 @@ namespace GLDevice
     void read(const GLRenderTarget& render_target, int attachment);*/
 
     // state setting
-    void setCurrentRenderTarget();
-    void setCurrentProgram(const GLProgram& program);
-    void setCurrentProgramResources(const GLProgramResources& program_resources);
-    void setCurrentVertexSource(const GLVertexSource& vertex_source);
-
+    void bindFramebuffer(const GLFramebuffer* framebuffer, int color_attachment);
+    void bindProgram(const GLProgram& program);
+    void bindVertexSource(const GLVertexSource& vertex_source);
+    void bindTexture(int texture_unit, const GLTexture& texture, const GLSampler& sampler);
+    void bindBlendingState();
+    void bindRasterState();
     // draw calls
-    void drawIndexed();
     void draw(int vertex_start, int vertex_count);
 }
 

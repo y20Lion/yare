@@ -11,6 +11,7 @@
 #include "ShadeTreeNode.h"
 #include "ShadeTreeMaterial.h"
 #include "TextureImporter.h"
+#include "RenderEngine.h"
 
 namespace yare {
 
@@ -151,7 +152,7 @@ Uptr<ShadeTreeMaterial> readMaterial(const Json::Value& json_material, const Tex
 }
 
 
-MaterialMap readMaterials(const Json::Value& json_materials, const TextureMap& textures)
+MaterialMap readMaterials(const RenderEngine& render_engine, const Json::Value& json_materials, const TextureMap& textures)
 {
     MaterialMap materials;
     for (const auto& json_material : json_materials)
@@ -159,7 +160,7 @@ MaterialMap readMaterials(const Json::Value& json_materials, const TextureMap& t
         auto material = readMaterial(json_material, textures);
         if (material)
         {
-            material->compile();
+            material->compile(*render_engine.render_resources);
             materials[json_material["Name"].asString()] = std::move(material);
         }
         else
@@ -183,7 +184,14 @@ std::map<std::string, Sptr<GLTexture>> readTextures(const Json::Value& json_text
     return textures;
 }
 
-void import3DY(const std::string& filename, Scene* scene)
+Uptr<GLTextureCubemap> readEnvironment(const RenderEngine& render_engine, const Json::Value& json_env)
+{
+   const auto& texture_name = json_env["Name"].asString();
+   const auto& texture_path = json_env["Path"].asString();
+   return TextureImporter::importCubemapFromFile(texture_path.c_str(), *render_engine.latlong_to_cubemap_converter);
+}
+
+void import3DY(const std::string& filename, const RenderEngine& render_engine, Scene* scene)
 {
 	std::ifstream data_file(filename+"\\data.bin", std::ifstream::binary);
 
@@ -193,7 +201,8 @@ void import3DY(const std::string& filename, Scene* scene)
 	json_file.close();
 
     auto textures = readTextures(root["Textures"]);
-    auto materials = readMaterials(root["Materials"], textures);    
+    scene->sky_cubemap = readEnvironment(render_engine, root["Environment"]);;
+    auto materials = readMaterials(render_engine, root["Materials"], textures);    
 
 	const auto& json_surfaces = root["Surfaces"];
 	for (const auto& json_surface : json_surfaces)

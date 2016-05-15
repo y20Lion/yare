@@ -14,6 +14,7 @@ namespace yare {
 
 class ShadeTreeMaterial;
 class RenderMesh;
+class GLTextureCubemap;
 
 struct SurfaceInstance
 {
@@ -40,23 +41,29 @@ struct MainViewSurfaceData
 {
     glm::mat4 matrix_view_local;
     glm::mat3 normal_matrix_world_local;
+    glm::mat4x3 matrix_world_local;
     Sptr<GLVertexSource> vertex_source;
 };
 
 class Scene
 {
 public:
-    
-    void update();
+   Scene() {}
 
-    Camera camera;
-    std::vector<SurfaceInstance> surfaces;
-    std::vector<Light> lights;
+   Scene(const Scene& other) = default;
+   ~Scene();
 
-    std::vector<MainViewSurfaceData> main_view_surface_data;
-    glm::mat4x4 _matrix_view_world;
+
+   Camera camera;
+   std::vector<SurfaceInstance> surfaces;
+   std::vector<Light> lights;
+   Uptr<GLTextureCubemap> sky_cubemap;
+
+   std::vector<MainViewSurfaceData> main_view_surface_data;
+   glm::mat4x4 _matrix_view_world;
+   std::vector<int> _sorted_opaque_surfaces;
+   std::vector<int> _sorted_transparent_surfaces;
 };
 
-Scene createBasicScene();
 
 }

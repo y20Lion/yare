@@ -48,6 +48,7 @@ RenderMesh::RenderMesh(int triangle_count, int vertex_count, const std::vector<V
 	GLBufferDesc desc;
 	desc.flags = GL_MAP_WRITE_BIT;
 	desc.size_bytes = vertex_buffer_size;
+   desc.data = nullptr;
 	_vertex_buffer = std::make_unique<GLBuffer>(desc);
 }
 

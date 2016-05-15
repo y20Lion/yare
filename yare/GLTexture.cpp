@@ -58,6 +58,10 @@ GLTexture::~GLTexture()
     glDeleteTextures(1, &_texture_id);
 }
 
+void GLTexture::buildMipmaps()
+{
+   glGenerateTextureMipmap(_texture_id);
+}
 
 GLTexture2D::GLTexture2D(const GLTexture2DDesc& desc)
     : _height(desc.height)
@@ -75,22 +79,25 @@ GLTexture2D::GLTexture2D(const GLTexture2DDesc& desc)
 
         if (desc.mipmapped)
         {
-            glTextureParameteri(_texture_id, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-            glTextureParameteri(_texture_id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTextureParameteri(_texture_id, GL_TEXTURE_MAX_ANISOTROPY_EXT, 16);
             glGenerateTextureMipmap(_texture_id);            
         }
-        else
-        {
-            glTextureParameteri(_texture_id, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glTextureParameteri(_texture_id, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        }
+    }
+
+    if (desc.mipmapped)
+    {
+       glTextureParameteri(_texture_id, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+       glTextureParameteri(_texture_id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+       glTextureParameteri(_texture_id, GL_TEXTURE_MAX_ANISOTROPY_EXT, 16);
+    }
+    else
+    {
+       glTextureParameteri(_texture_id, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+       glTextureParameteri(_texture_id, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     }
 }
 
 GLTexture2D::~GLTexture2D()
-{
-    
+{    
 }
 
 Uptr<GLTexture2D> createMipmappedTexture2D(int width, int height, GLenum internal_format, void* pixels, bool pixels_in_bgr)
@@ -105,5 +112,41 @@ Uptr<GLTexture2D> createMipmappedTexture2D(int width, int height, GLenum interna
     
     return std::make_unique<GLTexture2D>(desc);
 }
+
+
+GLTextureCubemap::GLTextureCubemap(const GLTextureCubemapDesc& desc)
+   : _width(desc.width)
+{
+   int levels = desc.mipmapped ? _mipmapLevelCount(desc.width, desc.width) : 1;
+   glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &_texture_id);
+   glTextureStorage2D(_texture_id, levels, desc.internal_format, desc.width, desc.width);
+      
+   if (desc.mipmapped)
+   {
+      glTextureParameteri(_texture_id, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+      glTextureParameteri(_texture_id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glTextureParameteri(_texture_id, GL_TEXTURE_MAX_ANISOTROPY_EXT, 16);         
+   }
+   else
+   {
+      glTextureParameteri(_texture_id, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTextureParameteri(_texture_id, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+   }
+}
+
+GLTextureCubemap::~GLTextureCubemap()
+{
+}
+
+Uptr<GLTextureCubemap> createMipmappedTextureCubemap(int width, GLenum internal_format)
+{
+   GLTextureCubemapDesc desc;
+   desc.mipmapped = true;
+   desc.width = width;
+   desc.internal_format = internal_format;
+
+   return std::make_unique<GLTextureCubemap>(desc);
+}
+
 
 }

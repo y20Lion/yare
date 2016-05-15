@@ -5,7 +5,8 @@
 namespace yare {
 
 class Scene;
+class RenderEngine;
 
-void import3DY(const std::string& filename, Scene* scene);
+void import3DY(const std::string& filename, const RenderEngine& render_engine, Scene* scene);
 
 }

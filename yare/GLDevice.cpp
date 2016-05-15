@@ -2,31 +2,44 @@
 
 #include <GL/glew.h>
 
+#include "GLFramebuffer.h"
 #include "GLProgram.h"
-#include "GLProgramResources.h"
 #include "GLVertexSource.h"
-
-
-
+#include "GLTexture.h"
+#include "GLSampler.h"
 
 namespace yare { namespace GLDevice {
 
-static const GLVertexSource* _current_vertex_source = nullptr;
+void bindFramebuffer(const GLFramebuffer* framebuffer, int color_attachment)
+{
+   if (framebuffer)
+   {
+      glNamedFramebufferDrawBuffer(framebuffer->id(), GL_COLOR_ATTACHMENT0 + color_attachment);
+      glBindFramebuffer(GL_FRAMEBUFFER_EXT, framebuffer->id());
+   }
+   else
+   {
+      glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+   }
+}
 
-void setCurrentProgram(const GLProgram& program)
+void bindProgram(const GLProgram& program)
 {
     glUseProgram(program.id());
 }
 
-void setCurrentProgramResources(const GLProgramResources& program_resources)
+void bindVertexSource(const GLVertexSource& vertex_source)
 {
-    program_resources.bindResources();
+    glBindVertexArray(vertex_source.id()); 
 }
 
-void setCurrentVertexSource(const GLVertexSource& vertex_source)
+void bindTexture(int texture_unit, const GLTexture& texture, const GLSampler& sampler)
 {
-    glBindVertexArray(vertex_source.id());
-    _current_vertex_source = &vertex_source;
+   GLuint texture_id = texture.id();
+   GLuint sampler_id = sampler.id();
+
+   glBindTextures(texture_unit, 1, &texture_id);
+   glBindSamplers(texture_unit, 1, &sampler_id);
 }
 
 void draw(int vertex_start, int vertex_count)

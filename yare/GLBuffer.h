@@ -10,6 +10,7 @@ namespace yare {
 struct GLBufferDesc
 {
     std::int64_t size_bytes;
+    void* data;
     GLbitfield flags;
 };
 
@@ -32,6 +33,6 @@ private:
 	std::int64_t _size_bytes;
 };
 
-Uptr<GLBuffer> createBuffer(std::int64_t size_bytes);
+Uptr<GLBuffer> createBuffer(std::int64_t size_bytes, void* data=nullptr);
 
 }

@@ -84,10 +84,10 @@ def writeMesh(binary_file, mesh):
                 #output_tangents.extend(mesh.loops[loop_idx].tangent[:])
                 #output_binormals.extend(mesh.loops[loop_idx].bitangent[:])
                 output_uvs.extend(active_uv_layer.data[loop_idx+i].uv.to_2d()[:])
-                print(active_uv_layer.data[0].uv.to_2d()[:])
-                print(active_uv_layer.data[1].uv.to_2d()[:])
-                print(active_uv_layer.data[2].uv.to_2d()[:])
-                print(active_uv_layer.data[3].uv.to_2d()[:])
+                #print(active_uv_layer.data[0].uv.to_2d()[:])
+                #print(active_uv_layer.data[1].uv.to_2d()[:])
+                #print(active_uv_layer.data[2].uv.to_2d()[:])
+                #print(active_uv_layer.data[3].uv.to_2d()[:])
             vertex_count += 1
         loop_idx += len(face.vertices)
     json_mesh = {'Id':mesh.name, 'TriangleCount':len(mesh.polygons), 'VertexCount':vertex_count} 
@@ -177,16 +177,29 @@ def writeMaterials(collected_textures):
         already_written_materials.add(material.name)
     return json_materials
 
+    
+def writeTexture(texture_name, output_folder_path):
+    image = bpy.data.images[texture_name]
+    scene=bpy.context.scene
+    scene.render.image_settings.file_format=image.file_format
+    texture_path = output_folder_path+texture_name
+    image.save_render(texture_path,scene)
+    return {'Name':texture_name, 'Path':texture_path}
+    
 def writeTextures(texture_names, output_folder_path):
     json_textures = []
     for texture_name in texture_names:
-        image = bpy.data.images[texture_name]
-        scene=bpy.context.scene
-        scene.render.image_settings.file_format=image.file_format
-        texture_path = output_folder_path+texture_name
-        image.save_render(texture_path,scene)
-        json_textures.append({'Name':texture_name, 'Path':texture_path})
+        json_textures.append(writeTexture(texture_name, output_folder_path))
     return json_textures
+    
+def writeEnvironment(output_folder_path):
+    try:
+        image_name = bpy.context.scene.world.node_tree.nodes['Environment Texture'].image.name
+        json_environment = writeTexture(image_name, output_folder_path)
+    except Exception as e:
+        print("Environment texture export failed: "+str(e))        
+        json_environment = None
+    return json_environment
     
 class Export3DY(bpy.types.Operator, ExportHelper):
     bl_idname = "export.3dy"
@@ -204,7 +217,8 @@ class Export3DY(bpy.types.Operator, ExportHelper):
         
         textures = set()
         json_materials = writeMaterials(textures)
-        json_textures = writeTextures(textures,output_path)
+        json_environment = writeEnvironment(output_path)
+        json_textures = writeTextures(textures, output_path)
         json_surfaces = []
         bpy.ops.wm.console_toggle()
         bpy.ops.object.make_single_user(type='ALL', object=True, obdata=True)
@@ -227,6 +241,7 @@ class Export3DY(bpy.types.Operator, ExportHelper):
         root = {'Surfaces':json_surfaces} 
         root['Textures'] = json_textures
         root['Materials'] = json_materials
+        root['Environment'] = json_environment
         with open(output_path+'structure.json', 'w') as json_file:
             json.dump(root, json_file, indent=1)
         return {'FINISHED'}

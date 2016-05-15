@@ -37,5 +37,7 @@ private:
 };
 
 Uptr<GLProgram> createProgram(const std::string& vertex_shader_source, const std::string& fragment_shader_source);
+Uptr<GLProgram> createProgramFromFile(const std::string& filepath);
+GLProgramDesc createProgramDescFromFile(const std::string& filepath);
 
 }

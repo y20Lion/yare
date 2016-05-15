@@ -16,7 +16,7 @@ class ShadeTreeNode;
 struct ShadeTreeEvaluation;
 struct RenderResources;
 
-class ShadeTreeMaterial
+class OceanMaterial
 {
 public:
    ShadeTreeMaterial();

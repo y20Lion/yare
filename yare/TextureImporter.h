@@ -5,13 +5,15 @@
 #include "tools.h"
 
 namespace yare {
+   
+class GLTexture2D;
+class GLTextureCubemap;
+class LatlongToCubemapConverter;
 
-
-class GLTexture;
 namespace TextureImporter 
 {
-    Uptr<GLTexture> importTextureFromFile(const char* filename);
-
+    Uptr<GLTexture2D> importTextureFromFile(const char* filename, bool float_pixels = false);
+    Uptr<GLTextureCubemap> importCubemapFromFile(const char* filename, const LatlongToCubemapConverter& latlong_converter);
 }
 
 }
