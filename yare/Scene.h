@@ -12,7 +12,7 @@
 
 namespace yare {
 
-class ShadeTreeMaterial;
+class IMaterial;
 class RenderMesh;
 class GLTextureCubemap;
 
@@ -20,7 +20,7 @@ struct SurfaceInstance
 {
     glm::mat4x3 matrix_world_local;    
     Sptr<RenderMesh> mesh;
-    Sptr<ShadeTreeMaterial> material;
+    Sptr<IMaterial> material;
     std::map<int, Sptr<GLVertexSource>> vertex_sources;
 };
 

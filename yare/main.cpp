@@ -17,7 +17,7 @@ using namespace yare;
 void __stdcall printGLDebugMessage(GLenum source, GLenum type, GLuint id, GLenum severity,
    GLsizei length, const GLchar* message, const void* userparam)
 {
-   std::cout << message << std::endl;
+   //std::cout << message << std::endl;
    assert(severity != GL_DEBUG_SEVERITY_HIGH);
 }
 
@@ -98,14 +98,17 @@ int main()
    glDisable(GL_DEPTH_TEST);
 
    RenderEngine render_engine;
-   import3DY("D:\\BlenderTests\\testNodeGraph.3dy", render_engine, render_engine.scene());
+   //char* file = "D:\\BlenderTests\\testNodeGraph.3dy";
+   char* file = "D:\\BlenderTests\\town.3dy";
+   import3DY(file, render_engine, render_engine.scene());
+   render_engine.offlinePrepareScene();
 
    CameraManipulator camera_manipulator(&render_engine.scene()->camera.point_of_view);
    while (!glfwWindowShouldClose(window))
    {
       handleInputs(window, &camera_manipulator);
-      render_engine.update();
-      render_engine.render();
+      render_engine.updateScene();
+      render_engine.renderScene();
 
       glfwSwapBuffers(window);
       glfwPollEvents();

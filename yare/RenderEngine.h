@@ -14,8 +14,10 @@ class RenderEngine
 public:
    RenderEngine();
    ~RenderEngine();
-   void update();
-   void render();
+
+   void offlinePrepareScene();
+   void updateScene();
+   void renderScene();
    Scene* scene() { return &_scene; }
 
    glm::vec3 pickPosition(int x, int y);
@@ -26,9 +28,13 @@ public:
 private:
    DISALLOW_COPY_AND_ASSIGN(RenderEngine)
    Scene _scene;
-   Uptr<GLProgram> _draw_mesh;
-   Uptr<GLBuffer> _surface_dynamic_uniforms;
+   //Uptr<GLProgram> _draw_mesh;
+   Uptr<GLBuffer> _surface_constant_uniforms;
+   Uptr<GLBuffer> _surface_dynamic_uniforms;   
    Uptr<GLBuffer> _scene_uniforms;
+
+   size_t _surface_dynamic_uniforms_size;
+   size_t _surface_constant_uniforms_size;
 };
 
 }

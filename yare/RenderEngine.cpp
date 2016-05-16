@@ -62,23 +62,17 @@ struct SceneUniforms
    float time;
 };
 
-
-
 RenderEngine::RenderEngine()
    : _scene()
    , render_resources(new RenderResources())
    , latlong_to_cubemap_converter(new LatlongToCubemapConverter(*render_resources))
-{
-    _draw_mesh = createProgram(vertex_source, fragment_source);  
-    _surface_dynamic_uniforms = createBuffer(256* 1500);
+{    
     _scene_uniforms = createBuffer(sizeof(SceneUniforms));
 }
 
 RenderEngine::~RenderEngine()
-{
-
+{   
 }
-
 
 
 static size_t _alignSize(size_t real_size, int aligned_size)
@@ -106,7 +100,32 @@ static glm::mat4x3 _toMat4x3(const glm::mat4& matrix)
    return result;
 }
 
-void RenderEngine::update()
+void RenderEngine::offlinePrepareScene()
+{
+   int uniform_buffer_align_size;
+   glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &uniform_buffer_align_size);
+   _surface_dynamic_uniforms_size = _alignSize(sizeof(SurfaceDynamicUniforms), uniform_buffer_align_size);
+   _surface_constant_uniforms_size = _alignSize(sizeof(SurfaceConstantUniforms), uniform_buffer_align_size);
+
+   int surface_count = _scene.surfaces.size();
+   _surface_dynamic_uniforms = createBuffer(_surface_dynamic_uniforms_size * surface_count);
+   _surface_constant_uniforms = createBuffer(_surface_constant_uniforms_size * surface_count);
+
+   _scene.main_view_surface_data.resize(_scene.surfaces.size());
+
+   for (int i = 0; i < _scene.main_view_surface_data.size(); ++i)
+   {
+      if (_scene.main_view_surface_data[i].vertex_source == nullptr)
+         _scene.main_view_surface_data[i].vertex_source = createVertexSource(*_scene.surfaces[i].mesh, _scene.surfaces[i].material->requiredMeshFields());
+   }
+
+   for (int i = 0; i < _scene.main_view_surface_data.size(); ++i)
+   {    
+      _scene.main_view_surface_data[i].normal_matrix_world_local = glm::mat3(transpose(inverse(_toMat4(_scene.surfaces[i].matrix_world_local))));
+   }
+}
+
+void RenderEngine::updateScene()
 {
    auto mat = glm::lookAt(_scene.camera.point_of_view.from, _scene.camera.point_of_view.to, _scene.camera.point_of_view.up);
    _scene._matrix_view_world = glm::perspective(3.14f / 2.0f, 1.0f, 0.05f, 100.0f) * mat;
@@ -114,30 +133,23 @@ void RenderEngine::update()
    camera.frustum.bottom, camera.frustum.top,
    camera.frustum.near, camera.frustum.far);*/
 
-   _scene.main_view_surface_data.resize(_scene.surfaces.size());
    for (int i = 0; i < _scene.main_view_surface_data.size(); ++i)
    {
-      if (_scene.main_view_surface_data[i].vertex_source == nullptr)
-         _scene.main_view_surface_data[i].vertex_source = createVertexSource(*_scene.surfaces[i].mesh);
-
-      _scene.main_view_surface_data[i].matrix_view_local = _scene._matrix_view_world * _toMat4(_scene.surfaces[i].matrix_world_local);
-      _scene.main_view_surface_data[i].normal_matrix_world_local = glm::mat3(transpose(inverse(_toMat4(_scene.surfaces[i].matrix_world_local))));    
+      _scene.main_view_surface_data[i].matrix_view_local = _scene._matrix_view_world * _toMat4(_scene.surfaces[i].matrix_world_local);      
    }
 }
 
-void RenderEngine::render()
+void RenderEngine::renderScene()
 {
-   int uniform_buffer_align_size;
-   glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &uniform_buffer_align_size);
-   size_t element_size = _alignSize(sizeof(SurfaceDynamicUniforms), uniform_buffer_align_size);
+   
 
-   char* buffer = (char*)_surface_dynamic_uniforms->mapRange(0, element_size * 1500, GL_MAP_WRITE_BIT);
+   char* buffer = (char*)_surface_dynamic_uniforms->map(GL_WRITE_ONLY);
    for (int i = 0; i < _scene.main_view_surface_data.size(); ++i)
    {
       ((SurfaceDynamicUniforms*)buffer)->matrix_view_local = _scene.main_view_surface_data[i].matrix_view_local;
       ((SurfaceDynamicUniforms*)buffer)->normal_matrix_world_local = _scene.main_view_surface_data[i].normal_matrix_world_local;
       ((SurfaceDynamicUniforms*)buffer)->matrix_world_local = _scene.surfaces[i].matrix_world_local;
-      buffer += element_size;
+      buffer += _surface_dynamic_uniforms_size;
    }
    _surface_dynamic_uniforms->unmap();
 
@@ -166,7 +178,7 @@ void RenderEngine::render()
    for (int i = 0; i < _scene.main_view_surface_data.size(); ++i)
    {
       glBindBufferRange(GL_UNIFORM_BUFFER, BI_SURFACE_DYNAMIC_UNIFORMS,
-         _surface_dynamic_uniforms->id(), element_size * i, element_size);
+         _surface_dynamic_uniforms->id(), _surface_dynamic_uniforms_size * i, _surface_dynamic_uniforms_size);
 
       const auto& render_data = _scene.main_view_surface_data[i];
       const auto& surface = _scene.surfaces[i];

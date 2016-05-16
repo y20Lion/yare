@@ -81,6 +81,7 @@ void RenderMesh::unmapTriangleIndices()
 Uptr<GLVertexSource> createVertexSource(const RenderMesh& mesh, FieldsMask fields_bitmask)
 {
     auto vertex_source = std::make_unique<GLVertexSource>();   
+    vertex_source->setVertexBuffer(mesh.vertexBuffer());
     for (int i = 0; i < 32; ++i)
     {
         auto mesh_field = (1 << i);
@@ -90,6 +91,7 @@ Uptr<GLVertexSource> createVertexSource(const RenderMesh& mesh, FieldsMask field
             vertex_source->setVertexAttribute(i, field_info.components, GL_FLOAT, 0, field_info.offset);
         }
     }
+    vertex_source->setVertexCount(mesh.vertexCount());
     return vertex_source;
 }
 
@@ -97,9 +99,9 @@ Uptr<GLVertexSource> createVertexSource(const RenderMesh& mesh)
 {
 	auto vertex_source = std::make_unique<GLVertexSource>();
 	vertex_source->setVertexBuffer(mesh.vertexBuffer());
-	vertex_source->setVertexAttribute(1, 3, GL_FLOAT, 0, mesh.fieldInfo(MeshFieldName::Position).offset);
-    vertex_source->setVertexAttribute(2, 3, GL_FLOAT, 0, mesh.fieldInfo(MeshFieldName::Normal).offset);
-    vertex_source->setVertexAttribute(3, 2, GL_FLOAT, 0, mesh.fieldInfo(MeshFieldName::Uv0).offset);
+	vertex_source->setVertexAttribute(0, 3, GL_FLOAT, 0, mesh.fieldInfo(MeshFieldName::Position).offset);
+    vertex_source->setVertexAttribute(1, 3, GL_FLOAT, 0, mesh.fieldInfo(MeshFieldName::Normal).offset);
+    vertex_source->setVertexAttribute(2, 2, GL_FLOAT, 0, mesh.fieldInfo(MeshFieldName::Uv0).offset);
 	vertex_source->setVertexCount(mesh.vertexCount());
 
 	return vertex_source;

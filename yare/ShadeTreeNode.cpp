@@ -159,7 +159,7 @@ Uptr<ShadeTreeNode> createShadeTreeNode(const std::string& node_type)
         return std::make_unique<TexImageNode>();
     else
     {
-        assert(false);
+        //assert(false);
         return nullptr;
     }        
 }

@@ -1,5 +1,6 @@
 #include "Importer3DY.h"
 
+#include <memory>
 #include <fstream>
 #include <json/json.h>
 #include <iostream>
@@ -12,6 +13,7 @@
 #include "ShadeTreeMaterial.h"
 #include "TextureImporter.h"
 #include "RenderEngine.h"
+#include "DefaultMaterial.h"
 
 namespace yare {
 
@@ -163,11 +165,6 @@ MaterialMap readMaterials(const RenderEngine& render_engine, const Json::Value& 
             material->compile(*render_engine.render_resources);
             materials[json_material["Name"].asString()] = std::move(material);
         }
-        else
-        {
-            materials[json_material["Name"].asString()] = (*materials.begin()).second;
-        }
-
     }
     return materials;
 }
@@ -205,7 +202,9 @@ void import3DY(const std::string& filename, const RenderEngine& render_engine, S
     auto materials = readMaterials(render_engine, root["Materials"], textures);    
 
 	const auto& json_surfaces = root["Surfaces"];
-	for (const auto& json_surface : json_surfaces)
+	
+   auto default_material = std::make_shared<DefaultMaterial>();
+   for (const auto& json_surface : json_surfaces)
 	{			
 		auto render_mesh = readMesh(json_surface["Mesh"], data_file);
 		if (!render_mesh)
@@ -215,7 +214,13 @@ void import3DY(const std::string& filename, const RenderEngine& render_engine, S
 		SurfaceInstance surface_instance;
 		surface_instance.mesh = std::move(render_mesh);
 		surface_instance.matrix_world_local = readMatrix4x3(json_matrix);
-        surface_instance.material = materials.at(json_surface["Material"].asString());
+
+      auto it = materials.find(json_surface["Material"].asString());
+      if (it != materials.end())
+         surface_instance.material = it->second;
+      else
+         surface_instance.material = default_material;
+
 		scene->surfaces.push_back(surface_instance);
 	}   
 }

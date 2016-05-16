@@ -230,7 +230,11 @@ class Export3DY(bpy.types.Operator, ExportHelper):
 
             mesh = object.to_mesh(bpy.context.scene, True, "PREVIEW")
             json_mesh = writeMesh(binary_file, mesh)
-            json_surface = {'Name':object.name, 'Mesh':json_mesh, 'Material':object.data.materials[0].name, 'WorldToLocalMatrix':writeMatrix(object.matrix_world) }
+            if len(object.data.materials) != 0:
+                material_name = object.data.materials[0].name
+            else:
+                material_name = ""
+            json_surface = {'Name':object.name, 'Mesh':json_mesh, 'Material':material_name, 'WorldToLocalMatrix':writeMatrix(object.matrix_world) }
             json_surfaces.append(json_surface)
             i+= 1
             updateProgress("progress", i/object_count)            
