@@ -8,6 +8,7 @@
 #include <GL/glew.h>
 
 #include "tools.h"
+#include "IMaterial.h"
 
 namespace yare {
 
@@ -16,13 +17,15 @@ class ShadeTreeNode;
 struct ShadeTreeEvaluation;
 struct RenderResources;
 
-class ShadeTreeMaterial
+class ShadeTreeMaterial : public IMaterial
 {
 public:
    ShadeTreeMaterial();
-   ~ShadeTreeMaterial();
+   virtual ~ShadeTreeMaterial();
    std::string name;
-
+   
+   virtual void render(const GLVertexSource& mesh_source) override;
+   virtual int requiredMeshFields() override;
 
    void compile(const RenderResources& resources);
 
@@ -43,6 +46,7 @@ private:
    std::vector<GLuint> _used_textures;
    int _first_texture_binding;
    bool _is_transparent;
+   bool _uses_uv;
 };
 
 }

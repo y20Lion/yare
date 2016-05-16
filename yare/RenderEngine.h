@@ -27,7 +27,8 @@ private:
    DISALLOW_COPY_AND_ASSIGN(RenderEngine)
    Scene _scene;
    Uptr<GLProgram> _draw_mesh;
-   Uptr<GLBuffer> _uniforms_buffer;
+   Uptr<GLBuffer> _surface_dynamic_uniforms;
+   Uptr<GLBuffer> _scene_uniforms;
 };
 
 }

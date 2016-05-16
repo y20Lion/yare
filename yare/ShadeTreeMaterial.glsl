@@ -1,5 +1,6 @@
 ~~~~~~~~~~~~~~~~~~~ VertexShader ~~~~~~~~~~~~~~~~~~~~~
 #version 450
+#include "glsl_binding_defines.h"
 %s
 layout(location=1) in vec3 position;
 layout(location=2) in vec3 normal;
@@ -7,15 +8,13 @@ layout(location=2) in vec3 normal;
 layout(location=3) in vec2 uv;
 #endif
 
-layout(location = 12) uniform mat4x3 mat;
-
 out vec3 attr_position;
 out vec3 attr_normal;
 #ifdef USE_UV
 out vec2 attr_uv;
 #endif
 
-layout(std140, binding=3) uniform MatUniform 
+layout(std140, binding=BI_SURFACE_DYNAMIC_UNIFORMS) uniform SurfaceDynamicUniforms
 {
   mat4 matrix_view_local;
   mat4 normal_matrix_world_local;
@@ -25,7 +24,7 @@ layout(std140, binding=3) uniform MatUniform
 void main()
 {
   gl_Position =  matrix_view_local * vec4(position, 1.0);
-  attr_normal =  mat3(normal_matrix_world_local)*normal;
+  attr_normal = mat3(normal_matrix_world_local)*normal;
   attr_position = matrix_world_local*vec4(position, 1.0);
 #ifdef USE_UV
   attr_uv =  uv;
@@ -39,8 +38,13 @@ void main()
 vec3 light_direction = vec3(0.0, 0.2, 1.0);
 vec3 light_color = vec3(1.0, 1.0, 1.0);
 layout(binding = BI_SKY_CUBEMAP) uniform samplerCube sky_cubemap;
-layout(location = BI_EYE_POSITION) uniform vec3 eye_position;
 
+layout(std140, binding = BI_SCENE_UNIFORMS) uniform SceneUniforms
+{     
+   mat4 matrix_view_world;
+   vec3 eye_position;
+   float time;
+};
 
 in vec3 attr_position;
 in vec3 attr_normal;

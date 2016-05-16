@@ -7,14 +7,17 @@
 #include "GLTexture.h"
 #include "ShadeTreeNode.h"
 #include "RenderResources.h"
+#include "RenderMesh.h"
+#include "GLDevice.h"
+#include "GLVertexSource.h"
 
 namespace yare {
 
 ShadeTreeMaterial::ShadeTreeMaterial()
    : _first_texture_binding(5)
    , _is_transparent(false)
+   , _uses_uv(false)
 {
-
 }
 
 ShadeTreeMaterial::~ShadeTreeMaterial()
@@ -22,57 +25,34 @@ ShadeTreeMaterial::~ShadeTreeMaterial()
 
 }
 
-const char* _material_vert_shader =
-   " layout(location=1) in vec3 position; \n"
-   " layout(location=2) in vec3 normal; \n"
-   " layout(location=3) in vec2 uv; \n"
-   " out vec3 attr_normal; \n"
-   " #ifdef USE_UV \n"
-   " out vec2 attr_uv; \n"
-   " #endif \n"
-   " layout(std140, binding=3) uniform MatUniform \n"
-   " { \n"
-   "   mat4 matrix_view_local; \n"
-   "   mat3 normal_matrix_world_local; \n"
-   " }; \n"
+void ShadeTreeMaterial::render(const GLVertexSource& mesh_source)
+{   
+   bindTextures();
+   GLDevice::bindProgram(program());   
+   GLDevice::bindVertexSource(mesh_source);
 
-   " void main() \n"
-   " { \n"
-   "   gl_Position =  matrix_view_local * vec4(position, 1.0); \n"
-   "   attr_normal =  normal_matrix_world_local*normal; \n"
-   " #ifdef USE_UV \n"
-   "   attr_uv =  uv; \n"
-   " #endif \n"
-   " }\n";
+   if (isTransparent())
+   {
+      glEnable(GL_BLEND);
+      glBlendFunc(GL_SRC_COLOR, GL_SRC1_COLOR);
+      glBlendEquation(GL_FUNC_ADD);
+   }
 
-static const char* _material_frag_shader_begin =
-   "vec3 light_direction = vec3(0.0, 0.2, 1.0);\n "
-   "vec3 light_color = vec3(1.0, 1.0, 1.0);\n "
-   "in vec3 attr_normal; \n"
-   " #ifdef USE_UV \n"
-   "in vec2 attr_uv; \n"
-   " #endif \n"
-   "layout(location = 0, index = 0) out vec4 shading_result;\n"
-   "layout(location = 0, index = 1) out vec4 shading_result_transp_factor;\n";
-static const char* _material_frag_shader_middle =
-   "\n "
-   "vec3 evalDiffuseBSDF(vec3 color, vec3 normal)\n "
-   "{\n "
-   "	return max(dot(normalize(normal), light_direction),0.02) * color * light_color;\n " // boohoo an ambient
-   "}\n "
-   "\n "
-   "void sampleTexture(sampler2D tex, vec3 uvw, mat3x2 transform, out vec3 color, out float alpha)\n "
-   "{\n "
-   "	vec4 tex_sample=texture(tex, transform*vec3(uvw.xy,1.0));\n "
-   "	color=tex_sample.rgb;\n "
-   "	alpha=tex_sample.a;\n "
-   "}\n "
-   "\n "
-   " void main() \n"
-   " { \n";
-static const char* _material_frag_shader_end =
-   "\n "
-   " }\n";
+   GLDevice::draw(0, mesh_source.vertexCount());
+
+   if (isTransparent())
+   {
+      glDisable(GL_BLEND);
+   }
+}
+
+int ShadeTreeMaterial::requiredMeshFields()
+{
+   int fields = int(MeshFieldName::Position) | int(MeshFieldName::Normal);
+   if (_uses_uv)
+      fields |= int(MeshFieldName::Uv0);
+   return fields;   
+}
 
 void ShadeTreeMaterial::compile(const RenderResources& resources)
 {
@@ -105,9 +85,9 @@ void ShadeTreeMaterial::bindTextures()
 std::string ShadeTreeMaterial::_createFragmentShaderCode(const ShadeTreeEvaluation& evaluation, const std::string& fragment_template)
 {
    std::string defines;
-   if (evaluation.uv_needed)
+   _uses_uv = evaluation.uv_needed;
+   if (_uses_uv)
       defines += "#define USE_UV \n";
-   //fragment_shader += _material_frag_shader_begin;
 
    std::string texture_bindings;
    _used_textures.clear();
@@ -117,24 +97,18 @@ std::string ShadeTreeMaterial::_createFragmentShaderCode(const ShadeTreeEvaluati
       texture_bindings.append(glsl_texture.second);
    }
 
-   //fragment_shader.append(_material_frag_shader_middle);
-
    std::string nodes_shading;
    for (const std::string& glsl : evaluation.glsl_code)
       nodes_shading.append(glsl);
-
-   //fragment_shader.append(_material_frag_shader_end);
 
    return string_format(fragment_template, defines.data(), texture_bindings.data(), nodes_shading.data());
 }
 
 std::string ShadeTreeMaterial::_createVertexShaderCode(const ShadeTreeEvaluation& evaluation, const std::string& vertex_template)
 {
-   //std::string vertex_shader = "#version 450 \n";
    std::string defines;
    if (evaluation.uv_needed)
       defines += "#define USE_UV \n";
-   //vertex_shader += _material_vert_shader;
 
    return string_format(vertex_template, defines.data());
 }

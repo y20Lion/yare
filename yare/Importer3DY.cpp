@@ -25,18 +25,18 @@ void readDataBlock(const Json::Value& json_object, uint64_t* address, uint64_t* 
 	*size = datablock["Size"].asUInt64();
 }
 
-FieldName _fieldName(const std::string& field_name)
+MeshFieldName _fieldName(const std::string& field_name)
 {
     if (field_name == "position")
-        return FieldName::Position;
+        return MeshFieldName::Position;
     else if (field_name == "normal")
-        return FieldName::Normal;
+        return MeshFieldName::Normal;
     else if (field_name == "uv")
-        return FieldName::Uv0;
+        return MeshFieldName::Uv0;
     else
     {
         assert(false);
-        return FieldName::Position;
+        return MeshFieldName::Position;
     }
 }
 

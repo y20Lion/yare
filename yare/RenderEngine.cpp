@@ -1,5 +1,6 @@
-#include "RenderEngine.h"
+﻿#include "RenderEngine.h"
 
+#include <chrono>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/transform.hpp>
@@ -14,6 +15,7 @@
 #include "LatlongToCubemapConverter.h"
 #include "GLTexture.h"
 #include "glsl_binding_defines.h"
+#include "OceanMaterial.h"
 
 namespace yare {
 
@@ -39,13 +41,37 @@ const char* fragment_source =
         "   gl_FragColor =  vec4(attr_normal, 1.0); \n"
         " }\n";
 
+
+struct SurfaceDynamicUniforms
+{
+   glm::mat4 matrix_view_local;
+   glm::mat4 normal_matrix_world_local;
+   glm::mat4 matrix_world_local;
+};
+
+struct SurfaceConstantUniforms
+{
+   glm::mat4 normal_matrix_world_local;
+   glm::mat4 matrix_world_local;
+};
+
+struct SceneUniforms
+{
+   glm::mat4 matrix_view_world; 
+   glm::vec3 eye_position;
+   float time;
+};
+
+
+
 RenderEngine::RenderEngine()
    : _scene()
    , render_resources(new RenderResources())
    , latlong_to_cubemap_converter(new LatlongToCubemapConverter(*render_resources))
 {
     _draw_mesh = createProgram(vertex_source, fragment_source);  
-    _uniforms_buffer = createBuffer(256* 1500);
+    _surface_dynamic_uniforms = createBuffer(256* 1500);
+    _scene_uniforms = createBuffer(sizeof(SceneUniforms));
 }
 
 RenderEngine::~RenderEngine()
@@ -53,12 +79,7 @@ RenderEngine::~RenderEngine()
 
 }
 
-struct UniformsData
-{
-    glm::mat4 matrix_view_local;
-    glm::mat4 normal_matrix_world_local;
-    glm::mat4 matrix_world_local;
-};
+
 
 static size_t _alignSize(size_t real_size, int aligned_size)
 {
@@ -106,56 +127,108 @@ void RenderEngine::update()
 
 void RenderEngine::render()
 {
-    int uniform_buffer_align_size;
-    glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &uniform_buffer_align_size);
-    size_t element_size = _alignSize(sizeof(UniformsData), uniform_buffer_align_size);
+   int uniform_buffer_align_size;
+   glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &uniform_buffer_align_size);
+   size_t element_size = _alignSize(sizeof(SurfaceDynamicUniforms), uniform_buffer_align_size);
 
-    char* buffer = (char*)_uniforms_buffer->mapRange(0, element_size * 1500, GL_MAP_WRITE_BIT);
-    for (int i = 0; i < _scene.main_view_surface_data.size(); ++i)
-    {
-        ((UniformsData*)buffer)->matrix_view_local = _scene.main_view_surface_data[i].matrix_view_local;
-        ((UniformsData*)buffer)->normal_matrix_world_local =  _scene.main_view_surface_data[i].normal_matrix_world_local;
-        ((UniformsData*)buffer)->matrix_world_local = _scene.surfaces[i].matrix_world_local;
-        buffer += element_size;
-    }
-    _uniforms_buffer->unmap();
+   char* buffer = (char*)_surface_dynamic_uniforms->mapRange(0, element_size * 1500, GL_MAP_WRITE_BIT);
+   for (int i = 0; i < _scene.main_view_surface_data.size(); ++i)
+   {
+      ((SurfaceDynamicUniforms*)buffer)->matrix_view_local = _scene.main_view_surface_data[i].matrix_view_local;
+      ((SurfaceDynamicUniforms*)buffer)->normal_matrix_world_local = _scene.main_view_surface_data[i].normal_matrix_world_local;
+      ((SurfaceDynamicUniforms*)buffer)->matrix_world_local = _scene.surfaces[i].matrix_world_local;
+      buffer += element_size;
+   }
+   _surface_dynamic_uniforms->unmap();
 
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glEnable(GL_DEPTH_TEST);
-    glViewport(0, 0, 1024, 768);
-    GLDevice::bindTexture(BI_SKY_CUBEMAP, *_scene.sky_cubemap, *render_resources->sampler_cubemap);
+   
+   static auto start = std::chrono::steady_clock::now();
+   auto now = std::chrono::steady_clock::now();
+   float time_lapse = std::chrono::duration<float>(now - start).count();
+   
+   
+   SceneUniforms* scene_uniforms = (SceneUniforms*)_scene_uniforms->map(GL_WRITE_ONLY);
+   scene_uniforms->eye_position = _scene.camera.point_of_view.from;
+   scene_uniforms->matrix_view_world = _scene._matrix_view_world;
+   scene_uniforms->time = time_lapse;   
+   _scene_uniforms->unmap();
+
+   glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+   glEnable(GL_DEPTH_TEST);
+   glViewport(0, 0, 1024, 768);
+
+   //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+   GLDevice::bindTexture(BI_SKY_CUBEMAP, *_scene.sky_cubemap, *render_resources->sampler_cubemap);
+   glBindBufferBase(GL_UNIFORM_BUFFER, BI_SCENE_UNIFORMS, _scene_uniforms->id());
+   glPatchParameteri(GL_PATCH_VERTICES, 3);
+
+   for (int i = 0; i < _scene.main_view_surface_data.size(); ++i)
+   {
+      glBindBufferRange(GL_UNIFORM_BUFFER, BI_SURFACE_DYNAMIC_UNIFORMS,
+         _surface_dynamic_uniforms->id(), element_size * i, element_size);
+
+      const auto& render_data = _scene.main_view_surface_data[i];
+      const auto& surface = _scene.surfaces[i];
+       
+      surface.material->render(*render_data.vertex_source);
+   }
+
     
-    for (int i = 0; i < _scene.main_view_surface_data.size(); ++i)
-    {
-        const auto& render_data = _scene.main_view_surface_data[i];
-        const auto& surface = _scene.surfaces[i];
+   /*static OceanMaterial ocean_material;
+   static auto start = std::chrono::steady_clock::now();
+   auto now = std::chrono::steady_clock::now();
+   float time_lapse = std::chrono::duration<float>(now - start).count();
+    
 
-        surface.material->bindTextures();
+   glPatchParameteri(GL_PATCH_VERTICES, 3);
+
+   for (int i = 0; i < _scene.main_view_surface_data.size(); ++i)
+   {
+      const auto& render_data = _scene.main_view_surface_data[i];
+      const auto& surface = _scene.surfaces[i];
+
+
+      GLDevice::bindProgram(ocean_material.program());
+      glBindBufferRange(GL_UNIFORM_BUFFER, 3, _uniforms_buffer->id(), element_size * i, element_size);
+      glUniform3fv(BI_EYE_POSITION, 1, glm::value_ptr(_scene.camera.point_of_view.from));
+      glUniform1f(BI_TIME, time_lapse);
+      GLDevice::bindVertexSource(*render_data.vertex_source);
+       
+      //GLDevice::draw(0, render_data.vertex_source->vertexCount());
+      glDrawArrays(GL_PATCHES, 0, render_data.vertex_source->vertexCount());
+   }*/
+
+   /*for (int i = 0; i < _scene.main_view_surface_data.size(); ++i)
+   {
+      const auto& render_data = _scene.main_view_surface_data[i];
+      const auto& surface = _scene.surfaces[i];
+
+      surface.material->bindTextures();
 
            
-        GLDevice::bindProgram(surface.material->program());
-        glBindBufferRange(GL_UNIFORM_BUFFER, 3, _uniforms_buffer->id(), element_size * i, element_size);
-        glUniform3fv(BI_EYE_POSITION,1, glm::value_ptr(_scene.camera.point_of_view.from));
+      GLDevice::bindProgram(surface.material->program());
+      glBindBufferRange(GL_UNIFORM_BUFFER, 3, _uniforms_buffer->id(), element_size * i, element_size);
+      glUniform3fv(BI_EYE_POSITION,1, glm::value_ptr(_scene.camera.point_of_view.from));
 
         
-        glUniformMatrix4x3fv(12, 1, false, glm::value_ptr(_scene.surfaces[i].matrix_world_local));
-        GLDevice::bindVertexSource(*render_data.vertex_source);
+      glUniformMatrix4x3fv(12, 1, false, glm::value_ptr(_scene.surfaces[i].matrix_world_local));
+      GLDevice::bindVertexSource(*render_data.vertex_source);
         
-        if (surface.material->isTransparent())
-        {
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_SRC_COLOR, GL_SRC1_COLOR);
-            glBlendEquation(GL_FUNC_ADD);
-        }
+      if (surface.material->isTransparent())
+      {
+         glEnable(GL_BLEND);
+         glBlendFunc(GL_SRC_COLOR, GL_SRC1_COLOR);
+         glBlendEquation(GL_FUNC_ADD);
+      }
         
-        GLDevice::draw(0, render_data.vertex_source->vertexCount());
+      GLDevice::draw(0, render_data.vertex_source->vertexCount());
 
-        if (surface.material->isTransparent())
-        {
-            glDisable(GL_BLEND);
-        }
-    }
+      if (surface.material->isTransparent())
+      {
+         glDisable(GL_BLEND);
+      }
+   }*/
 }
 
 
