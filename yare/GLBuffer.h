@@ -9,9 +9,13 @@ namespace yare {
 
 struct GLBufferDesc
 {
-    std::int64_t size_bytes;
-    void* data;
-    GLbitfield flags;
+   GLBufferDesc(){}
+   GLBufferDesc(std::int64_t size_bytes, void* data, GLbitfield flags)
+      : size_bytes(size_bytes), data(data), flags(flags) {}
+   
+   std::int64_t size_bytes;
+   void* data;
+   GLbitfield flags;
 };
 
 class GLBuffer
@@ -27,12 +31,39 @@ public:
 
 	std::int64_t size() const { return _size_bytes; }
 
-private:
+protected:
     DISALLOW_COPY_AND_ASSIGN(GLBuffer)
     GLuint _buffer_id;
 	std::int64_t _size_bytes;
 };
 
+struct GLPersistentlyMappedBufferDesc
+{
+   std::int64_t window_size_bytes;
+};
+
+// I know inheritance sets always the course towards disaster, but for now it's just a bit awkwardly
+class GLPersistentlyMappedBuffer : public GLBuffer
+{
+public:
+   GLPersistentlyMappedBuffer(const GLPersistentlyMappedBufferDesc& desc);
+   virtual ~GLPersistentlyMappedBuffer();
+
+   void* getCurrentWindowPtr();
+   std::int64_t getCurrentWindowOffset();
+
+   std::int64_t windowSize() const { return _window_size; }
+   static void moveWindow() { _window_index = (_window_index + 1) % _window_count; }
+
+private:
+   char* _head_ptr;
+   std::int64_t _window_size;
+   static int _window_index;
+   static int _window_count;
+   DISALLOW_COPY_AND_ASSIGN(GLPersistentlyMappedBuffer)
+};
+
 Uptr<GLBuffer> createBuffer(std::int64_t size_bytes, void* data=nullptr);
+Uptr<GLPersistentlyMappedBuffer> createPersistentBuffer(std::int64_t size_bytes);
 
 }

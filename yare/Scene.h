@@ -20,8 +20,11 @@ struct SurfaceInstance
 {
     glm::mat4x3 matrix_world_local;    
     Sptr<RenderMesh> mesh;
-    Sptr<IMaterial> material;
+    Sptr<IMaterial> material;    
     std::map<int, Sptr<GLVertexSource>> vertex_sources;
+
+    glm::mat3 normal_matrix_world_local;    
+    Sptr<GLVertexSource> vertex_source_for_material;
 };
 
 enum class LightType { Point, Spot };
@@ -39,10 +42,13 @@ struct Light
 
 struct MainViewSurfaceData
 {
-    glm::mat4 matrix_view_local;
-    glm::mat3 normal_matrix_world_local;
-    glm::mat4x3 matrix_world_local;
-    Sptr<GLVertexSource> vertex_source;
+    glm::mat4 matrix_view_local;    
+};
+
+struct RenderData
+{
+   std::vector<MainViewSurfaceData> main_view_surface_data;
+   glm::mat4x4 matrix_view_world;
 };
 
 class Scene
@@ -52,17 +58,13 @@ public:
 
    Scene(const Scene& other) = default;
    ~Scene();
-
-
+   
    Camera camera;
    std::vector<SurfaceInstance> surfaces;
    std::vector<Light> lights;
    Uptr<GLTextureCubemap> sky_cubemap;
 
-   std::vector<MainViewSurfaceData> main_view_surface_data;
-   glm::mat4x4 _matrix_view_world;
-   std::vector<int> _sorted_opaque_surfaces;
-   std::vector<int> _sorted_transparent_surfaces;
+   RenderData render_data[2];
 };
 
 

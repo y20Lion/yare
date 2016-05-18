@@ -11,6 +11,8 @@
 #include "CameraManipulator.h"
 #include "Importer3DY.h"
 #include "GLTexture.h"
+#include "Scene.h"
+#include "Barrier.h"
 
 using namespace yare;
 
@@ -63,6 +65,11 @@ void handleInputs(GLFWwindow* window, CameraManipulator* camera_manipulator)
    previous_state = state;
 }
 
+static Barrier barrier(2);
+void engineUpdateThread(RenderEngine* render_engine);
+
+
+
 int main()
 {
    if (!glfwInit())
@@ -104,17 +111,37 @@ int main()
    render_engine.offlinePrepareScene();
 
    CameraManipulator camera_manipulator(&render_engine.scene()->camera.point_of_view);
+   
+   render_engine.updateScene(render_engine.scene()->render_data[1]);
+   
+   std::thread engine_update_thread(engineUpdateThread, &render_engine);
+   
+   int update_index = 0;
+   int render_index = 1;
    while (!glfwWindowShouldClose(window))
    {
-      handleInputs(window, &camera_manipulator);
-      render_engine.updateScene();
-      render_engine.renderScene();
-
-      glfwSwapBuffers(window);
       glfwPollEvents();
+      handleInputs(window, &camera_manipulator);   
+      render_engine.renderScene(render_engine.scene()->render_data[render_index]);
+      barrier.wait();
+      std::swap(update_index, render_index);
+
+      glfwSwapBuffers(window);      
    }
 
    glfwTerminate();
    return 0;
+}
+
+void engineUpdateThread(RenderEngine* render_engine)
+{
+   int update_index = 0;
+   int render_index = 1;
+   while (true)
+   {
+      render_engine->updateScene(render_engine->scene()->render_data[update_index]);
+      barrier.wait();
+      std::swap(update_index, render_index);
+   }
 }
 

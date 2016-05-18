@@ -29,6 +29,33 @@ void GLBuffer::unmap()
     glUnmapNamedBuffer(_buffer_id);
 }
 
+int GLPersistentlyMappedBuffer::_window_count = 4;
+int GLPersistentlyMappedBuffer::_window_index = 0;
+
+static const int _persistent_map_flags = GL_MAP_WRITE_BIT | GL_MAP_COHERENT_BIT | GL_MAP_PERSISTENT_BIT;
+
+GLPersistentlyMappedBuffer::GLPersistentlyMappedBuffer(const GLPersistentlyMappedBufferDesc& desc)
+ : GLBuffer(GLBufferDesc(desc.window_size_bytes*_window_count, nullptr, _persistent_map_flags | GL_DYNAMIC_STORAGE_BIT))
+{
+   _head_ptr = (char*)glMapNamedBufferRange(_buffer_id, 0, desc.window_size_bytes*_window_count, _persistent_map_flags);
+   _window_size = desc.window_size_bytes;
+}
+
+GLPersistentlyMappedBuffer::~GLPersistentlyMappedBuffer()
+{
+
+}
+
+void* GLPersistentlyMappedBuffer::getCurrentWindowPtr()
+{
+   return _head_ptr + (_window_index*windowSize());
+}
+
+std::int64_t GLPersistentlyMappedBuffer::getCurrentWindowOffset()
+{
+   return _window_index*windowSize();
+}
+
 Uptr<GLBuffer> createBuffer(std::int64_t size_bytes, void* data)
 {
     GLBufferDesc desc;
@@ -36,6 +63,13 @@ Uptr<GLBuffer> createBuffer(std::int64_t size_bytes, void* data)
     desc.size_bytes = size_bytes;
     desc.data = data;
     return std::make_unique<GLBuffer>(desc);
+}
+
+Uptr<GLPersistentlyMappedBuffer> createPersistentBuffer(std::int64_t size_bytes)
+{
+   GLPersistentlyMappedBufferDesc desc;
+   desc.window_size_bytes = size_bytes;
+   return std::make_unique<GLPersistentlyMappedBuffer>(desc);
 }
 
 }
