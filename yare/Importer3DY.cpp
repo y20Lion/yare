@@ -14,6 +14,7 @@
 #include "TextureImporter.h"
 #include "RenderEngine.h"
 #include "DefaultMaterial.h"
+#include "OceanMaterial.h"
 
 namespace yare {
 
@@ -125,7 +126,7 @@ void readNodeSlots(const Json::Value& json_slots, std::map<std::string, ShadeTre
 
 
 typedef std::map<std::string, Sptr<GLTexture>> TextureMap;
-typedef std::map<std::string, Sptr<ShadeTreeMaterial>> MaterialMap;
+typedef std::map<std::string, Sptr<IMaterial>> MaterialMap;
 
 void readTexImageNodeProperties(const Json::Value& json_node, const TextureMap& textures, TexImageNode* node)
 {
@@ -133,9 +134,9 @@ void readTexImageNodeProperties(const Json::Value& json_node, const TextureMap& 
     node->texture_transform = readMatrix4x3(json_node["TransformMatrix"]);
 }
 
-Uptr<ShadeTreeMaterial> readMaterial(const Json::Value& json_material, const TextureMap& textures)
-{
-    Uptr<ShadeTreeMaterial> material = std::make_unique<ShadeTreeMaterial>();
+Uptr<ShadeTreeMaterial> readMaterial(const RenderEngine& render_engine, const Json::Value& json_material, const TextureMap& textures)
+{   
+   Uptr<ShadeTreeMaterial> material = std::make_unique<ShadeTreeMaterial>();
     material->name = json_material["Name"].asString();
     for (const auto& json_node : json_material["Nodes"])
     {
@@ -150,23 +151,30 @@ Uptr<ShadeTreeMaterial> readMaterial(const Json::Value& json_material, const Tex
 
         material->tree_nodes[json_node["Name"].asString()] = std::move(node);
     }
+
+    material->compile(*render_engine.render_resources);
+    
     return material;
 }
 
 
 MaterialMap readMaterials(const RenderEngine& render_engine, const Json::Value& json_materials, const TextureMap& textures)
 {
-    MaterialMap materials;
-    for (const auto& json_material : json_materials)
-    {
-        auto material = readMaterial(json_material, textures);
-        if (material)
-        {
-            material->compile(*render_engine.render_resources);
-            materials[json_material["Name"].asString()] = std::move(material);
-        }
-    }
-    return materials;
+   MaterialMap materials;
+   for (const auto& json_material : json_materials)
+   {
+      Uptr<IMaterial> material;
+      if (json_material["Name"].asString() == "Ocean")
+         material = std::make_unique<OceanMaterial>();
+      else       
+         material = readMaterial(render_engine, json_material, textures);
+
+      if (material)
+      {
+         materials[json_material["Name"].asString()] = std::move(material);
+      }
+   }
+   return materials;
 }
 
 std::map<std::string, Sptr<GLTexture>> readTextures(const Json::Value& json_textures)

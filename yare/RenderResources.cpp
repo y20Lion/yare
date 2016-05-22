@@ -25,6 +25,7 @@ RenderResources::RenderResources()
    fullscreen_quad_source = std::make_unique<GLVertexSource>();
    fullscreen_quad_source->setVertexBuffer(*fullscreen_quad_vbo);
    fullscreen_quad_source->setVertexAttribute(0, 2, GL_FLOAT);
+   fullscreen_quad_source->setVertexCount(6);
 
    auto shade_tree_prog_desc = createProgramDescFromFile("ShadeTreeMaterial.glsl");
    shade_tree_material_vertex = std::move(shade_tree_prog_desc.shaders[0].code);

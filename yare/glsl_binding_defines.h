@@ -1,8 +1,6 @@
 #pragma once
 
 #define BI_FACE 0
-#define BI_EYE_POSITION 1
-#define BI_TIME 2
 
 // textures
 #define BI_SKY_CUBEMAP 1

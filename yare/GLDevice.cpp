@@ -47,4 +47,10 @@ void draw(int vertex_start, int vertex_count)
     glDrawArrays(GL_TRIANGLES, vertex_start, vertex_count);
 }
 
+void draw(const GLVertexSource& vertex_source)
+{
+   glBindVertexArray(vertex_source.id());
+   glDrawArrays(GL_TRIANGLES, 0, vertex_source.vertexCount());
+}
+
 }}

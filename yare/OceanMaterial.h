@@ -8,19 +8,23 @@
 #include <GL/glew.h>
 
 #include "tools.h"
+#include "IMaterial.h"
 
 namespace yare {
 
 class GLProgram;
 struct RenderResources;
 
-class OceanMaterial
+class OceanMaterial : public IMaterial
 {
 public:
    OceanMaterial();
    virtual ~OceanMaterial();
 
    const GLProgram& program() const { return *_program; }
+
+   virtual void render(const GLVertexSource& mesh_source) override;
+   virtual int requiredMeshFields() override;
 
 private:
    DISALLOW_COPY_AND_ASSIGN(OceanMaterial)

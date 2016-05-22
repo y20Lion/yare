@@ -1,34 +1,64 @@
-~~~~~~~~~~~~~~~~~~~VertexShader ~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~ VertexShader ~~~~~~~~~~~~~~~~~~~~~
 #version 450
 #include "glsl_binding_defines.h"
-layout(location = 1) in vec3 position;
-layout(location = 2) in vec3 normal;
-layout(location = 3) in vec2 uv;
+layout(location = 0) in vec3 position;
+layout(location = 1) in vec3 normal;
 
-layout(std140, binding = 3) uniform MatUniform
+layout(std140, binding = BI_SURFACE_DYNAMIC_UNIFORMS) uniform MatUniform
 {
-mat4 matrix_view_local;
-mat4 normal_matrix_world_local;
-mat4x3 matrix_world_local;
+   mat4 matrix_view_local;
+   mat4 normal_matrix_world_local;
+   mat4x3 matrix_world_local;
 };
 
 void main()
 {
    gl_Position = vec4(matrix_world_local*vec4(position, 1.0), 1.0);
+   /*vec3 pos = position;
+   pos.xyz *= 300.0;
+   //pos.z -= 1.7;
+   gl_Position = vec4(pos, 1.0);*/
 }
 ~~~~~~~~~~~~~~~~~~~ TessControlShader ~~~~~~~~~~~~~~~~~~~~~
 #version 450
-
+#include "glsl_binding_defines.h"
 layout(vertices = 3) out;
+
+layout(std140, binding = BI_SCENE_UNIFORMS) uniform SceneUniforms
+{
+   mat4 matrix_view_world;
+   vec3 eye_position;
+   float time;
+};
 
 void main(void)
 {
-   gl_TessLevelOuter[0] = 32.0;
-   gl_TessLevelOuter[1] = 32.0;
-   gl_TessLevelOuter[2] = 32.0;
-   //gl_TessLevelOuter[3] = 2.0;
+   /*vec4 projected_point[2];
+   projected_point[0] = matrix_view_world * gl_in[gl_InvocationID].gl_Position;
+   projected_point[0].xyz /= projected_point[0].w;
 
-   gl_TessLevelInner[0] = 32.0;
+   projected_point[1] = matrix_view_world * gl_in[(gl_InvocationID + 1) % 3].gl_Position;
+   projected_point[1].xyz /= projected_point[1].w;
+
+   float d = distance(projected_point[0].xy, projected_point[1].xy);
+   float pixels_per_segment = 1.0;
+   float tess_level = clamp(d*10.0, 1.0,64.0);*/
+   //tess_level = 1.0;
+
+   vec3 p0 = gl_in[gl_InvocationID].gl_Position.xyz;
+   vec3 p1 = gl_in[(gl_InvocationID +1) % 3].gl_Position.xyz;
+
+
+   vec3 midpoint = (p0+p1)*0.5;
+   float dist = distance(eye_position, midpoint);
+   //dist /= 50.0;
+   gl_TessLevelOuter[(gl_InvocationID + 2) % 3] = dist;
+   /*gl_TessLevelOuter[1] = tess_level;
+   gl_TessLevelOuter[2] = tess_level;*/
+   //gl_TessLevelOuter[3] = 2.0;
+    barrier();
+    if (gl_InvocationID == 0)
+      gl_TessLevelInner[0] = gl_TessLevelOuter[(gl_InvocationID + 2) % 3];// max(max(gl_TessLevelOuter[0], gl_TessLevelOuter[1]), gl_TessLevelOuter[2]);
    //gl_TessLevelInner[1] = 2.0;
 
    gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
@@ -37,20 +67,27 @@ void main(void)
 ~~~~~~~~~~~~~~~~~~~ TessEvaluationShader ~~~~~~~~~~~~~~~~~~~~~
 #version 450
 #include "glsl_binding_defines.h"
-#define PI 3.1415926535897932384626433832795
-layout(triangles, equal_spacing, ccw) in;
 
-layout(std140, binding = 3) uniform MatUniform
+layout(triangles, fractional_even_spacing, ccw) in;
+
+layout(std140, binding = BI_SURFACE_DYNAMIC_UNIFORMS) uniform MatUniform
 {
-mat4 matrix_view_local;
-mat4 normal_matrix_world_local;
-mat4x3 matrix_world_local;
+   mat4 matrix_view_local;
+   mat4 normal_matrix_world_local;
+   mat4x3 matrix_world_local;
 };
 
-layout(location = BI_TIME) uniform float time;
+layout(std140, binding = BI_SCENE_UNIFORMS) uniform SceneUniforms
+{
+   mat4 matrix_view_world;
+   vec3 eye_position;
+   float time;
+};
 
 out vec3 attr_position3;
-out vec3 attr_normal3;
+out vec3 flat_position;
+
+#include "common_ocean.glsl"
 
 vec3 interpolate(vec3 v0, vec3 v1, vec3 v2)
 {
@@ -62,27 +99,12 @@ vec4 interpolate(vec4 v0, vec4 v1, vec4 v2)
    return gl_TessCoord.x*v0 + gl_TessCoord.y*v1 + gl_TessCoord.z*v2;
 }
 
-vec3 evalOceanPosition(vec3 position)
-{
-   vec3 result = position;
-   float lambda = 2.0;
-   float speed = 0.3;
-   result.z = 1.5*pow(sin(2 * PI / lambda*(position.x + speed*time))+1.0,2.0);
-   result.z += 1.5*pow(sin(2 * PI / lambda*0.3*(position.y - speed*time))+1.0,2.0);
-   return result;
-}
-
 void main()
 {
-   vec3 flat_position = interpolate(gl_in[0].gl_Position.xyz, gl_in[1].gl_Position.xyz, gl_in[2].gl_Position.xyz);
-   
-   vec3 pos = evalOceanPosition(flat_position);
-   vec3 posX = evalOceanPosition(flat_position +vec3(0.001,0.0,0.0));
-   vec3 posY = evalOceanPosition(flat_position + vec3(0.0, 0.0001, 0.0));
-   attr_normal3 = normalize(cross(posX- pos, posY- pos));
-   attr_position3 = pos;
+   flat_position = interpolate(gl_in[0].gl_Position.xyz, gl_in[1].gl_Position.xyz, gl_in[2].gl_Position.xyz);   
+   attr_position3 = evalOceanPosition(flat_position);
 
-   gl_Position = matrix_view_local * vec4(attr_position3, 1.0);
+   gl_Position = matrix_view_world * vec4(attr_position3, 1.0);
 }
 
 ~~~~~~~~~~~~~~~~~~ FragmentShader ~~~~~~~~~~~~~~~~~~~~~~
@@ -92,26 +114,20 @@ void main()
 vec3 light_direction = vec3(0.0, 0.2, 1.0);
 vec3 light_color = vec3(1.0, 1.0, 1.0);
 layout(binding = BI_SKY_CUBEMAP) uniform samplerCube sky_cubemap;
-layout(location = BI_EYE_POSITION) uniform vec3 eye_position;
-layout(location = BI_TIME) uniform float time;
+
+layout(std140, binding = BI_SCENE_UNIFORMS) uniform SceneUniforms
+{
+   mat4 matrix_view_world;
+   vec3 eye_position;
+   float time;
+};
 
 in vec3 attr_position3;
-in vec3 attr_normal3;
-
-#define PI 3.1415926535897932384626433832795
+in vec3 flat_position;
 
 layout(location = 0, index = 0) out vec4 shading_result;
 
-vec3 evalOceanPosition(vec3 position)
-{
-   vec3 result = position;
-   float lambda = 2.0;
-   float speed = 0.3;
-   result.z = 1.5*pow(sin(2 * PI / lambda*(position.x + speed*time)) + 1.0, 2.0);
-   result.z += 1.5*pow(sin(2 * PI / lambda*0.3*(position.x - speed*time)) + 1.0, 2.0);
-   return result;
-}
-
+#include "common_ocean.glsl"
 
 vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
 {
@@ -133,6 +149,15 @@ void sampleTexture(sampler2D tex, vec3 uvw, mat3x2 transform, out vec3 color, ou
 
 void main()
 {
-   vec3 normal = normalize(attr_normal3);
-   shading_result =  vec4(evalGlossyBSDF(vec3(0.5), normal), 1.0);
+   vec3 pos = evalOceanPosition(flat_position);
+   vec3 posX = evalOceanPosition(flat_position + vec3(1.0, 0.0, 0.0));
+   vec3 posY = evalOceanPosition(flat_position + vec3(0.0, 1.0, 0.0));
+   vec3 normal = normalize(cross(posX - pos, posY - pos));
+   
+   vec3 specular = evalGlossyBSDF(vec3(1.0), normal);
+   vec3 eye_vector = normalize(eye_position - attr_position3);
+   float fresnel = fresnel(dot(normal, eye_vector));
+   vec3 refraction = dot(normal, eye_vector)*vec3(0.1, 0.19, 0.22)*clamp(attr_position3.z,0.7,1.0)*2.0;//vec3(0.8, 0.9, 0.6);
+   vec3 color = mix(refraction, specular, vec3(fresnel));
+   shading_result = vec4(color, 1.0);
 }

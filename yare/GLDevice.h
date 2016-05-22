@@ -26,6 +26,7 @@ namespace GLDevice
     void bindRasterState();
     // draw calls
     void draw(int vertex_start, int vertex_count);
+    void draw(const GLVertexSource& vertex_source);
 }
 
 }

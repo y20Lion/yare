@@ -16,6 +16,7 @@
 #include "GLTexture.h"
 #include "glsl_binding_defines.h"
 #include "OceanMaterial.h"
+#include "BackgroundSky.h"
 
 namespace yare {
 
@@ -43,6 +44,7 @@ RenderEngine::RenderEngine()
    : _scene()
    , render_resources(new RenderResources())
    , latlong_to_cubemap_converter(new LatlongToCubemapConverter(*render_resources))
+   , background_sky(new BackgroundSky(*render_resources))
 {    
     
 }
@@ -85,7 +87,7 @@ void RenderEngine::offlinePrepareScene()
    _scene_uniforms_size = _alignSize(sizeof(SceneUniforms), uniform_buffer_align_size);
    //_surface_constant_uniforms_size = _alignSize(sizeof(SurfaceConstantUniforms), uniform_buffer_align_size);
 
-   int surface_count = _scene.surfaces.size();
+   int surface_count = int(_scene.surfaces.size());
    _surface_dynamic_uniforms = createPersistentBuffer(_surface_dynamic_uniforms_size * surface_count);
    _scene_uniforms = createPersistentBuffer(_scene_uniforms_size);
 
@@ -108,7 +110,7 @@ void RenderEngine::offlinePrepareScene()
 void RenderEngine::updateScene(RenderData& render_data)
 {
    auto mat = glm::lookAt(_scene.camera.point_of_view.from, _scene.camera.point_of_view.to, _scene.camera.point_of_view.up);
-   render_data.matrix_view_world = glm::perspective(3.14f / 2.0f, 1.0f, 0.05f, 100.0f) * mat;
+   render_data.matrix_view_world = glm::perspective(3.14f / 2.0f, 1.0f, 0.05f, 1000.0f) * mat;
    /** glm::frustum(camera.frustum.left, camera.frustum.right,
    camera.frustum.bottom, camera.frustum.top,
    camera.frustum.near, camera.frustum.far);*/
@@ -142,12 +144,23 @@ void RenderEngine::renderScene(const RenderData& render_data)
 {
    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+   _renderSurfaces(render_data);
+   background_sky->render();
+   
+   GLPersistentlyMappedBuffer::moveWindow();    
+}
+
+void RenderEngine::_renderSurfaces(const RenderData& render_data)
+{
    glEnable(GL_DEPTH_TEST);
+   glDepthFunc(GL_LEQUAL);
+
    glViewport(0, 0, 1024, 768);
 
    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
    GLDevice::bindTexture(BI_SKY_CUBEMAP, *_scene.sky_cubemap, *render_resources->sampler_cubemap);
-   glBindBufferRange(GL_UNIFORM_BUFFER, BI_SCENE_UNIFORMS,  _scene_uniforms->id(),
+   glBindBufferRange(GL_UNIFORM_BUFFER, BI_SCENE_UNIFORMS, _scene_uniforms->id(),
       _scene_uniforms->getCurrentWindowOffset(), _scene_uniforms->windowSize());
    glPatchParameteri(GL_PATCH_VERTICES, 3);
 
@@ -160,37 +173,11 @@ void RenderEngine::renderScene(const RenderData& render_data)
 
       const auto& surface_data = render_data.main_view_surface_data[i];
       const auto& surface = _scene.surfaces[i];
-       
+
       surface.material->render(*surface.vertex_source_for_material);
    }
-
-   GLPersistentlyMappedBuffer::moveWindow();
-   
-    
-   /*static OceanMaterial ocean_material;
-   static auto start = std::chrono::steady_clock::now();
-   auto now = std::chrono::steady_clock::now();
-   float time_lapse = std::chrono::duration<float>(now - start).count();
-    
-
-   glPatchParameteri(GL_PATCH_VERTICES, 3);
-
-   for (int i = 0; i < _scene.main_view_surface_data.size(); ++i)
-   {
-      const auto& render_data = _scene.main_view_surface_data[i];
-      const auto& surface = _scene.surfaces[i];
-
-
-      GLDevice::bindProgram(ocean_material.program());
-      glBindBufferRange(GL_UNIFORM_BUFFER, 3, _uniforms_buffer->id(), element_size * i, element_size);
-      glUniform3fv(BI_EYE_POSITION, 1, glm::value_ptr(_scene.camera.point_of_view.from));
-      glUniform1f(BI_TIME, time_lapse);
-      GLDevice::bindVertexSource(*render_data.vertex_source);
-       
-      //GLDevice::draw(0, render_data.vertex_source->vertexCount());
-      glDrawArrays(GL_PATCHES, 0, render_data.vertex_source->vertexCount());
-   }*/
 }
+
 
 
 } // namespace yare

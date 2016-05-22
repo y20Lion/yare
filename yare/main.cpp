@@ -5,6 +5,7 @@
 
 #include <assert.h>
 #include <iostream>
+#include <atomic>
 
 #include "GLBuffer.h"
 #include "RenderEngine.h"
@@ -66,6 +67,7 @@ void handleInputs(GLFWwindow* window, CameraManipulator* camera_manipulator)
 }
 
 static Barrier barrier(2);
+std::atomic<bool> exit_program = false;
 void engineUpdateThread(RenderEngine* render_engine);
 
 
@@ -105,8 +107,8 @@ int main()
    glDisable(GL_DEPTH_TEST);
 
    RenderEngine render_engine;
-   //char* file = "D:\\BlenderTests\\testNodeGraph.3dy";
-   char* file = "D:\\BlenderTests\\town.3dy";
+   char* file = "D:\\BlenderTests\\testNodeGraph.3dy";
+   //char* file = "D:\\BlenderTests\\town.3dy";
    import3DY(file, render_engine, render_engine.scene());
    render_engine.offlinePrepareScene();
 
@@ -118,11 +120,12 @@ int main()
    
    int update_index = 0;
    int render_index = 1;
-   while (!glfwWindowShouldClose(window))
+   while (!exit_program)
    {
       glfwPollEvents();
       handleInputs(window, &camera_manipulator);   
       render_engine.renderScene(render_engine.scene()->render_data[render_index]);
+      exit_program = bool(glfwWindowShouldClose(window));
       barrier.wait();
       std::swap(update_index, render_index);
 
@@ -130,6 +133,7 @@ int main()
    }
 
    glfwTerminate();
+   engine_update_thread.join();
    return 0;
 }
 
@@ -137,7 +141,7 @@ void engineUpdateThread(RenderEngine* render_engine)
 {
    int update_index = 0;
    int render_index = 1;
-   while (true)
+   while (!exit_program)
    {
       render_engine->updateScene(render_engine->scene()->render_data[update_index]);
       barrier.wait();
