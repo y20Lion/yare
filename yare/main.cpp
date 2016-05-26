@@ -14,14 +14,18 @@
 #include "GLTexture.h"
 #include "Scene.h"
 #include "Barrier.h"
+#include "ImageSize.h"
 
 using namespace yare;
 
 void __stdcall printGLDebugMessage(GLenum source, GLenum type, GLuint id, GLenum severity,
    GLsizei length, const GLchar* message, const void* userparam)
 {
-   //std::cout << message << std::endl;
-   assert(severity != GL_DEBUG_SEVERITY_HIGH);
+   if (severity == GL_DEBUG_SEVERITY_HIGH)
+   {
+      std::cout << message << std::endl;
+      assert(false);
+   }
 }
 
 bool initGlewWithDummyWindow()
@@ -86,8 +90,8 @@ int main()
       return -1;
    }
 
-   glfwWindowHint(GLFW_SAMPLES, 4);
-   glfwWindowHint(GLFW_DEPTH_BITS, 24);
+   glfwWindowHint(GLFW_SAMPLES, 1); // TODO yvain remove
+   glfwWindowHint(GLFW_DEPTH_BITS, 0);
    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
    glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
@@ -106,7 +110,7 @@ int main()
    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
    glDisable(GL_DEPTH_TEST);
 
-   RenderEngine render_engine;
+   RenderEngine render_engine(ImageSize(1024, 768));
    char* file = "D:\\BlenderTests\\testNodeGraph.3dy";
    //char* file = "D:\\BlenderTests\\town.3dy";
    import3DY(file, render_engine, render_engine.scene());

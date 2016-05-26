@@ -35,15 +35,17 @@ struct GLTexture2DDesc
 class GLTexture2D : public GLTexture
 {
 public:
-    GLTexture2D(const GLTexture2DDesc& desc);
-    virtual ~GLTexture2D();
+   GLTexture2D(const GLTexture2DDesc& desc);
+   virtual ~GLTexture2D();
 
-    int width() const override { return _width;  }
-    int height() const override { return _height;  }
+   int width() const override { return _width;  }
+   int height() const override { return _height;  }
+   GLenum internalFormat() const { return _internal_format;  }
 
 private:
-    int _width, _height;
-    DISALLOW_COPY_AND_ASSIGN(GLTexture2D)
+   GLenum _internal_format;
+   int _width, _height;
+   DISALLOW_COPY_AND_ASSIGN(GLTexture2D)
 };
 
 struct GLTextureCubemapDesc
@@ -68,6 +70,7 @@ private:
 };
 
 Uptr<GLTexture2D> createMipmappedTexture2D(int width, int height, GLenum internal_format, void* pixels, bool pixels_in_bgr=false);
+Uptr<GLTexture2D> createTexture2D(int width, int height, GLenum internal_format);
 Uptr<GLTextureCubemap> createMipmappedTextureCubemap(int width, GLenum internal_format);
 
 }

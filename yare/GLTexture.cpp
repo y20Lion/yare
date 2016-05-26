@@ -64,8 +64,9 @@ void GLTexture::buildMipmaps()
 }
 
 GLTexture2D::GLTexture2D(const GLTexture2DDesc& desc)
-    : _height(desc.height)
-    , _width(desc.width)
+   : _height(desc.height)
+   , _width(desc.width)
+   , _internal_format(desc.internal_format)
 {
     int levels = desc.mipmapped ? _mipmapLevelCount(desc.width, desc.height) : 1;
 
@@ -113,6 +114,19 @@ Uptr<GLTexture2D> createMipmappedTexture2D(int width, int height, GLenum interna
     return std::make_unique<GLTexture2D>(desc);
 }
 
+Uptr<GLTexture2D> createTexture2D(int width, int height, GLenum internal_format)
+{
+   GLTexture2DDesc desc;
+   desc.mipmapped = false;
+   desc.width = width;
+   desc.height = height;
+   desc.internal_format = internal_format;
+   desc.texture_pixels = nullptr;
+   desc.texture_pixels_in_bgr = false;
+
+   return std::make_unique<GLTexture2D>(desc);
+}
+
 
 GLTextureCubemap::GLTextureCubemap(const GLTextureCubemapDesc& desc)
    : _width(desc.width)
@@ -120,7 +134,7 @@ GLTextureCubemap::GLTextureCubemap(const GLTextureCubemapDesc& desc)
    int levels = desc.mipmapped ? _mipmapLevelCount(desc.width, desc.width) : 1;
    glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &_texture_id);
    glTextureStorage2D(_texture_id, levels, desc.internal_format, desc.width, desc.width);
-      
+   
    if (desc.mipmapped)
    {
       glTextureParameteri(_texture_id, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);

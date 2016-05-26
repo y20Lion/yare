@@ -157,7 +157,7 @@ void main()
    vec3 specular = evalGlossyBSDF(vec3(1.0), normal);
    vec3 eye_vector = normalize(eye_position - attr_position3);
    float fresnel = fresnel(dot(normal, eye_vector));
-   vec3 refraction = dot(normal, eye_vector)*vec3(0.1, 0.19, 0.22)*clamp(attr_position3.z,0.7,1.0)*2.0;//vec3(0.8, 0.9, 0.6);
+   vec3 refraction = dot(normal, eye_vector)*vec3(0.01, 0.036, 0.0484)*clamp(attr_position3.z,0.7,1.0)*2.0;//vec3(0.8, 0.9, 0.6);
    vec3 color = mix(refraction, specular, vec3(fresnel));
    shading_result = vec4(color, 1.0);
 }

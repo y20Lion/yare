@@ -11,11 +11,13 @@ struct RenderResources;
 class GLPersistentlyMappedBuffer;
 class GLBuffer;
 class BackgroundSky;
+struct ImageSize;
+class FilmProcessor;
 
 class RenderEngine
 {
 public:
-   RenderEngine();
+   RenderEngine(const ImageSize& framebuffer_size);
    ~RenderEngine();
 
    void offlinePrepareScene();
@@ -28,6 +30,7 @@ public:
    Uptr<RenderResources> render_resources;
    Uptr<LatlongToCubemapConverter> latlong_to_cubemap_converter;   
    Uptr<BackgroundSky> background_sky;
+   Uptr<FilmProcessor> film_processor;
    
 private:
    void _renderSurfaces(const RenderData& render_data);

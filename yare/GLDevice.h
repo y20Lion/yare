@@ -1,5 +1,7 @@
 #pragma once
 
+#include <GL/glew.h>
+
 namespace yare { 
 
 class GLBuffer;
@@ -9,6 +11,7 @@ class GLVertexSource;
 class GLFramebuffer;
 class GLSampler;
 class GLTexture;
+class GLTexture2D;
 
 namespace GLDevice 
 {
@@ -22,6 +25,7 @@ namespace GLDevice
     void bindProgram(const GLProgram& program);
     void bindVertexSource(const GLVertexSource& vertex_source);
     void bindTexture(int texture_unit, const GLTexture& texture, const GLSampler& sampler);
+    void bindImage(int image_unit, const GLTexture2D& texture, GLenum access);
     void bindBlendingState();
     void bindRasterState();
     // draw calls

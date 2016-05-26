@@ -42,6 +42,11 @@ void bindTexture(int texture_unit, const GLTexture& texture, const GLSampler& sa
    glBindSamplers(texture_unit, 1, &sampler_id);
 }
 
+void bindImage(int image_unit, const GLTexture2D& texture, GLenum access)
+{
+   glBindImageTexture(image_unit, texture.id(), 0, false, 0, access, texture.internalFormat());
+}
+
 void draw(int vertex_start, int vertex_count)
 {    
     glDrawArrays(GL_TRIANGLES, vertex_start, vertex_count);

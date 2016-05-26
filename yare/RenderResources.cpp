@@ -4,13 +4,17 @@
 #include "GLBuffer.h"
 #include "GLProgram.h"
 #include "GLSampler.h"
+#include "GLFramebuffer.h"
 
 namespace yare {
 
 static float quad_vertices[] = { 1.0f,1.0f,   -1.0f,1.0f,   1.0f,-1.0f,  -1.0f,1.0f,   -1.0f,-1.0f,  1.0f,-1.0f };
 
-RenderResources::RenderResources()
+RenderResources::RenderResources(const ImageSize& framebuffer_size_)
 {
+   framebuffer_size = framebuffer_size_;
+   main_framebuffer = createFramebuffer(framebuffer_size, GL_RGBA32F, GL_DEPTH_COMPONENT32F);
+   
    GLSamplerDesc sampler_desc;
    sampler_desc.min_filter = GL_LINEAR_MIPMAP_LINEAR;
    sampler_desc.mag_filter = GL_LINEAR;

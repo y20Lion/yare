@@ -25,10 +25,11 @@ LatlongToCubemapConverter::LatlongToCubemapConverter(const RenderResources& rend
 
 Uptr<GLTextureCubemap> LatlongToCubemapConverter::convert(const GLTexture2D& latlong_texture) const
 {
-   Uptr<GLTextureCubemap> cubemap = createMipmappedTextureCubemap(latlong_texture.height(), GL_RGB16F);
- 
+   Uptr<GLTextureCubemap> cubemap = createMipmappedTextureCubemap(latlong_texture.height(), GL_RGB16F); 
+   Sptr<GLTextureCubemap> cubemap_without_deleter(cubemap.get(), [](GLTextureCubemap*){});
+
    GLFramebufferDesc desc;
-   desc.attachments.push_back(GLGLFramebufferAttachmentDesc{ cubemap.get(), GL_COLOR_ATTACHMENT0, 0 });
+   desc.attachments.push_back(GLGLFramebufferAttachmentDesc{ cubemap_without_deleter, GL_COLOR_ATTACHMENT0, 0 });
    GLFramebuffer render_to_cubemap(desc);
    
    GLDevice::bindProgram(*_render_cubemap_face_prog);

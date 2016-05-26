@@ -17,6 +17,9 @@
 #include "glsl_binding_defines.h"
 #include "OceanMaterial.h"
 #include "BackgroundSky.h"
+#include "GLFramebuffer.h"
+#include "FilmProcessor.h"
+#include "GLGPUTimer.h"
 
 namespace yare {
 
@@ -38,13 +41,15 @@ struct SceneUniforms
    glm::mat4 matrix_view_world; 
    glm::vec3 eye_position;
    float time;
+   float delta_time;
 };
 
-RenderEngine::RenderEngine()
+RenderEngine::RenderEngine(const ImageSize& framebuffer_size)
    : _scene()
-   , render_resources(new RenderResources())
+   , render_resources(new RenderResources(framebuffer_size))
    , latlong_to_cubemap_converter(new LatlongToCubemapConverter(*render_resources))
    , background_sky(new BackgroundSky(*render_resources))
+   , film_processor(new FilmProcessor(*render_resources))
 {    
     
 }
@@ -129,6 +134,7 @@ void RenderEngine::updateScene(RenderData& render_data)
       buffer += _surface_dynamic_uniforms_size;
    }
 
+   static float last_update_time = 0.0;
    static auto start = std::chrono::steady_clock::now();
    auto now = std::chrono::steady_clock::now();
    float time_lapse = std::chrono::duration<float>(now - start).count();
@@ -138,17 +144,33 @@ void RenderEngine::updateScene(RenderData& render_data)
    scene_uniforms->eye_position = _scene.camera.point_of_view.from;
    scene_uniforms->matrix_view_world = render_data.matrix_view_world;
    scene_uniforms->time = time_lapse;
+   scene_uniforms->delta_time = time_lapse - last_update_time;
+
+   last_update_time = time_lapse;
+
 }
 
 void RenderEngine::renderScene(const RenderData& render_data)
 {
-   glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+   GLDevice::bindFramebuffer(render_resources->main_framebuffer.get(), 0);
+   {
+      glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-   _renderSurfaces(render_data);
-   background_sky->render();
+      _renderSurfaces(render_data);
+      background_sky->render();
+   }
+   
+   /*glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);*/
+
+   GLDevice::bindFramebuffer(default_framebuffer, 0);
+   {
+      film_processor->developFilm();
+   }   
    
    GLPersistentlyMappedBuffer::moveWindow();    
+   GLGPUTimer::swapCounters();
 }
 
 void RenderEngine::_renderSurfaces(const RenderData& render_data)
