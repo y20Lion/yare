@@ -11,7 +11,7 @@
 #include "GLFramebuffer.h"
 #include "glsl_binding_defines.h"
 #include "GLTexture.h"
-#include "LatlongToCubemapConverter.h"
+#include "CubemapConverter.h"
 
 namespace yare { namespace TextureImporter {
 
@@ -41,10 +41,10 @@ Uptr<GLTexture2D> importTextureFromFile(const char* filename, bool float_pixels)
 
 float quad_vertices[] = {1.0f,1.0f,   -1.0f,1.0f,   1.0f,-1.0f,  -1.0f,1.0f,   -1.0f,-1.0f,  1.0f,-1.0f};
 
-Uptr<GLTextureCubemap> TextureImporter::importCubemapFromFile(const char* filename, const LatlongToCubemapConverter& latlong_converter)
+Uptr<GLTextureCubemap> TextureImporter::importCubemapFromFile(const char* filename, const CubemapConverter& cubemap_converter)
 {
    Uptr<GLTexture2D> latlong_texture = importTextureFromFile(filename, true);
-   return latlong_converter.convert(*latlong_texture);
+   return cubemap_converter.createCubemapFromLatlong(*latlong_texture);
 }
 
 }}

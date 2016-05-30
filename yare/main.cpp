@@ -97,7 +97,7 @@ int main()
    glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
-   GLFWwindow* window = glfwCreateWindow(1024, 768, "MyWindow", NULL, NULL);
+   GLFWwindow* window = glfwCreateWindow(1500, 1000, "MyWindow", NULL, NULL);
 
    glfwMakeContextCurrent(window);
    glfwSwapInterval(1);
@@ -110,7 +110,7 @@ int main()
    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
    glDisable(GL_DEPTH_TEST);
 
-   RenderEngine render_engine(ImageSize(1024, 768));
+   RenderEngine render_engine(ImageSize(1500, 1000));
    char* file = "D:\\BlenderTests\\testNodeGraph.3dy";
    //char* file = "D:\\BlenderTests\\town.3dy";
    import3DY(file, render_engine, render_engine.scene());
@@ -118,9 +118,9 @@ int main()
 
    CameraManipulator camera_manipulator(&render_engine.scene()->camera.point_of_view);
    
-   render_engine.updateScene(render_engine.scene()->render_data[1]);
+   //render_engine.updateScene(render_engine.scene()->render_data[1]);
    
-   std::thread engine_update_thread(engineUpdateThread, &render_engine);
+   //std::thread engine_update_thread(engineUpdateThread, &render_engine);
    
    int update_index = 0;
    int render_index = 1;
@@ -128,16 +128,18 @@ int main()
    {
       glfwPollEvents();
       handleInputs(window, &camera_manipulator);   
+      
+      render_engine.updateScene(render_engine.scene()->render_data[render_index]);
       render_engine.renderScene(render_engine.scene()->render_data[render_index]);
       exit_program = bool(glfwWindowShouldClose(window));
-      barrier.wait();
+      //barrier.wait();
       std::swap(update_index, render_index);
 
       glfwSwapBuffers(window);      
    }
 
    glfwTerminate();
-   engine_update_thread.join();
+   //engine_update_thread.join();
    return 0;
 }
 

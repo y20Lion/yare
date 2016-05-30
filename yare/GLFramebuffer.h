@@ -32,6 +32,7 @@ public:
    int width() const { return _width; }
    int height() const { return _height; }
 
+   void setDrawColorBuffer(int color_attachment);
    GLTexture& attachedTexture(GLenum attachment_type) const;
 
 private:
@@ -44,7 +45,7 @@ private:
 
 static GLFramebuffer* default_framebuffer = nullptr;
 
-Uptr<GLFramebuffer> createFramebuffer(const ImageSize& size, GLenum color_format, GLenum depth_format);
+Uptr<GLFramebuffer> createFramebuffer(const ImageSize& size, GLenum color_format, int color_attachments_count, GLenum depth_format = GL_NONE);
 void blitColor(const GLFramebuffer& source, int src_attachment, const GLFramebuffer* destination, int dst_attachment);
 
 }

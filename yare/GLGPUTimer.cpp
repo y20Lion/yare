@@ -1,5 +1,6 @@
 #include "GLGPUTimer.h"
 
+#include <iostream>
 
 namespace yare {
 
@@ -27,30 +28,43 @@ GLGPUTimer::~GLGPUTimer()
 void GLGPUTimer::start()
 {
    glQueryCounter(_query_start[_used_query_index], GL_TIMESTAMP);
-   
-   //glBeginQuery(GL_TIME_ELAPSED, _query_id[_used_query_index]);
 }
 
 void GLGPUTimer::stop()
 {
    glQueryCounter(_query_stop[_used_query_index], GL_TIMESTAMP);
-   //glEndQuery(GL_TIME_ELAPSED);
 }
 
-double GLGPUTimer::elapsedTimeInMs() const
+double GLGPUTimer::elapsedTimeInMs(TimerResult timer_result) const
 {
    GLuint64 start, stop;
-   int index = (_used_query_index - QUERY_COUNT-1);
-   if (index < 0)
-      index = QUERY_COUNT-1;
-   glGetQueryObjectui64v(_query_start[index], GL_QUERY_RESULT_NO_WAIT, &start);
-   glGetQueryObjectui64v(_query_stop[index], GL_QUERY_RESULT_NO_WAIT, &stop);
-   return (stop-start);
+   int index;
+   if (timer_result == TimerResult::CurrentFrame)
+   {
+      index = _used_query_index;
+   }
+   else
+   {
+      index = (_used_query_index - QUERY_COUNT - 1);
+      if (index < 0)
+         index = QUERY_COUNT - 1;
+   }
+   
+   glGetQueryObjectui64v(_query_start[index], GL_QUERY_RESULT, &start);
+   glGetQueryObjectui64v(_query_stop[index], GL_QUERY_RESULT, &stop);
+   return (stop-start)/1000000.0;
+}
+
+void GLGPUTimer::printElapsedTimeInMs(TimerResult timer_result) const
+{
+   std::cout << elapsedTimeInMs(timer_result) << std::endl;
 }
 
 void GLGPUTimer::swapCounters()
 { 
    _used_query_index = (_used_query_index + 1) % QUERY_COUNT;
 }
+
+
 
 }

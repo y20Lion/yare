@@ -11,6 +11,7 @@ class GLBuffer;
 class GLVertexSource;
 class GLSampler;
 class GLFramebuffer;
+class GLGPUTimer;
 
 struct RenderResources
 {
@@ -19,9 +20,17 @@ struct RenderResources
 
    ImageSize framebuffer_size;
    Uptr<GLFramebuffer> main_framebuffer;
-   Uptr<GLSampler> sampler_cubemap;
-   Uptr<GLBuffer> fullscreen_quad_vbo;
-   Uptr<GLVertexSource> fullscreen_quad_source;
+   Uptr<GLFramebuffer> halfsize_postprocess_fbo;
+
+   Uptr<GLSampler> sampler_mipmap_clampToEdge;
+   Uptr<GLSampler> sampler_bilinear_clampToEdge;
+   Uptr<GLSampler> sampler_nearest_clampToEdge;
+
+   Uptr<GLBuffer> fullscreen_triangle_vbo;
+   Uptr<GLVertexSource> fullscreen_triangle_source;
+
+   Uptr<GLGPUTimer> timer;
+
    std::string shade_tree_material_fragment;
    std::string shade_tree_material_vertex;
 private:

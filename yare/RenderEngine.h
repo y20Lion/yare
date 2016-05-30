@@ -6,13 +6,13 @@
 
 namespace yare {
 
-class LatlongToCubemapConverter;
+class CubemapConverter;
 struct RenderResources;
 class GLPersistentlyMappedBuffer;
 class GLBuffer;
 class BackgroundSky;
 struct ImageSize;
-class FilmProcessor;
+class FilmPostProcessor;
 
 class RenderEngine
 {
@@ -28,9 +28,9 @@ public:
    glm::vec3 pickPosition(int x, int y);
 
    Uptr<RenderResources> render_resources;
-   Uptr<LatlongToCubemapConverter> latlong_to_cubemap_converter;   
+   Uptr<CubemapConverter> cubemap_converter;
    Uptr<BackgroundSky> background_sky;
-   Uptr<FilmProcessor> film_processor;
+   Uptr<FilmPostProcessor> film_processor;
    
 private:
    void _renderSurfaces(const RenderData& render_data);

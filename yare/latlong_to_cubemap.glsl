@@ -13,7 +13,7 @@ void main()
 
 ~~~~~~~~~~~~~~~~~ FragmentShader ~~~~~~~~~~~~~~~~~~~~~~
 #version 450
-#include "glsl_binding_defines.h"
+#include "glsl_cubemap_converter_defines.h"
 #define PI 3.1415926535897932384626433832795
 
 layout(binding=BI_LATLONG_TEXTURE) uniform sampler2D latlong_texture;
@@ -40,5 +40,5 @@ void main()
 {
    vec3 dir = normalize(faceToDirection(face, uv));
    vec2 latlong_coord = vec2(atan(dir.y, dir.x), acos(dir.z)) / vec2(2.0*PI, PI);
-   out_face_color = texture(latlong_texture, vec2(latlong_coord.x, 1.0-latlong_coord.y));
+   out_face_color = pow(texture(latlong_texture, vec2(latlong_coord.x, 1.0-latlong_coord.y)), vec4(1.3)); //todo yvain fixme
 }

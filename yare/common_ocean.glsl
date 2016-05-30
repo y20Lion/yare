@@ -21,7 +21,7 @@ float noise(in vec2 p)
 float waveFunction(vec2 uv, float crest) 
 {
    uv += noise(uv);   
-   vec2 wv = 1.0 - sin(uv);   
+   vec2 wv = 1.0 - abs(sin(uv));   
    return  pow(wv.x*wv.y, crest);   
 }
 
@@ -45,27 +45,27 @@ float fresnel(float cos_incident_angle)
 
 vec3 evalOceanPosition(vec3 position)
 {
-   float sea_wavelength = 10.0;
-   float speed = 0.5;
+   float sea_wavelength = 100.0;
+   float speed = 2.0;
    float freq = 2 * PI / sea_wavelength;
-   float amplitude = 0.3;
+   float amplitude = 2.0;
    float crest = 0.75;
-   vec2 uv = position.xy; uv.x *= 0.4;
+   vec2 uv = position.xy; uv.x *= 0.6;
 
    float height = 0.0;
    for (int i = 0; i < ITER_GEOMETRY; i++) 
    {
       float d = waveFunction((uv + speed*time)*freq, crest);
-      d += waveFunction((uv - speed*time)*freq, crest);
+      d += waveFunction((uv+0.3*uv - speed*time)*freq, crest);
       height += d* amplitude;;
 
       uv *= octave_matrix;
-      freq *= 1.5;
+      freq *= 2.0;
       amplitude *= 0.15;
-      crest = mix(crest, 1.0, 0.2);
+      //crest = mix(crest, 1.0, 0.2);
    }
    
-   position.z += height;
+   position.z += height*2.5;
    return position;
 }
 

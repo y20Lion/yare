@@ -24,7 +24,7 @@ void BackgroundSky::render()
    glDepthFunc(GL_LEQUAL);   
    
    GLDevice::bindProgram(*_program);   
-   GLDevice::draw(*_render_resources.fullscreen_quad_source);
+   GLDevice::draw(*_render_resources.fullscreen_triangle_source);
 }
 
 }

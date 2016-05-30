@@ -12,13 +12,13 @@
 #include "ShadeTreeMaterial.h"
 #include "RenderMesh.h"
 #include "RenderResources.h"
-#include "LatlongToCubemapConverter.h"
+#include "CubemapConverter.h"
 #include "GLTexture.h"
 #include "glsl_binding_defines.h"
 #include "OceanMaterial.h"
 #include "BackgroundSky.h"
 #include "GLFramebuffer.h"
-#include "FilmProcessor.h"
+#include "FilmPostProcessor.h"
 #include "GLGPUTimer.h"
 
 namespace yare {
@@ -41,15 +41,21 @@ struct SceneUniforms
    glm::mat4 matrix_view_world; 
    glm::vec3 eye_position;
    float time;
+
    float delta_time;
+   float znear;
+   float zfar;
+   float proj_coeff_11;
+   float tessellation_edges_per_screen_height;
+
 };
 
 RenderEngine::RenderEngine(const ImageSize& framebuffer_size)
    : _scene()
    , render_resources(new RenderResources(framebuffer_size))
-   , latlong_to_cubemap_converter(new LatlongToCubemapConverter(*render_resources))
+   , cubemap_converter(new CubemapConverter(*render_resources))
    , background_sky(new BackgroundSky(*render_resources))
-   , film_processor(new FilmProcessor(*render_resources))
+   , film_processor(new FilmPostProcessor(*render_resources))
 {    
     
 }
@@ -114,8 +120,12 @@ void RenderEngine::offlinePrepareScene()
 
 void RenderEngine::updateScene(RenderData& render_data)
 {
+   const float znear = 0.05f;
+   const float zfar = 1000.0f;
+   
    auto mat = glm::lookAt(_scene.camera.point_of_view.from, _scene.camera.point_of_view.to, _scene.camera.point_of_view.up);
-   render_data.matrix_view_world = glm::perspective(3.14f / 2.0f, 1.0f, 0.05f, 1000.0f) * mat;
+   auto  matrix_projection = glm::perspective(3.14f / 2.0f, 1.0f, znear, zfar);
+   render_data.matrix_view_world = matrix_projection * mat;
    /** glm::frustum(camera.frustum.left, camera.frustum.right,
    camera.frustum.bottom, camera.frustum.top,
    camera.frustum.near, camera.frustum.far);*/
@@ -145,6 +155,11 @@ void RenderEngine::updateScene(RenderData& render_data)
    scene_uniforms->matrix_view_world = render_data.matrix_view_world;
    scene_uniforms->time = time_lapse;
    scene_uniforms->delta_time = time_lapse - last_update_time;
+   scene_uniforms->znear = znear;
+   scene_uniforms->zfar = zfar;
+   scene_uniforms->proj_coeff_11 = matrix_projection[1][1];
+   float tessellation_pixels_per_edge = 30.0;
+   scene_uniforms->tessellation_edges_per_screen_height = render_resources->framebuffer_size.height/ tessellation_pixels_per_edge;
 
    last_update_time = time_lapse;
 
@@ -153,22 +168,22 @@ void RenderEngine::updateScene(RenderData& render_data)
 void RenderEngine::renderScene(const RenderData& render_data)
 {
    GLDevice::bindFramebuffer(render_resources->main_framebuffer.get(), 0);
+   //GLDevice::bindFramebuffer(default_framebuffer, 0);
    {
       glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
+      glViewport(0, 0, render_resources->main_framebuffer->width(), render_resources->main_framebuffer->height());
+      //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
       _renderSurfaces(render_data);
       background_sky->render();
+      //glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
    }
    
    /*glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);*/
 
-   GLDevice::bindFramebuffer(default_framebuffer, 0);
-   {
-      film_processor->developFilm();
-   }   
-   
+   film_processor->developFilm();
+ 
    GLPersistentlyMappedBuffer::moveWindow();    
    GLGPUTimer::swapCounters();
 }
@@ -178,10 +193,8 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
    glEnable(GL_DEPTH_TEST);
    glDepthFunc(GL_LEQUAL);
 
-   glViewport(0, 0, 1024, 768);
-
-   //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-   GLDevice::bindTexture(BI_SKY_CUBEMAP, *_scene.sky_cubemap, *render_resources->sampler_cubemap);
+   GLDevice::bindTexture(BI_SKY_CUBEMAP, *_scene.sky_cubemap, *render_resources->sampler_mipmap_clampToEdge);
+   GLDevice::bindTexture(BI_SKY_DIFFUSE_CUBEMAP, *_scene.sky_diffuse_cubemap, *render_resources->sampler_mipmap_clampToEdge);
    glBindBufferRange(GL_UNIFORM_BUFFER, BI_SCENE_UNIFORMS, _scene_uniforms->id(),
       _scene_uniforms->getCurrentWindowOffset(), _scene_uniforms->windowSize());
    glPatchParameteri(GL_PATCH_VERTICES, 3);

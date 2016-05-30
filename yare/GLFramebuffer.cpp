@@ -34,6 +34,10 @@ GLFramebuffer::~GLFramebuffer()
    glDeleteFramebuffers(1, &_framebuffer_id);
 }
 
+void GLFramebuffer::setDrawColorBuffer(int color_attachment)
+{
+   glNamedFramebufferDrawBuffer(id(), GL_COLOR_ATTACHMENT0 + color_attachment);
+}
 
 GLTexture& GLFramebuffer::attachedTexture(GLenum attachment_type) const
 {
@@ -52,14 +56,20 @@ void blitColor(const GLFramebuffer& source, int src_attachment, const GLFramebuf
 }
 
 
-Uptr<GLFramebuffer> createFramebuffer(const ImageSize& size, GLenum color_format, GLenum depth_format)
+Uptr<GLFramebuffer> createFramebuffer(const ImageSize& size, GLenum color_format, int color_attachments_count, GLenum depth_format)
 {
    GLFramebufferDesc desc;
-   auto color = createTexture2D(size.width, size.height, color_format);
-   auto depth = createTexture2D(size.width, size.height, depth_format);
+   for (int i = 0; i < color_attachments_count; ++i)
+   {
+      auto color = createTexture2D(size.width, size.height, color_format);
+      desc.attachments.push_back(GLGLFramebufferAttachmentDesc{ std::move(color), GLenum(GL_COLOR_ATTACHMENT0+i), 0 });
+   }
 
-   desc.attachments.push_back(GLGLFramebufferAttachmentDesc{ std::move(color), GL_COLOR_ATTACHMENT0, 0 });
-   desc.attachments.push_back(GLGLFramebufferAttachmentDesc{ std::move(depth), GL_DEPTH_ATTACHMENT, 0 });
+   if (depth_format != GL_NONE)
+   {
+      auto depth = createTexture2D(size.width, size.height, depth_format);
+      desc.attachments.push_back(GLGLFramebufferAttachmentDesc{ std::move(depth), GL_DEPTH_ATTACHMENT, 0 });
+   }
 
    return std::make_unique<GLFramebuffer>(desc);
 }

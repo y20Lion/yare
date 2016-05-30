@@ -8,12 +8,12 @@ namespace yare {
    
 class GLTexture2D;
 class GLTextureCubemap;
-class LatlongToCubemapConverter;
+class CubemapConverter;
 
 namespace TextureImporter 
 {
     Uptr<GLTexture2D> importTextureFromFile(const char* filename, bool float_pixels = false);
-    Uptr<GLTextureCubemap> importCubemapFromFile(const char* filename, const LatlongToCubemapConverter& latlong_converter);
+    Uptr<GLTextureCubemap> importCubemapFromFile(const char* filename, const CubemapConverter& latlong_converter);
 }
 
 }

@@ -63,6 +63,7 @@ public:
    std::vector<SurfaceInstance> surfaces;
    std::vector<Light> lights;
    Uptr<GLTextureCubemap> sky_cubemap;
+   Uptr<GLTextureCubemap> sky_diffuse_cubemap;
 
    RenderData render_data[2];
 };

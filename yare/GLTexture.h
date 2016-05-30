@@ -15,12 +15,14 @@ public:
     GLuint id() const { return _texture_id; }
     virtual int width() const = 0;
     virtual int height() const = 0;
+    int levelCount() const { return _level_count;  }
 
     void buildMipmaps();
 
 protected:
     DISALLOW_COPY_AND_ASSIGN(GLTexture)
     GLuint _texture_id;
+    GLuint _level_count;
 };
 
 struct GLTexture2DDesc

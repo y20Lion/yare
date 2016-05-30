@@ -14,12 +14,7 @@ out vec3 attr_normal;
 out vec2 attr_uv;
 #endif
 
-layout(std140, binding=BI_SURFACE_DYNAMIC_UNIFORMS) uniform SurfaceDynamicUniforms
-{
-  mat4 matrix_view_local;
-  mat4 normal_matrix_world_local;
-  mat4x3 matrix_world_local;
-};
+#include "surface_uniforms.glsl"
 
 void main()
 {
@@ -37,14 +32,8 @@ void main()
 %s
 vec3 light_direction = vec3(0.0, 0.2, 1.0);
 vec3 light_color = vec3(1.0, 1.0, 1.0);
-layout(binding = BI_SKY_CUBEMAP) uniform samplerCube sky_cubemap;
 
-layout(std140, binding = BI_SCENE_UNIFORMS) uniform SceneUniforms
-{     
-   mat4 matrix_view_world;
-   vec3 eye_position;
-   float time;
-};
+#include "scene_uniforms.glsl"
 
 in vec3 attr_position;
 in vec3 attr_normal;
@@ -58,7 +47,9 @@ layout(location = 0, index = 1) out vec4 shading_result_transp_factor;
 
 vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
 {
-	return max(dot(normal, light_direction),0.02) * color * light_color;
+	//return max(dot(normal, light_direction),0.02) * color * light_color;
+
+   return texture(sky_diffuse_cubemap, normal).rgb * color;
 }
 
 vec3 evalGlossyBSDF(vec3 color, vec3 normal)
@@ -78,4 +69,5 @@ void sampleTexture(sampler2D tex, vec3 uvw, mat3x2 transform, out vec3 color, ou
  {
     vec3 normal = normalize(attr_normal);
     %s
+    //shading_result.rgb = texture(sky_diffuse_cubemap, normal).rgb;
  }

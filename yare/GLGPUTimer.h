@@ -6,7 +6,9 @@
 
 namespace yare {
 
-static const int QUERY_COUNT = 10;
+static const int QUERY_COUNT = 3;
+enum class TimerResult { CurrentFrame, PreviousFrame };
+
 
 class GLGPUTimer
 {
@@ -16,7 +18,9 @@ public:
       
    void start();
    void stop();
-   double elapsedTimeInMs() const;  
+   double elapsedTimeInMs(TimerResult timer_result) const;
+
+   void printElapsedTimeInMs(TimerResult timer_result = TimerResult::PreviousFrame) const;
 
    static void swapCounters();
 

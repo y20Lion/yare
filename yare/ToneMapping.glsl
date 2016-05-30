@@ -13,16 +13,17 @@ void main()
 #version 450
 #include "glsl_binding_defines.h"
 
-layout(binding = BI_INPUT_IMAGE, rgba32f) uniform readonly image2D input_image;
-layout(binding = BI_HISTOGRAMS_IMAGE, r32f) uniform image2D histograms_image;
+layout(binding = BI_SCENE_TEXTURE) uniform sampler2D scene_texture;
+layout(binding = BI_BLOOM_TEXTURE) uniform sampler2D bloom_texture;
+layout(location = BI_BLOOM_THRESHOLD) uniform float bloom_threshold;
 
-layout(location = BI_NEW_EXPOSURE_INDEX) uniform int new_exposure_index;
 layout(std430, binding = BI_EXPOSURE_VALUES_SSBO) buffer ExposureValuesSSBO
 {
-   float exposure[2];
+   float current_exposure;
+   float previous_exposure;
 } exposures;
 
-layout(location = 0) out vec4 color;
+layout(location = 0) out vec4 out_color;
 
 vec3 linearToSrgb(vec3 linear_color)
 {
@@ -37,9 +38,13 @@ vec3 linearToSrgb(vec3 linear_color)
 
 void main()
 {
-   float exposure = exposures.exposure[new_exposure_index];
+   float exposure = exposures.current_exposure;
 
    //exposure = 1.0;
-   vec3 linear_color = imageLoad(input_image, ivec2(gl_FragCoord.xy)).rgb * exposure;
-   color.rgb = linearToSrgb(linear_color);
+   vec3 scene_color = texelFetch(scene_texture, ivec2(gl_FragCoord.xy), 0).rgb;
+   vec3 bloom_color = texture(bloom_texture, gl_FragCoord.xy / textureSize(scene_texture, 0)).rgb;
+   vec3 color = (scene_color*exposure /*+ bloom_color*/);
+
+   color = color / (1.0 + color);
+   out_color.rgb = linearToSrgb(color);
 }

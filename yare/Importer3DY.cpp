@@ -13,6 +13,7 @@
 #include "ShadeTreeMaterial.h"
 #include "TextureImporter.h"
 #include "RenderEngine.h"
+#include "CubemapConverter.h"
 #include "DefaultMaterial.h"
 #include "OceanMaterial.h"
 
@@ -189,11 +190,12 @@ std::map<std::string, Sptr<GLTexture>> readTextures(const Json::Value& json_text
     return textures;
 }
 
-Uptr<GLTextureCubemap> readEnvironment(const RenderEngine& render_engine, const Json::Value& json_env)
+void readEnvironment(const RenderEngine& render_engine, const Json::Value& json_env, Scene* scene)
 {
    const auto& texture_name = json_env["Name"].asString();
    const auto& texture_path = json_env["Path"].asString();
-   return TextureImporter::importCubemapFromFile(texture_path.c_str(), *render_engine.latlong_to_cubemap_converter);
+   scene->sky_cubemap = TextureImporter::importCubemapFromFile(texture_path.c_str(), *render_engine.cubemap_converter);
+   scene->sky_diffuse_cubemap = render_engine.cubemap_converter->createDiffuseCubemap(*scene->sky_cubemap);
 }
 
 void import3DY(const std::string& filename, const RenderEngine& render_engine, Scene* scene)
@@ -206,7 +208,7 @@ void import3DY(const std::string& filename, const RenderEngine& render_engine, S
 	json_file.close();
 
     auto textures = readTextures(root["Textures"]);
-    scene->sky_cubemap = readEnvironment(render_engine, root["Environment"]);;
+    readEnvironment(render_engine, root["Environment"], scene);
     auto materials = readMaterials(render_engine, root["Materials"], textures);    
 
 	const auto& json_surfaces = root["Surfaces"];
