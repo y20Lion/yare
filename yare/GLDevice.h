@@ -13,6 +13,24 @@ class GLSampler;
 class GLTexture;
 class GLTexture2D;
 
+struct GLDepthStencilState
+{  
+   bool depth_testing;
+   GLenum depth_function;   
+};
+
+enum class GLBlendingMode { Disabled, ModulateAdd };
+struct GLColorBlendState
+{ 
+   GLBlendingMode blending_mode;
+};
+
+struct GLRasterizationState
+{  
+   GLenum polygon_mode;
+   GLenum cull_face;
+};
+
 namespace GLDevice 
 {
 
@@ -26,8 +44,16 @@ namespace GLDevice
     void bindVertexSource(const GLVertexSource& vertex_source);
     void bindTexture(int texture_unit, const GLTexture& texture, const GLSampler& sampler);
     void bindImage(int image_unit, const GLTexture2D& texture, GLenum access);
-    void bindBlendingState();
-    void bindRasterState();
+
+    void bindDepthStencilState(const GLDepthStencilState& state);
+    void bindDefaultDepthStencilState();
+
+    void bindColorBlendState(const GLColorBlendState& state);
+    void bindDefaultColorBlendState();
+
+    void bindRasterizationState(const GLRasterizationState& state);
+    void bindDefaultRasterizationState();    
+    
     // draw calls
     void draw(int vertex_start, int vertex_count);
     void draw(const GLVertexSource& vertex_source);

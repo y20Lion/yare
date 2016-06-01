@@ -62,13 +62,13 @@ Uptr<GLFramebuffer> createFramebuffer(const ImageSize& size, GLenum color_format
    for (int i = 0; i < color_attachments_count; ++i)
    {
       auto color = createTexture2D(size.width, size.height, color_format);
-      desc.attachments.push_back(GLGLFramebufferAttachmentDesc{ std::move(color), GLenum(GL_COLOR_ATTACHMENT0+i), 0 });
+      desc.attachments.push_back(GLFramebufferAttachmentDesc{ std::move(color), GLenum(GL_COLOR_ATTACHMENT0+i), 0 });
    }
 
    if (depth_format != GL_NONE)
    {
       auto depth = createTexture2D(size.width, size.height, depth_format);
-      desc.attachments.push_back(GLGLFramebufferAttachmentDesc{ std::move(depth), GL_DEPTH_ATTACHMENT, 0 });
+      desc.attachments.push_back(GLFramebufferAttachmentDesc{ std::move(depth), GL_DEPTH_ATTACHMENT, 0 });
    }
 
    return std::make_unique<GLFramebuffer>(desc);

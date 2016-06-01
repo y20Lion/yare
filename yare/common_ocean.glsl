@@ -21,7 +21,7 @@ float noise(in vec2 p)
 float waveFunction(vec2 uv, float crest) 
 {
    uv += noise(uv);   
-   vec2 wv = 1.0 - abs(sin(uv));   
+   vec2 wv = 1.0 - (sin(uv));   
    return  pow(wv.x*wv.y, crest);   
 }
 
@@ -65,7 +65,7 @@ vec3 evalOceanPosition(vec3 position)
       //crest = mix(crest, 1.0, 0.2);
    }
    
-   position.z += height*2.5;
+   position.z += height/**2.5*/;
    return position;
 }
 

@@ -47,6 +47,54 @@ void bindImage(int image_unit, const GLTexture2D& texture, GLenum access)
    glBindImageTexture(image_unit, texture.id(), 0, false, 0, access, texture.internalFormat());
 }
 
+void bindDepthStencilState(const GLDepthStencilState& state)
+{
+   if (state.depth_testing)
+   {
+      glEnable(GL_DEPTH_TEST);
+      glDepthFunc(state.depth_function);
+   }
+   else
+      glDisable(GL_DEPTH_TEST);
+}
+
+void bindDefaultDepthStencilState()
+{
+   glEnable(GL_DEPTH_TEST);
+   glDepthFunc(GL_LEQUAL);
+}
+
+void bindColorBlendState(const GLColorBlendState& state)
+{
+   if (state.blending_mode == GLBlendingMode::ModulateAdd)
+   {
+      glEnable(GL_BLEND);
+      glBlendFunc(GL_SRC_COLOR, GL_SRC1_COLOR);
+      glBlendEquation(GL_FUNC_ADD);
+   }
+   else
+   {
+      glDisable(GL_BLEND);
+   }
+}
+
+void bindDefaultColorBlendState()
+{
+   glDisable(GL_BLEND);
+}
+
+void bindRasterizationState(const GLRasterizationState& state)
+{
+   glPolygonMode(GL_FRONT_AND_BACK, state.polygon_mode);
+   glCullFace(state.cull_face);
+}
+
+void bindDefaultRasterizationState()
+{
+   glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+   glCullFace(GL_BACK);
+}
+
 void draw(int vertex_start, int vertex_count)
 {    
     glDrawArrays(GL_TRIANGLES, vertex_start, vertex_count);

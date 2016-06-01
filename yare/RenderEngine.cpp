@@ -30,12 +30,6 @@ struct SurfaceDynamicUniforms
    glm::mat4 matrix_world_local;
 };
 
-struct SurfaceConstantUniforms
-{
-   glm::mat4 normal_matrix_world_local;
-   glm::mat4 matrix_world_local;
-};
-
 struct SceneUniforms
 {
    glm::mat4 matrix_view_world; 
@@ -96,7 +90,6 @@ void RenderEngine::offlinePrepareScene()
    glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &uniform_buffer_align_size);
    _surface_dynamic_uniforms_size = _alignSize(sizeof(SurfaceDynamicUniforms), uniform_buffer_align_size);
    _scene_uniforms_size = _alignSize(sizeof(SceneUniforms), uniform_buffer_align_size);
-   //_surface_constant_uniforms_size = _alignSize(sizeof(SurfaceConstantUniforms), uniform_buffer_align_size);
 
    int surface_count = int(_scene.surfaces.size());
    _surface_dynamic_uniforms = createPersistentBuffer(_surface_dynamic_uniforms_size * surface_count);
@@ -167,8 +160,12 @@ void RenderEngine::updateScene(RenderData& render_data)
 
 void RenderEngine::renderScene(const RenderData& render_data)
 {
-   GLDevice::bindFramebuffer(render_resources->main_framebuffer.get(), 0);
-   //GLDevice::bindFramebuffer(default_framebuffer, 0);
+   GLDevice::bindDefaultDepthStencilState();   
+   GLDevice::bindDefaultColorBlendState();
+   GLDevice::bindDefaultRasterizationState();
+   glPatchParameteri(GL_PATCH_VERTICES, 3);
+
+   GLDevice::bindFramebuffer(render_resources->main_framebuffer.get(), 0);  
    {
       glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -178,9 +175,6 @@ void RenderEngine::renderScene(const RenderData& render_data)
       background_sky->render();
       //glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
    }
-   
-   /*glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);*/
 
    film_processor->developFilm();
  
@@ -190,15 +184,11 @@ void RenderEngine::renderScene(const RenderData& render_data)
 
 void RenderEngine::_renderSurfaces(const RenderData& render_data)
 {
-   glEnable(GL_DEPTH_TEST);
-   glDepthFunc(GL_LEQUAL);
-
    GLDevice::bindTexture(BI_SKY_CUBEMAP, *_scene.sky_cubemap, *render_resources->sampler_mipmap_clampToEdge);
    GLDevice::bindTexture(BI_SKY_DIFFUSE_CUBEMAP, *_scene.sky_diffuse_cubemap, *render_resources->sampler_mipmap_clampToEdge);
    glBindBufferRange(GL_UNIFORM_BUFFER, BI_SCENE_UNIFORMS, _scene_uniforms->id(),
       _scene_uniforms->getCurrentWindowOffset(), _scene_uniforms->windowSize());
-   glPatchParameteri(GL_PATCH_VERTICES, 3);
-
+   
    for (int i = 0; i < render_data.main_view_surface_data.size(); ++i)
    {
       glBindBufferRange(GL_UNIFORM_BUFFER, BI_SURFACE_DYNAMIC_UNIFORMS,

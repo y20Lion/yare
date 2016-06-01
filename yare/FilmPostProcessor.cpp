@@ -33,12 +33,16 @@ FilmPostProcessor::FilmPostProcessor(const RenderResources& render_resources)
 }
 
 void FilmPostProcessor::developFilm()
-{      
+{     
+   GLDevice::bindDepthStencilState({ false, GL_LEQUAL });
+
    _downscaleSceneTexture();
    
    _computeLuminanceHistogram();
    _computeBloom();
    _presentFinalImage();
+
+   GLDevice::bindDefaultDepthStencilState();
 
    /*float* histogram = new float[HISTOGRAM_SIZE * 768];
    glGetTextureImage(_histograms_texture->id(), 0, GL_RED, GL_FLOAT, HISTOGRAM_SIZE * 768*4, histogram);
@@ -101,8 +105,7 @@ void FilmPostProcessor::_computeBloom()
    auto& halfsize_texture0 = (GLTexture2D&)_rr.halfsize_postprocess_fbo->attachedTexture(GL_COLOR_ATTACHMENT0);
    auto& halfsize_texture1 = (GLTexture2D&)_rr.halfsize_postprocess_fbo->attachedTexture(GL_COLOR_ATTACHMENT1);
    _timer.start();
-   
-   glDisable(GL_DEPTH_TEST);
+
    glViewport(0, 0, halfsize_texture0.width(), halfsize_texture0.height());
    GLDevice::bindFramebuffer(_rr.halfsize_postprocess_fbo.get(), 1);
 
@@ -193,8 +196,7 @@ void FilmPostProcessor::_computeBloom()
 
 void FilmPostProcessor::_presentFinalImage()
 {
-   GLDevice::bindFramebuffer(default_framebuffer, 0);
-   glDisable(GL_DEPTH_TEST);
+   GLDevice::bindFramebuffer(default_framebuffer, 0);   
    glViewport(0, 0, _rr.framebuffer_size.width, _rr.framebuffer_size.height);
    
    const GLTexture2D& scene_texture = (GLTexture2D&)_rr.main_framebuffer->attachedTexture(GL_COLOR_ATTACHMENT0);
@@ -204,7 +206,7 @@ void FilmPostProcessor::_presentFinalImage()
    glUniform1f(BI_BLOOM_THRESHOLD, 10.0f);
    GLDevice::bindTexture(BI_SCENE_TEXTURE, scene_texture, *_rr.sampler_bilinear_clampToEdge);
    GLDevice::bindTexture(BI_BLOOM_TEXTURE, halfsize_texture, *_rr.sampler_bilinear_clampToEdge);
-   GLDevice::draw(*_rr.fullscreen_triangle_source);
+   GLDevice::draw(*_rr.fullscreen_triangle_source);   
 }
 
 }

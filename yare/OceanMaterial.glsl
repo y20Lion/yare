@@ -128,8 +128,8 @@ void sampleTexture(sampler2D tex, vec3 uvw, mat3x2 transform, out vec3 color, ou
 void main()
 {
    vec3 pos = evalOceanPosition(flat_position);
-   vec3 posX = evalOceanPosition(flat_position + dFdx(flat_position)/*(1.0, 0.0, 0.0)*/);
-   vec3 posY = evalOceanPosition(flat_position + dFdy(flat_position)/*vec3(0.0, 1.0, 0.0)*/);
+   vec3 posX = evalOceanPosition(flat_position + /*dFdx(flat_position)*/vec3(1.0, 0.0, 0.0));
+   vec3 posY = evalOceanPosition(flat_position + /*dFdy(flat_position)*/vec3(0.0, 1.0, 0.0));
    vec3 normal = normalize(cross(posX - pos, posY - pos));
    
    vec3 specular = evalGlossyBSDF(vec3(1.0), normal);

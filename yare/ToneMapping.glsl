@@ -43,8 +43,8 @@ void main()
    //exposure = 1.0;
    vec3 scene_color = texelFetch(scene_texture, ivec2(gl_FragCoord.xy), 0).rgb;
    vec3 bloom_color = texture(bloom_texture, gl_FragCoord.xy / textureSize(scene_texture, 0)).rgb;
-   vec3 color = (scene_color*exposure /*+ bloom_color*/);
+   vec3 color = (scene_color*exposure + bloom_color);
 
-   color = color / (1.0 + color);
+   //color = color / (1.0 + color);
    out_color.rgb = linearToSrgb(color);
 }

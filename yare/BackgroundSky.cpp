@@ -19,10 +19,7 @@ BackgroundSky::~BackgroundSky()
 }
 
 void BackgroundSky::render()
-{
-   glEnable(GL_DEPTH_TEST);
-   glDepthFunc(GL_LEQUAL);   
-   
+{   
    GLDevice::bindProgram(*_program);   
    GLDevice::draw(*_render_resources.fullscreen_triangle_source);
 }

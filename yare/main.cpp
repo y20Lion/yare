@@ -15,6 +15,7 @@
 #include "Scene.h"
 #include "Barrier.h"
 #include "ImageSize.h"
+#include "GLDevice.h"
 
 using namespace yare;
 
@@ -106,13 +107,18 @@ int main()
    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
    glDebugMessageCallback(&printGLDebugMessage, nullptr);
 
-   glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+   /*glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-   glDisable(GL_DEPTH_TEST);
+   glDisable(GL_DEPTH_TEST);*/
+
+   GLDevice::bindDefaultDepthStencilState();
+   GLDevice::bindDefaultColorBlendState();
+   GLDevice::bindDefaultRasterizationState();
+   glEnable(GL_CULL_FACE);
 
    RenderEngine render_engine(ImageSize(1500, 1000));
-   char* file = "D:\\BlenderTests\\testNodeGraph.3dy";
-   //char* file = "D:\\BlenderTests\\town.3dy";
+   //char* file = "D:\\BlenderTests\\testNodeGraph.3dy";
+   char* file = "D:\\BlenderTests\\town.3dy";
    import3DY(file, render_engine, render_engine.scene());
    render_engine.offlinePrepareScene();
 

@@ -10,7 +10,7 @@
 
 namespace yare {
 
-struct GLGLFramebufferAttachmentDesc
+struct GLFramebufferAttachmentDesc
 {
     Sptr<GLTexture> texture;    
     GLenum attachment_type;
@@ -19,7 +19,7 @@ struct GLGLFramebufferAttachmentDesc
 
 struct GLFramebufferDesc
 {
-    std::vector<GLGLFramebufferAttachmentDesc> attachments;
+    std::vector<GLFramebufferAttachmentDesc> attachments;
 };
 
 class GLFramebuffer

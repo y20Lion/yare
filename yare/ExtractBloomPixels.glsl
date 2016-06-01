@@ -35,7 +35,7 @@ void main()
       color = color / full_luminance *1.0;
 
    float bloom_luminance = max(full_luminance - bloom_threshold, 0.0);
-   //float bloom_amount = saturate(bloom_luminance/2.0);
+   float bloom_amount = saturate(bloom_luminance/2.0);
 
-   out_color = vec4(color*bloom_luminance, 1.0);
+   out_color = vec4(color*bloom_amount, 1.0);
 }

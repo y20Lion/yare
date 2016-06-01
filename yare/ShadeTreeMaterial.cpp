@@ -33,16 +33,14 @@ void ShadeTreeMaterial::render(const GLVertexSource& mesh_source)
 
    if (isTransparent())
    {
-      glEnable(GL_BLEND);
-      glBlendFunc(GL_SRC_COLOR, GL_SRC1_COLOR);
-      glBlendEquation(GL_FUNC_ADD);
+      GLDevice::bindColorBlendState({ GLBlendingMode::ModulateAdd });
    }
 
    GLDevice::draw(0, mesh_source.vertexCount());
 
    if (isTransparent())
    {
-      glDisable(GL_BLEND);
+      GLDevice::bindDefaultColorBlendState();
    }
 }
 
