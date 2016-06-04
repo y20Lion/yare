@@ -25,7 +25,7 @@ FilmPostProcessor::FilmPostProcessor(const RenderResources& render_resources)
    _extract_bloom_pixels_program = createProgramFromFile("ExtractBloomPixels.glsl");
    
    float initial_exposures[] = { 1.0f , 1.0f };
-   _exposure_values_ssbo = createBuffer(2*sizeof(float), initial_exposures);
+   _exposure_values_ssbo = createBuffer(2*sizeof(float), 0, initial_exposures);
    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, BI_EXPOSURE_VALUES_SSBO, _exposure_values_ssbo->id());
 
    int histogram_count = _rr.framebuffer_size.width/2*_rr.framebuffer_size.height/2 / (TILE_SIZE_X*TILE_SIZE_Y);

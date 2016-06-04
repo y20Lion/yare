@@ -63,7 +63,7 @@ private:
    DISALLOW_COPY_AND_ASSIGN(GLPersistentlyMappedBuffer)
 };
 
-Uptr<GLBuffer> createBuffer(std::int64_t size_bytes, void* data=nullptr);
+Uptr<GLBuffer> createBuffer(std::int64_t size_bytes, GLenum flags = 0, void* data=nullptr);
 Uptr<GLPersistentlyMappedBuffer> createPersistentBuffer(std::int64_t size_bytes);
 
 }

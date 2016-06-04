@@ -13,7 +13,7 @@
 #include "ShadeTreeMaterial.h"
 #include "TextureImporter.h"
 #include "RenderEngine.h"
-#include "CubemapConverter.h"
+#include "CubemapFiltering.h"
 #include "DefaultMaterial.h"
 #include "OceanMaterial.h"
 
@@ -195,7 +195,8 @@ void readEnvironment(const RenderEngine& render_engine, const Json::Value& json_
    const auto& texture_name = json_env["Name"].asString();
    const auto& texture_path = json_env["Path"].asString();
    scene->sky_cubemap = TextureImporter::importCubemapFromFile(texture_path.c_str(), *render_engine.cubemap_converter);
-   scene->sky_diffuse_cubemap = render_engine.cubemap_converter->createDiffuseCubemap(*scene->sky_cubemap);
+   scene->sky_diffuse_cubemap = render_engine.cubemap_converter->createDiffuseCubemap(*scene->sky_cubemap, DiffuseFilteringMethod::BruteForce);
+   scene->sky_diffuse_cubemap_sh = render_engine.cubemap_converter->createDiffuseCubemap(*scene->sky_cubemap, DiffuseFilteringMethod::SphericalHarmonics);
 }
 
 void import3DY(const std::string& filename, const RenderEngine& render_engine, Scene* scene)

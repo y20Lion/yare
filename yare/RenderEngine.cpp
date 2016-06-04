@@ -12,7 +12,7 @@
 #include "ShadeTreeMaterial.h"
 #include "RenderMesh.h"
 #include "RenderResources.h"
-#include "CubemapConverter.h"
+#include "CubemapFiltering.h"
 #include "GLTexture.h"
 #include "glsl_binding_defines.h"
 #include "OceanMaterial.h"
@@ -47,7 +47,7 @@ struct SceneUniforms
 RenderEngine::RenderEngine(const ImageSize& framebuffer_size)
    : _scene()
    , render_resources(new RenderResources(framebuffer_size))
-   , cubemap_converter(new CubemapConverter(*render_resources))
+   , cubemap_converter(new CubemapFiltering(*render_resources))
    , background_sky(new BackgroundSky(*render_resources))
    , film_processor(new FilmPostProcessor(*render_resources))
 {    
@@ -184,8 +184,14 @@ void RenderEngine::renderScene(const RenderData& render_data)
 
 void RenderEngine::_renderSurfaces(const RenderData& render_data)
 {
+   static int counter = 0; 
+   
+   const auto & diffuse_cubemap = counter < 120 ? *_scene.sky_diffuse_cubemap : *_scene.sky_diffuse_cubemap_sh;
    GLDevice::bindTexture(BI_SKY_CUBEMAP, *_scene.sky_cubemap, *render_resources->sampler_mipmap_clampToEdge);
-   GLDevice::bindTexture(BI_SKY_DIFFUSE_CUBEMAP, *_scene.sky_diffuse_cubemap, *render_resources->sampler_mipmap_clampToEdge);
+   GLDevice::bindTexture(BI_SKY_DIFFUSE_CUBEMAP, diffuse_cubemap, *render_resources->sampler_mipmap_clampToEdge);
+   counter++;
+   if (counter == 240)
+      counter = 0;
    glBindBufferRange(GL_UNIFORM_BUFFER, BI_SCENE_UNIFORMS, _scene_uniforms->id(),
       _scene_uniforms->getCurrentWindowOffset(), _scene_uniforms->windowSize());
    

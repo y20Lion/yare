@@ -16,7 +16,7 @@ GLBuffer::~GLBuffer()
 
 void* GLBuffer::map(GLenum access)
 {
-    return glMapNamedBuffer(_buffer_id, access);
+    return glMapNamedBufferRange(_buffer_id, 0, _size_bytes, access);
 }
 
 void* GLBuffer::mapRange(std::int64_t offset, std::int64_t length, GLenum access)
@@ -56,10 +56,10 @@ std::int64_t GLPersistentlyMappedBuffer::getCurrentWindowOffset()
    return _window_index*windowSize();
 }
 
-Uptr<GLBuffer> createBuffer(std::int64_t size_bytes, void* data)
+Uptr<GLBuffer> createBuffer(std::int64_t size_bytes, GLenum flags, void* data)
 {
     GLBufferDesc desc;
-    desc.flags = GL_MAP_WRITE_BIT;
+    desc.flags = GL_MAP_WRITE_BIT | flags;
     desc.size_bytes = size_bytes;
     desc.data = data;
     return std::make_unique<GLBuffer>(desc);

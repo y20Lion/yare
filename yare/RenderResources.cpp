@@ -45,7 +45,7 @@ RenderResources::RenderResources(const ImageSize& framebuffer_size_)
    sampler_desc.wrap_mode_w = GL_CLAMP_TO_EDGE;
    sampler_nearest_clampToEdge = createSampler(sampler_desc);
 
-   fullscreen_triangle_vbo = createBuffer(sizeof(triangle_vertices), triangle_vertices);
+   fullscreen_triangle_vbo = createBuffer(sizeof(triangle_vertices), 0, triangle_vertices);
    fullscreen_triangle_source = std::make_unique<GLVertexSource>();
    fullscreen_triangle_source->setVertexBuffer(*fullscreen_triangle_vbo);
    fullscreen_triangle_source->setVertexAttribute(0, 2, GL_FLOAT);

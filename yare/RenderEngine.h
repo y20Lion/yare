@@ -6,7 +6,7 @@
 
 namespace yare {
 
-class CubemapConverter;
+class CubemapFiltering;
 struct RenderResources;
 class GLPersistentlyMappedBuffer;
 class GLBuffer;
@@ -28,7 +28,7 @@ public:
    glm::vec3 pickPosition(int x, int y);
 
    Uptr<RenderResources> render_resources;
-   Uptr<CubemapConverter> cubemap_converter;
+   Uptr<CubemapFiltering> cubemap_converter;
    Uptr<BackgroundSky> background_sky;
    Uptr<FilmPostProcessor> film_processor;
    

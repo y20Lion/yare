@@ -117,8 +117,8 @@ int main()
    glEnable(GL_CULL_FACE);
 
    RenderEngine render_engine(ImageSize(1500, 1000));
-   //char* file = "D:\\BlenderTests\\testNodeGraph.3dy";
-   char* file = "D:\\BlenderTests\\town.3dy";
+   char* file = "D:\\BlenderTests\\testNodeGraph.3dy";
+   //char* file = "D:\\BlenderTests\\town.3dy";
    import3DY(file, render_engine, render_engine.scene());
    render_engine.offlinePrepareScene();
 

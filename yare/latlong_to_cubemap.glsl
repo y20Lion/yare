@@ -13,28 +13,14 @@ void main()
 
 ~~~~~~~~~~~~~~~~~ FragmentShader ~~~~~~~~~~~~~~~~~~~~~~
 #version 450
-#include "glsl_cubemap_converter_defines.h"
-#define PI 3.1415926535897932384626433832795
+#include "glsl_cubemap_filtering_defines.h"
+#include "common_cubemap_filtering.glsl"
 
 layout(binding=BI_LATLONG_TEXTURE) uniform sampler2D latlong_texture;
 layout(location=BI_FACE) uniform int face;
 
 in vec2 uv;
 out vec4 out_face_color;
-
-vec3 faceToDirection(int face, vec2 uv)
-{
-   switch (face)
-   {
-      case 0: return vec3(1.0, -uv.y, -uv.x);
-      case 1: return vec3(-1.0, -uv.y, uv.x);
-      case 2: return vec3(uv.x, 1.0, uv.y);
-      case 3: return vec3(uv.x, -1.0, -uv.y);
-      case 4: return vec3(uv.x, -uv.y, 1.0);
-      case 5: return vec3(-uv.x, -uv.y, -1.0);
-      default: return vec3(0.0);
-   }
-}
 
 void main()
 {
