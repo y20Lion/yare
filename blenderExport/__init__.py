@@ -53,9 +53,9 @@ def writeMesh(binary_file, mesh):
     else:
         has_uv = False
     #has_uv = False    
-    #if has_uv:
-    #    mesh.calc_tangents(active_uv_layer.name)
-        
+    if has_uv:
+        mesh.calc_tangents(active_uv_layer.name)
+        bpy.context.scene.update() 
     
     output_positions = array('f', [])
     output_normals = array('f', [])
@@ -81,10 +81,9 @@ def writeMesh(binary_file, mesh):
             output_positions.extend(vertex.co[:])            
             output_normals.extend(normal[:])
             if has_uv:
-                #output_tangents.extend(mesh.loops[loop_idx].tangent[:])
+                output_tangents.extend(mesh.loops[loop_idx+i].bitangent[:])
                 #output_binormals.extend(mesh.loops[loop_idx].bitangent[:])
-                output_uvs.extend(active_uv_layer.data[loop_idx+i].uv.to_2d()[:])
-                #print(active_uv_layer.data[0].uv.to_2d()[:])
+                output_uvs.extend(active_uv_layer.data[loop_idx+i].uv.to_2d()[:])                
                 #print(active_uv_layer.data[1].uv.to_2d()[:])
                 #print(active_uv_layer.data[2].uv.to_2d()[:])
                 #print(active_uv_layer.data[3].uv.to_2d()[:])
@@ -96,7 +95,7 @@ def writeMesh(binary_file, mesh):
     writeMeshField(json_mesh_fields, 'position', 3, output_positions, binary_file)
     writeMeshField(json_mesh_fields, 'normal', 3, output_normals, binary_file)
     if has_uv:
-        #writeMeshField(json_mesh_fields, 'tangent', 3, output_tangents, binary_file)
+        writeMeshField(json_mesh_fields, 'tangent', 3, output_tangents, binary_file)
         #writeMeshField(json_mesh_fields, 'binormal', 3, output_binormals, binary_file)
         writeMeshField(json_mesh_fields, 'uv', 2, output_uvs, binary_file)    
     json_mesh['Fields'] = json_mesh_fields
@@ -228,7 +227,7 @@ class Export3DY(bpy.types.Operator, ExportHelper):
             if not hasMesh(object):                    
                     continue
 
-            mesh = object.to_mesh(bpy.context.scene, True, "PREVIEW")
+            mesh = object.data #to_mesh(bpy.context.scene, True, "PREVIEW")
             json_mesh = writeMesh(binary_file, mesh)
             if len(object.data.materials) != 0:
                 material_name = object.data.materials[0].name

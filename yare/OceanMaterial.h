@@ -23,7 +23,7 @@ public:
 
    const GLProgram& program() const { return *_program; }
 
-   virtual void render(const GLVertexSource& mesh_source) override;
+   virtual void render(const RenderResources& resources, const GLVertexSource& mesh_source) override;
    virtual int requiredMeshFields() override;
 
 private:

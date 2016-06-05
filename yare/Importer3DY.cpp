@@ -37,6 +37,8 @@ MeshFieldName _fieldName(const std::string& field_name)
         return MeshFieldName::Normal;
     else if (field_name == "uv")
         return MeshFieldName::Uv0;
+    else if (field_name == "tangent")
+       return MeshFieldName::Tangent0;
     else
     {
         assert(false);
@@ -99,19 +101,28 @@ void readNodeSlots(const Json::Value& json_slots, std::map<std::string, ShadeTre
         slot.name = json_slot["Name"].asString();
         slot.default_value = vec4(0.0);
         slot.type = ShadeTreeNodeSlotType::Float;
+
         if (json_slot.isMember("DefaultValue"))
         {
-            int value_components = json_slot["DefaultValue"].size();
-            for (int i = 0; i < value_components; ++i)
-                slot.default_value[i] = json_slot["DefaultValue"][i].asFloat();
 
-            if (value_components == 1)
-                slot.type = ShadeTreeNodeSlotType::Float;
-            else if (slot.name == "Normal")
-                slot.type = ShadeTreeNodeSlotType::Normal;
-            else
-                slot.type = ShadeTreeNodeSlotType::Vec3;
-        }        
+           if (json_slot["DefaultValue"].isArray())
+           {
+              int value_components = json_slot["DefaultValue"].size();
+              for (int i = 0; i < value_components; ++i)
+                 slot.default_value[i] = json_slot["DefaultValue"][i].asFloat();
+
+              if (slot.name == "Normal")
+                 slot.type = ShadeTreeNodeSlotType::Normal;
+              else
+                 slot.type = ShadeTreeNodeSlotType::Vec3;
+           }
+           else
+           {
+              slot.default_value.x = json_slot["DefaultValue"].asFloat();
+              slot.type = ShadeTreeNodeSlotType::Float;
+           }
+        }
+     
 
         for (const auto& json_link : json_slot["Links"])
         {

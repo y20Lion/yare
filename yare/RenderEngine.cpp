@@ -186,7 +186,7 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
 {
    static int counter = 0; 
    
-   const auto & diffuse_cubemap = counter < 120 ? *_scene.sky_diffuse_cubemap : *_scene.sky_diffuse_cubemap_sh;
+   const auto & diffuse_cubemap =  counter < 120 ? *_scene.sky_diffuse_cubemap : *_scene.sky_diffuse_cubemap_sh;
    GLDevice::bindTexture(BI_SKY_CUBEMAP, *_scene.sky_cubemap, *render_resources->sampler_mipmap_clampToEdge);
    GLDevice::bindTexture(BI_SKY_DIFFUSE_CUBEMAP, diffuse_cubemap, *render_resources->sampler_mipmap_clampToEdge);
    counter++;
@@ -205,7 +205,7 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
       const auto& surface_data = render_data.main_view_surface_data[i];
       const auto& surface = _scene.surfaces[i];
 
-      surface.material->render(*surface.vertex_source_for_material);
+      surface.material->render(*render_resources, *surface.vertex_source_for_material);
    }
 }
 

@@ -94,12 +94,13 @@ public:
 typedef std::map<std::string, std::shared_ptr<NodeOutputValue>> NodeEvaluatedOutputs;
 struct ShadeTreeEvaluation
 {    
-    ShadeTreeEvaluation() : uv_needed(false), is_transparent(false) {}
+    ShadeTreeEvaluation() : uv_needed(false), normal_mapping_needed(false), is_transparent(false) {}
     
     std::map<std::string, NodeEvaluatedOutputs> evaluted_nodes;
     std::vector<std::string> glsl_code;    
     std::vector<std::pair<Sptr<GLTexture>, std::string>> glsl_textures;
     bool uv_needed;
+    bool normal_mapping_needed;
     bool is_transparent;
 
     NodeEvaluatedOutputs& addNodeCode(const std::string& node_name, const std::string& node_code);
@@ -185,6 +186,13 @@ public:
     glm::mat3x2 texture_transform;
     Sptr<GLTexture> texture;
     virtual const NodeEvaluatedOutputs& evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation) override;
+};
+
+class NormalMapNode : public ShadeTreeNode
+{
+public:
+   NormalMapNode() : ShadeTreeNode("NORMAL_MAP") {}
+   virtual const NodeEvaluatedOutputs& evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation) override;
 };
 
 /*class UvSourceNode : public ShadeTreeNode

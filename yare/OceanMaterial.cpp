@@ -18,7 +18,7 @@ OceanMaterial::~OceanMaterial()
 
 }
 
-void OceanMaterial::render(const GLVertexSource& mesh_source)
+void OceanMaterial::render(const RenderResources& resources, const GLVertexSource& mesh_source)
 {
    GLDevice::bindProgram(program());
    GLDevice::bindVertexSource(mesh_source);

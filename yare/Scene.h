@@ -20,8 +20,7 @@ struct SurfaceInstance
 {
     glm::mat4x3 matrix_world_local;    
     Sptr<RenderMesh> mesh;
-    Sptr<IMaterial> material;    
-    std::map<int, Sptr<GLVertexSource>> vertex_sources;
+    Sptr<IMaterial> material;
 
     glm::mat3 normal_matrix_world_local;    
     Sptr<GLVertexSource> vertex_source_for_material;

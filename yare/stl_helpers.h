@@ -19,9 +19,9 @@ reversion_wrapper<T> make_reverse(T&& iterable) { return{ iterable }; }
 template<typename ... Args>
 std::string string_format(const std::string& format, Args ... args)
 {
-    size_t size = snprintf(nullptr, 0, format.c_str(), args ...) + 1; // Extra space for '\0'
+    size_t size = snprintf(nullptr, 0, format.c_str(), args.c_str() ...) + 1; // Extra space for '\0'
     std::unique_ptr<char[]> buf(new char[size]);
-    snprintf(buf.get(), size, format.c_str(), args ...);
+    snprintf(buf.get(), size, format.c_str(), args.c_str() ...);
     auto a = std::string(buf.get());
     return a;
 }

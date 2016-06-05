@@ -127,7 +127,7 @@ void ShadeTreeNode::_evaluateShading(const Shading& shading0, const Shading& sha
     
     if (shading0.has_additive || shading1.has_additive)
     {
-        *node_glsl_code += "vec3 " + _toGLSLVarName(name, output_slot) + " = " + string_format(expression, shading0.additive.data(), shading1.additive.data()) + ";\n";
+        *node_glsl_code += "vec3 " + _toGLSLVarName(name, output_slot) + " = " + string_format(expression, shading0.additive, shading1.additive) + ";\n";
         result->additive = _toGLSLVarName(name, output_slot);
         result->has_additive = true;
     }
@@ -135,7 +135,7 @@ void ShadeTreeNode::_evaluateShading(const Shading& shading0, const Shading& sha
     if (shading0.has_transparency_factor || shading1.has_transparency_factor)
     {
         *node_glsl_code += "vec3 " + _toGLSLVarName(name, output_slot, true) + " = "
-            + string_format(expression, shading0.transparency_factor.data(), shading1.transparency_factor.data()) + ";\n";
+            + string_format(expression, shading0.transparency_factor, shading1.transparency_factor) + ";\n";
         result->transparency_factor = _toGLSLVarName(name, output_slot, true);
         result->has_transparency_factor = true;
     }
@@ -157,6 +157,8 @@ Uptr<ShadeTreeNode> createShadeTreeNode(const std::string& node_type)
         return std::make_unique<AddBSDFNode>();
     else if (node_type == "TEX_IMAGE")
         return std::make_unique<TexImageNode>();
+    else if (node_type == "NORMAL_MAP")
+       return std::make_unique<NormalMapNode>();
     else
     {
         //assert(false);
@@ -296,6 +298,21 @@ const NodeEvaluatedOutputs& TexImageNode::evaluate(const ShadeTreeParams& params
     result["Color"] = std::make_unique<Color>(glsl_color);
     result["Alpha"] = std::make_unique<Float>(glsl_alpha);
     return result;
+}
+
+const NodeEvaluatedOutputs& NormalMapNode::evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation)
+{
+   RETURN_IF_ALREADY_EVALUATED
+   evaluation.normal_mapping_needed = true;
+   
+   std::string glsl_normal = _toGLSLVarName(name, "Normal");
+   std::string glsl_color = _evaluateInputSlot<Color>(params, "Color", evaluation).expression;   
+   std::string glsl_strength = _evaluateInputSlot<Float>(params, "Strength", evaluation).expression;
+   std::string node_glsl_code = string_format("vec3 %s = evalNormalMap(%s, %s);\n", glsl_normal, glsl_color, glsl_strength);
+
+   NodeEvaluatedOutputs& result = evaluation.addNodeCode(name, node_glsl_code);
+   result["Normal"] = std::make_unique<Normal>(glsl_normal);
+   return result;
 }
 
 }

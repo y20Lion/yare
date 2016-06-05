@@ -106,7 +106,10 @@ int main()
    glEnable(GL_DEBUG_OUTPUT);
    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
    glDebugMessageCallback(&printGLDebugMessage, nullptr);
+   glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 
+   int texture_units;
+   glGetIntegerv(GL_MAX_UNIFORM_BUFFER_BINDINGS, &texture_units);
    /*glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
    glDisable(GL_DEPTH_TEST);*/
@@ -117,7 +120,7 @@ int main()
    glEnable(GL_CULL_FACE);
 
    RenderEngine render_engine(ImageSize(1500, 1000));
-   char* file = "D:\\BlenderTests\\testNodeGraph.3dy";
+   char* file = "D:\\BlenderTests\\lolcat.3dy";
    //char* file = "D:\\BlenderTests\\town.3dy";
    import3DY(file, render_engine, render_engine.scene());
    render_engine.offlinePrepareScene();

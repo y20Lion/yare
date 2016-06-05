@@ -24,7 +24,7 @@ public:
    virtual ~ShadeTreeMaterial();
    std::string name;
    
-   virtual void render(const GLVertexSource& mesh_source) override;
+   virtual void render(const RenderResources& resources, const GLVertexSource& mesh_source) override;
    virtual int requiredMeshFields() override;
 
    void compile(const RenderResources& resources);
@@ -39,6 +39,7 @@ public:
 private:
    std::string _createVertexShaderCode(const ShadeTreeEvaluation& evaluation, const std::string& fragment_template);
    std::string _createFragmentShaderCode(const ShadeTreeEvaluation& evaluation, const std::string& vertex_template);
+   void _buildProgramDefinesString();
 
 private:
 
@@ -47,6 +48,8 @@ private:
    int _first_texture_binding;
    bool _is_transparent;
    bool _uses_uv;
+   bool _uses_normal_mapping;
+   std::string _defines;
 };
 
 }

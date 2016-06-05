@@ -62,7 +62,7 @@ Uptr<GLTextureCubemap> CubemapFiltering::createCubemapFromLatlong(const GLTextur
 
 Uptr<GLTextureCubemap> CubemapFiltering::createDiffuseCubemap(const GLTextureCubemap& input_cubemap, DiffuseFilteringMethod method) const
 {
-   Uptr<GLTextureCubemap> diffuse_cubemap = createMipmappedTextureCubemap(128, GL_RGB16F);
+   Uptr<GLTextureCubemap> diffuse_cubemap = createMipmappedTextureCubemap(64, GL_RGB16F);
    Sptr<GLTextureCubemap> diffuse_cubemap_without_deleter(diffuse_cubemap.get(), [](GLTextureCubemap*) {});
 
    GLFramebufferDesc desc;
@@ -70,7 +70,7 @@ Uptr<GLTextureCubemap> CubemapFiltering::createDiffuseCubemap(const GLTextureCub
    GLFramebuffer render_to_cubemap(desc);
    
    int last_level = input_cubemap.levelCount() - 1;
-   int size_64_level = last_level - int(std::log2(64));
+   int size_64_level = last_level - int(std::log2(128));
    
    if (method == DiffuseFilteringMethod::BruteForce)
       _computeDiffuseEnvWithBruteForce(input_cubemap, size_64_level, render_to_cubemap, *diffuse_cubemap);

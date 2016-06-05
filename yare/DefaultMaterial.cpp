@@ -16,7 +16,7 @@ DefaultMaterial::~DefaultMaterial()
 
 }
 
-void DefaultMaterial::render(const GLVertexSource& mesh_source)
+void DefaultMaterial::render(const RenderResources& resources, const GLVertexSource& mesh_source)
 {
    GLDevice::bindProgram(program());
    GLDevice::bindVertexSource(mesh_source);

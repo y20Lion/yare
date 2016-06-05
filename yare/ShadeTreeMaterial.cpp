@@ -25,9 +25,9 @@ ShadeTreeMaterial::~ShadeTreeMaterial()
 
 }
 
-void ShadeTreeMaterial::render(const GLVertexSource& mesh_source)
+void ShadeTreeMaterial::render(const RenderResources& resources, const GLVertexSource& mesh_source)
 {   
-   bindTextures();
+   bindTextures(resources);
    GLDevice::bindProgram(program());   
    GLDevice::bindVertexSource(mesh_source);
 
@@ -49,6 +49,10 @@ int ShadeTreeMaterial::requiredMeshFields()
    int fields = int(MeshFieldName::Position) | int(MeshFieldName::Normal);
    if (_uses_uv)
       fields |= int(MeshFieldName::Uv0);
+
+   if (_uses_normal_mapping)
+      fields |= int(MeshFieldName::Tangent0);
+
    return fields;   
 }
 
@@ -67,26 +71,25 @@ void ShadeTreeMaterial::compile(const RenderResources& resources)
 
    ShadeTreeEvaluation evaluation;
    output_node->evaluate(eval_params, evaluation);
-
+   _is_transparent = evaluation.is_transparent;
+   _uses_normal_mapping = evaluation.normal_mapping_needed;
+   _uses_uv = evaluation.uv_needed;   
+   _buildProgramDefinesString();
+   
    std::string fragment_shader = _createFragmentShaderCode(evaluation, resources.shade_tree_material_fragment);
    std::string vertex_shader = _createVertexShaderCode(evaluation, resources.shade_tree_material_vertex);
 
    _program = createProgram(vertex_shader, fragment_shader);
-   _is_transparent = evaluation.is_transparent;
+   
 }
 
 void ShadeTreeMaterial::bindTextures()
 {
-   glBindTextures(_first_texture_binding, (GLuint)_used_textures.size(), _used_textures.data());
+   glBindTextures(_first_texture_binding, (GLuint)_used_textures.size(), _used_textures.data());   
 }
 
 std::string ShadeTreeMaterial::_createFragmentShaderCode(const ShadeTreeEvaluation& evaluation, const std::string& fragment_template)
 {
-   std::string defines;
-   _uses_uv = evaluation.uv_needed;
-   if (_uses_uv)
-      defines += "#define USE_UV \n";
-
    std::string texture_bindings;
    _used_textures.clear();
    for (const auto& glsl_texture : evaluation.glsl_textures)
@@ -99,16 +102,22 @@ std::string ShadeTreeMaterial::_createFragmentShaderCode(const ShadeTreeEvaluati
    for (const std::string& glsl : evaluation.glsl_code)
       nodes_shading.append(glsl);
 
-   return string_format(fragment_template, defines.data(), texture_bindings.data(), nodes_shading.data());
+   return string_format(fragment_template, _defines, texture_bindings, nodes_shading);
 }
 
 std::string ShadeTreeMaterial::_createVertexShaderCode(const ShadeTreeEvaluation& evaluation, const std::string& vertex_template)
 {
-   std::string defines;
-   if (evaluation.uv_needed)
-      defines += "#define USE_UV \n";
+   return string_format(vertex_template, _defines);
+}
 
-   return string_format(vertex_template, defines.data());
+void ShadeTreeMaterial::_buildProgramDefinesString()
+{
+   _defines.clear();
+   if (_uses_uv)
+      _defines += "#define USE_UV \n";
+
+   if (_uses_normal_mapping)
+      _defines += "#define USE_NORMAL_MAPPING \n";
 }
 
 }
