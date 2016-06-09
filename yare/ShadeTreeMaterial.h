@@ -40,6 +40,7 @@ private:
    std::string _createVertexShaderCode(const ShadeTreeEvaluation& evaluation, const std::string& fragment_template);
    std::string _createFragmentShaderCode(const ShadeTreeEvaluation& evaluation, const std::string& vertex_template);
    void _buildProgramDefinesString();
+   void _markNodesThatNeedPixelDifferentials(ShadeTreeNode& node, bool parent_needs_pixels_differentials);
 
 private:
 

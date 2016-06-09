@@ -140,10 +140,21 @@ void readNodeSlots(const Json::Value& json_slots, std::map<std::string, ShadeTre
 typedef std::map<std::string, Sptr<GLTexture>> TextureMap;
 typedef std::map<std::string, Sptr<IMaterial>> MaterialMap;
 
-void readTexImageNodeProperties(const Json::Value& json_node, const TextureMap& textures, TexImageNode* node)
+void readTexImageNodeProperties(const Json::Value& json_node, const TextureMap& textures, TexImageNode& node)
 {
-    node->texture = textures.at(json_node["Image"].asString());
-    node->texture_transform = readMatrix4x3(json_node["TransformMatrix"]);
+    node.texture = textures.at(json_node["Image"].asString());
+    node.texture_transform = readMatrix4x3(json_node["TransformMatrix"]);
+}
+
+void readMathNodeProperties(const Json::Value& json_node, MathNode& node)
+{
+   node.clamp = json_node["Clamp"].asBool();
+   node.operation = json_node["Operation"].asString();
+}
+
+void readVectMathNodeProperties(const Json::Value& json_node, VectorMathNode& node)
+{
+   node.operation = json_node["Operation"].asString();
 }
 
 Uptr<ShadeTreeMaterial> readMaterial(const RenderEngine& render_engine, const Json::Value& json_material, const TextureMap& textures)
@@ -159,7 +170,11 @@ Uptr<ShadeTreeMaterial> readMaterial(const RenderEngine& render_engine, const Js
         readNodeSlots(json_node["InputSlots"], node->input_slots);
         readNodeSlots(json_node["OutputSlots"], node->output_slots); 
         if (node->type == "TEX_IMAGE")
-            readTexImageNodeProperties(json_node, textures, (TexImageNode*)node.get());
+           readTexImageNodeProperties(json_node, textures, (TexImageNode&)*node);
+        else if (node->type == "MATH")
+           readMathNodeProperties(json_node, (MathNode&)*node);
+        else if (node->type == "VECT_MATH")
+           readVectMathNodeProperties(json_node, (VectorMathNode&)*node);
 
         material->tree_nodes[json_node["Name"].asString()] = std::move(node);
     }

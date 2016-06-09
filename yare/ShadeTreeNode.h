@@ -43,6 +43,7 @@ public:
     virtual ~NodeOutputValue() {}
     NodeOutputType type;
     std::string expression;
+    bool differentials;
 };
 
 class Shading : public NodeOutputValue
@@ -117,17 +118,23 @@ struct ShadeTreeParams
 class ShadeTreeNode
 {
 public:
-    ShadeTreeNode(const std::string& type) : type(type) {}
+    ShadeTreeNode(const std::string& type) : type(type), compute_pixel_differentials(false) {}
     virtual ~ShadeTreeNode() {}
 	virtual const NodeEvaluatedOutputs& evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation) = 0;
 	std::string type;
 	std::string name;
 	std::map<std::string, ShadeTreeNodeSlot> input_slots;
 	std::map<std::string, ShadeTreeNodeSlot> output_slots;
+   bool compute_pixel_differentials;
 
 protected:
     template <typename TValue>
     TValue _evaluateInputSlot(const ShadeTreeParams& params, const std::string& slot_name, ShadeTreeEvaluation& evaluation);
+
+    template <typename TValue>
+    void _evaluateInputSlot(const ShadeTreeParams& params,
+       const std::string& slot_name,
+       ShadeTreeEvaluation& evaluation, std::string& v, std::string& v_atDx, std::string& v_atDy);
 
     void _evaluateShading(const Shading& shading0, const Shading& shading1,
         const std::string& expression, Shading* result, std::string* node_glsl_code);
@@ -194,6 +201,32 @@ public:
    NormalMapNode() : ShadeTreeNode("NORMAL_MAP") {}
    virtual const NodeEvaluatedOutputs& evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation) override;
 };
+
+class BumpNode : public ShadeTreeNode
+{
+public:
+   BumpNode() : ShadeTreeNode("BUMP"), invert(false) {}
+   bool invert;
+   virtual const NodeEvaluatedOutputs& evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation) override;
+};
+
+class MathNode : public ShadeTreeNode
+{
+public:
+   MathNode() : ShadeTreeNode("MATH"), clamp(false), operation("Add") {}
+   std::string operation;
+   bool clamp;
+   virtual const NodeEvaluatedOutputs& evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation) override;
+};
+
+class VectorMathNode : public ShadeTreeNode
+{
+public:
+   VectorMathNode() : ShadeTreeNode("VECT_MATH"), operation("Add") {}
+   std::string operation;
+   virtual const NodeEvaluatedOutputs& evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation) override;
+};
+
 
 /*class UvSourceNode : public ShadeTreeNode
 {

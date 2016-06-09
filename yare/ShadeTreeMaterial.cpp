@@ -27,7 +27,7 @@ ShadeTreeMaterial::~ShadeTreeMaterial()
 
 void ShadeTreeMaterial::render(const RenderResources& resources, const GLVertexSource& mesh_source)
 {   
-   bindTextures(resources);
+   bindTextures();
    GLDevice::bindProgram(program());   
    GLDevice::bindVertexSource(mesh_source);
 
@@ -68,6 +68,8 @@ void ShadeTreeMaterial::compile(const RenderResources& resources)
    ShadeTreeParams eval_params;
    eval_params.tree_nodes = &tree_nodes;
    eval_params.texture_binding_slot_start = _first_texture_binding;
+
+   _markNodesThatNeedPixelDifferentials(*output_node, false);
 
    ShadeTreeEvaluation evaluation;
    output_node->evaluate(eval_params, evaluation);
@@ -118,6 +120,24 @@ void ShadeTreeMaterial::_buildProgramDefinesString()
 
    if (_uses_normal_mapping)
       _defines += "#define USE_NORMAL_MAPPING \n";
+}
+
+void ShadeTreeMaterial::_markNodesThatNeedPixelDifferentials(ShadeTreeNode& node, bool parent_needs_pixels_differentials)
+{
+   if (parent_needs_pixels_differentials)
+   {
+      node.compute_pixel_differentials = true;
+   }
+
+   bool child_need_to_compute_differentials = parent_needs_pixels_differentials || node.type == "BUMP";
+   for (const auto& input : node.input_slots)
+   {
+      if (!input.second.links.empty())
+      {
+         auto& child_node = tree_nodes.at(input.second.links[0].node_name);
+         _markNodesThatNeedPixelDifferentials(*child_node, child_need_to_compute_differentials);
+      }
+   }
 }
 
 }

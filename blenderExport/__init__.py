@@ -132,6 +132,13 @@ def writeTexImageNodeProperties(node, json_node, collected_textures):
     json_node["TransformMatrix"] = writeMatrix(mat_out)
     json_node["Image"] = node.image.name
     collected_textures.add(node.image.name)
+   
+def writeMathNodeProperties(node, json_node):
+    json_node["Clamp"] = node.use_clamp
+    json_node["Operation"] = node.operation
+
+def writeVectMathNodeProperties(node, json_node):
+    json_node["Operation"] = node.operation    
     
 def writeNode(node, collected_textures):
     json_node = {}
@@ -150,9 +157,14 @@ def writeNode(node, collected_textures):
         json_outputs.append({'Name':output.identifier, 'Links':json_links })
         
     json_node = {'Name': node.name, 'Type': node.type, 'InputSlots':json_inputs, 'OutputSlots':json_outputs}
+    
     if node.type == 'TEX_IMAGE':
         writeTexImageNodeProperties(node, json_node, collected_textures)
-    
+    elif node.type == 'VECT_MATH':
+        writeVectMathNodeProperties(node, json_node)
+    elif node.type == 'MATH':
+        writeMathNodeProperties(node, json_node)
+        
     return json_node
     
 def writeMaterials(collected_textures):
