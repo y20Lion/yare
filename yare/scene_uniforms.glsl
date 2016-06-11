@@ -12,3 +12,16 @@ layout(std140, binding = BI_SCENE_UNIFORMS) uniform SceneUniforms
    float proj_coeff_11;
    float tessellation_edges_per_screen_height;
 };
+
+struct Light
+{
+   vec3 color;
+   int type;   
+   vec4 data[3];
+};
+
+layout(std430, binding = BI_LIGHTS_SSBO) buffer LightsSSBO
+{
+   vec4 dummy;
+   Light lights[];
+};

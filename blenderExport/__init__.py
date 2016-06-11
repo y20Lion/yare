@@ -53,9 +53,9 @@ def writeMesh(binary_file, mesh):
     else:
         has_uv = False
     #has_uv = False    
-    if has_uv:
-        mesh.calc_tangents(active_uv_layer.name)
-        bpy.context.scene.update() 
+    #if has_uv:
+        #mesh.calc_tangents(active_uv_layer.name)
+        #bpy.context.scene.update() 
     
     output_positions = array('f', [])
     output_normals = array('f', [])
@@ -81,7 +81,7 @@ def writeMesh(binary_file, mesh):
             output_positions.extend(vertex.co[:])            
             output_normals.extend(normal[:])
             if has_uv:
-                output_tangents.extend(mesh.loops[loop_idx+i].bitangent[:])
+                #output_tangents.extend(mesh.loops[loop_idx+i].bitangent[:])
                 #output_binormals.extend(mesh.loops[loop_idx].bitangent[:])
                 output_uvs.extend(active_uv_layer.data[loop_idx+i].uv.to_2d()[:])                
                 #print(active_uv_layer.data[1].uv.to_2d()[:])
@@ -95,7 +95,7 @@ def writeMesh(binary_file, mesh):
     writeMeshField(json_mesh_fields, 'position', 3, output_positions, binary_file)
     writeMeshField(json_mesh_fields, 'normal', 3, output_normals, binary_file)
     if has_uv:
-        writeMeshField(json_mesh_fields, 'tangent', 3, output_tangents, binary_file)
+        #writeMeshField(json_mesh_fields, 'tangent', 3, output_tangents, binary_file)
         #writeMeshField(json_mesh_fields, 'binormal', 3, output_binormals, binary_file)
         writeMeshField(json_mesh_fields, 'uv', 2, output_uvs, binary_file)    
     json_mesh['Fields'] = json_mesh_fields
@@ -171,6 +171,8 @@ def writeMaterials(collected_textures):
     json_materials = []
     already_written_materials = set()
     for object in bpy.context.scene.objects:
+        if not object.is_visible(bpy.context.scene):
+            continue
         if not hasattr(object.data, "materials"):
             continue
         if not len(object.data.materials):
@@ -193,14 +195,17 @@ def writeTexture(texture_name, output_folder_path):
     image = bpy.data.images[texture_name]
     scene=bpy.context.scene
     scene.render.image_settings.file_format=image.file_format
-    texture_path = output_folder_path+texture_name
-    image.save_render(texture_path,scene)
+    texture_path = output_folder_path+texture_name    
+    image.save_render(texture_path,scene)    
     return {'Name':texture_name, 'Path':texture_path}
     
 def writeTextures(texture_names, output_folder_path):
     json_textures = []
     for texture_name in texture_names:
-        json_textures.append(writeTexture(texture_name, output_folder_path))
+        try:
+            json_textures.append(writeTexture(texture_name, output_folder_path))
+        except Exception as e:
+            print("Texture export failed: "+texture_name+'\n'+str(e))
     return json_textures
     
 def writeEnvironment(output_folder_path):
@@ -211,6 +216,35 @@ def writeEnvironment(output_folder_path):
         print("Environment texture export failed: "+str(e))        
         json_environment = None
     return json_environment
+
+def writeLights():
+    json_lights = []
+    for object in bpy.context.scene.objects:
+        if object.type != 'LAMP':                    
+                continue   
+                
+        light_data = object.data
+        
+        json_light = {'Name':object.name, 'Type':light_data.type, 'Size':light_data.shadow_soft_size}
+        json_light['Color'] = light_data.node_tree.nodes['Emission'].inputs[0].default_value[:]
+        json_light['Strength'] = light_data.node_tree.nodes['Emission'].inputs[1].default_value
+        json_light['WorldToLocalMatrix'] = writeMatrix(object.matrix_world)
+        
+        if light_data.type == 'AREA':
+            json_light['SizeX'] = light_data.size
+            if light_data.shape == 'RECTANGLE':
+                json_light['SizeY'] = light_data.size_y
+            else:
+                json_light['SizeY'] = light_data.size
+        elif light_data.type == 'SPOT':
+            json_light['Angle'] = light_data.spot_size
+            json_light['AngleBlend'] = light_data.spot_blend
+        else:
+            json_light['Size'] = light_data.shadow_soft_size
+            
+        json_lights.append(json_light)
+        
+    return json_lights
     
 class Export3DY(bpy.types.Operator, ExportHelper):
     bl_idname = "export.3dy"
@@ -227,19 +261,22 @@ class Export3DY(bpy.types.Operator, ExportHelper):
         binary_file = open(output_path+'data.bin', "wb")
         
         textures = set()
+        json_lights = writeLights()
         json_materials = writeMaterials(textures)
         json_environment = writeEnvironment(output_path)
         json_textures = writeTextures(textures, output_path)
         json_surfaces = []
         bpy.ops.wm.console_toggle()
-        bpy.ops.object.make_single_user(type='ALL', object=True, obdata=True)
+        #bpy.ops.object.make_single_user(type='ALL', object=True, obdata=True)
         object_count = sum(map(hasMesh, bpy.context.scene.objects))
         i=0
         for object in bpy.context.scene.objects:
+            if not object.is_visible(bpy.context.scene):
+                continue
             if not hasMesh(object):                    
-                    continue
+                continue
 
-            mesh = object.data #to_mesh(bpy.context.scene, True, "PREVIEW")
+            mesh = object.data ##to_mesh(bpy.context.scene, True, "PREVIEW")#
             json_mesh = writeMesh(binary_file, mesh)
             if len(object.data.materials) != 0:
                 material_name = object.data.materials[0].name
@@ -257,6 +294,7 @@ class Export3DY(bpy.types.Operator, ExportHelper):
         root['Textures'] = json_textures
         root['Materials'] = json_materials
         root['Environment'] = json_environment
+        root['Lights'] = json_lights
         with open(output_path+'structure.json', 'w') as json_file:
             json.dump(root, json_file, indent=1)
         return {'FINISHED'}

@@ -37,7 +37,7 @@ bool initGlewWithDummyWindow()
 
    auto glew_result = glewInit();
 
-   glfwWindowHint(GLFW_VISIBLE, GL_TRUE);
+   //glfwWindowHint(GLFW_VISIBLE, GL_TRUE);
    glfwDestroyWindow(window);
 
    return glew_result == GLEW_OK;
@@ -76,7 +76,6 @@ std::atomic<bool> exit_program = false;
 void engineUpdateThread(RenderEngine* render_engine);
 
 
-
 int main()
 {
    if (!glfwInit())
@@ -98,6 +97,7 @@ int main()
    glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
+   glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
    GLFWwindow* window = glfwCreateWindow(1500, 1000, "MyWindow", NULL, NULL);
 
    glfwMakeContextCurrent(window);
@@ -108,11 +108,6 @@ int main()
    glDebugMessageCallback(&printGLDebugMessage, nullptr);
    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 
-   int texture_units;
-   glGetIntegerv(GL_MAX_UNIFORM_BUFFER_BINDINGS, &texture_units);
-   /*glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-   glDisable(GL_DEPTH_TEST);*/
 
    GLDevice::bindDefaultDepthStencilState();
    GLDevice::bindDefaultColorBlendState();
@@ -120,17 +115,18 @@ int main()
    glEnable(GL_CULL_FACE);
 
    RenderEngine render_engine(ImageSize(1500, 1000));
-   char* file = "D:\\BlenderTests\\lolcat.3dy";
-   //char* file = "D:\\BlenderTests\\town.3dy";
+   //char* file = "D:\\BlenderTests\\Sintel_Lite_Cycles_V2.3dy";
+   //char* file = "D:\\BlenderTests\\test_lighting.3dy";
+   char* file = "D:\\BlenderTests\\town.3dy";
    import3DY(file, render_engine, render_engine.scene());
    render_engine.offlinePrepareScene();
 
    CameraManipulator camera_manipulator(&render_engine.scene()->camera.point_of_view);
    
-   //render_engine.updateScene(render_engine.scene()->render_data[1]);
-   
+   //render_engine.updateScene(render_engine.scene()->render_data[1]);   
    //std::thread engine_update_thread(engineUpdateThread, &render_engine);
-   
+
+   glfwShowWindow(window);
    int update_index = 0;
    int render_index = 1;
    while (!exit_program)

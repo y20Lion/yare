@@ -34,6 +34,7 @@ public:
    
 private:
    void _renderSurfaces(const RenderData& render_data);
+   void _createSceneLightsBuffer();
 
 private:
    DISALLOW_COPY_AND_ASSIGN(RenderEngine)
@@ -43,6 +44,8 @@ private:
    Uptr<GLPersistentlyMappedBuffer> _surface_dynamic_uniforms;
    char* _surface_dynamic_uniforms_ptr;
    Uptr<GLPersistentlyMappedBuffer> _scene_uniforms;
+   Uptr<GLBuffer> _lights_ssbo;
+
    size_t _scene_uniforms_size;
    size_t _surface_dynamic_uniforms_size;
 };

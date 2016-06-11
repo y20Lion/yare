@@ -51,5 +51,5 @@ void main()
       color += spherical_harmonics[i] * Klm[i] * legendre_evaluation;
    }
 
-   out_face_color.rgb = color / PI;
+   out_face_color.rgb = color; // we store irradiance
 }

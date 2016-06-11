@@ -24,3 +24,4 @@
 
 // ssbos
 #define BI_EXPOSURE_VALUES_SSBO 4
+#define BI_LIGHTS_SSBO 5

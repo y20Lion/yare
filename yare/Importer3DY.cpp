@@ -225,6 +225,50 @@ void readEnvironment(const RenderEngine& render_engine, const Json::Value& json_
    scene->sky_diffuse_cubemap_sh = render_engine.cubemap_converter->createDiffuseCubemap(*scene->sky_cubemap, DiffuseFilteringMethod::SphericalHarmonics);
 }
 
+LightType convertToLightType(const std::string& name)
+{
+   if (name == "AREA")
+      return LightType::Rectangle;
+   else if (name == "POINT")
+      return LightType::Sphere;
+   else if (name == "SPOT")
+      return LightType::Spot;
+   else
+      return LightType::Sun;
+}
+
+void readLights(const Json::Value& json_lights, Scene* scene)
+{
+   for (const auto& json_light : json_lights)
+   {
+      Light light;
+      const auto& json_color = json_light["Color"];
+      light.color = glm::vec3(json_color[0].asFloat(), json_color[1].asFloat(), json_color[2].asFloat());
+      light.type = convertToLightType(json_light["Type"].asString());
+      light.strength = json_light["Strength"].asFloat();
+      light.world_to_local_matrix = readMatrix4x3(json_light["WorldToLocalMatrix"]);
+
+      switch (light.type)
+      {
+         case LightType::Sphere:
+            light.sphere.size = json_light["Size"].asFloat();
+            break;
+         case LightType::Rectangle:
+            light.rectangle.size_x = json_light["SizeX"].asFloat();
+            light.rectangle.size_y = json_light["SizeY"].asFloat();
+            break;
+         case LightType::Spot:
+            light.spot.angle = json_light["Angle"].asFloat();
+            light.spot.angle_blend = json_light["AngleBlend"].asFloat();
+            break;
+         case LightType::Sun:
+            light.sun.size = json_light["Size"].asFloat();
+            break;
+      }
+      scene->lights.push_back(light);
+   }
+}
+
 void import3DY(const std::string& filename, const RenderEngine& render_engine, Scene* scene)
 {
 	std::ifstream data_file(filename+"\\data.bin", std::ifstream::binary);
@@ -234,9 +278,10 @@ void import3DY(const std::string& filename, const RenderEngine& render_engine, S
 	json_file >> root;
 	json_file.close();
 
-    auto textures = readTextures(root["Textures"]);
-    readEnvironment(render_engine, root["Environment"], scene);
-    auto materials = readMaterials(render_engine, root["Materials"], textures);    
+   readLights(root["Lights"], scene);
+   readEnvironment(render_engine, root["Environment"], scene);
+   auto textures = readTextures(root["Textures"]);
+   auto materials = readMaterials(render_engine, root["Materials"], textures);        
 
 	const auto& json_surfaces = root["Surfaces"];
 	

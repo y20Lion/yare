@@ -40,6 +40,7 @@ void main()
 #include "glsl_binding_defines.h"
 %s
 #include "scene_uniforms.glsl"
+#include "common.glsl"
 
 in vec3 attr_position;
 in vec3 attr_normal;
@@ -64,9 +65,132 @@ float vec3ToFloat(vec3 v)
    return (v.x + v.y + v.z) / 3.0;
 }
 
+float rectangleSolidAngle(vec3 p0, vec3 p1, vec3 p2, vec3 p3)
+{
+   vec3 v0 = p0 - attr_position;
+   vec3 v1 = p1 - attr_position;
+   vec3 v2 = p2 - attr_position;
+   vec3 v3 = p3 - attr_position;
+
+   vec3 n0 = normalize(cross(v0, v1));
+   vec3 n1 = normalize(cross(v1, v2));
+   vec3 n2 = normalize(cross(v2, v3));
+   vec3 n3 = normalize(cross(v3, v0));
+
+   float g0 = acos(dot(-n0, n1));
+   float g1 = acos(dot(-n1, n2));
+   float g2 = acos(dot(-n2, n3));
+   float g3 = acos(dot(-n3, n0));
+
+   return g0 + g1 + g2 + g3 - 2.0 * PI;
+}
+
+/*float rectangleSolidAngle(vec3 light_pos, vec2 rec_size, vec3 plane_dir_x, vec3 plane_dir_y)
+{
+   vec3 pos_in_light_basis = mat4x3(plane_dir_x), plane_dir_y, cross(plane_dir_x, plane_dir_y), light_pos) * vec4(attr_position,1.0);
+   asin()
+   return g0 + g1 + g2 + g3 - 2.0 * PI;
+}*/
+
+float rectangleLightIrradiance(vec3 light_pos, vec2 rec_size, vec3 plane_dir_x, vec3 plane_dir_y)
+{   
+   vec3 light_dir = normalize(light_pos - attr_position);
+   vec3 light_plane_normal = cross(plane_dir_x, plane_dir_y);
+   
+   float irradiance = 0.0;
+   if (dot(light_dir, light_plane_normal) > 0)
+   {
+      float half_width = rec_size.x * 0.5;
+      float half_height = rec_size.y * 0.5;
+            
+      vec3 p0 = light_pos + plane_dir_x * -half_width + plane_dir_y *  half_height;
+      vec3 p1 = light_pos + plane_dir_x * -half_width + plane_dir_y * -half_height;
+      vec3 p2 = light_pos + plane_dir_x *  half_width + plane_dir_y * -half_height;
+      vec3 p3 = light_pos + plane_dir_x *  half_width + plane_dir_y *  half_height;
+
+      // sample light contribution for rectangle corners and rectangle center
+      irradiance += saturate(dot(normalize(p0 - attr_position), normal)); // saturate is used to keep samples above the lamp horizon
+      irradiance += saturate(dot(normalize(p1 - attr_position), normal));
+      irradiance += saturate(dot(normalize(p2 - attr_position), normal));
+      irradiance += saturate(dot(normalize(p3 - attr_position), normal));
+      irradiance += saturate(dot(light_dir, normal));
+
+      irradiance *= rectangleSolidAngle(p0, p1, p2, p3) * 0.2;
+
+      //irradiance = rectangleSolidAngle(p0, p1, p2, p3) * (dot(light_dir, normal));
+   }
+   return irradiance;
+}
+
+// from cycles: they do some weird shit in here
+float spotLightAttenuation(vec3 light_direction, float cos_spot_max_angle, vec3 spot_direction,  float spot_smooth)
+{
+   float cos_angle = dot(light_direction, spot_direction);
+
+   float attenuation = cos_angle;
+   
+   if (cos_angle <= cos_spot_max_angle)
+   {
+      attenuation = 0.0;
+   }
+   else 
+   {      
+      /*float t = attenuation - cos_spot_max_angle;
+      if (t < spot_smooth && spot_smooth != 0.0f)
+      {
+         t = t / spot_smooth;
+         attenuation *= t * t * (3.0 - 2.0 * t);//smoothstep(0.0, 1.0, t / spot_smooth);
+      }*/
+      float t = (acos(cos_angle))/ acos(cos_spot_max_angle);
+      if (t > spot_smooth)
+      {
+         t = t / spot_smooth;
+         attenuation = smoothstep(1.0, 0.0, t);
+      }
+      
+   }
+   
+   return attenuation;
+}
+
 vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
 {
-   return texture(sky_diffuse_cubemap, normal).rgb * color;
+   vec3 irradiance = vec3(0.0);
+   for (int i = 0; i < lights.length(); ++i)
+   {
+      Light light = lights[i];
+      if (light.type == LIGHT_SPHERE)
+      {
+         vec3 light_dir = normalize(light.data[0].xyz - attr_position);
+         float light_distance = distance(light.data[0].xyz, attr_position);
+         irradiance += max(dot(light_dir, normal), 0.0) * light.color / (4 * PI*light_distance*light_distance);
+      }
+      else if (light.type == LIGHT_SUN)
+      {
+         vec3 light_dir = light.data[0].xyz;
+         irradiance += max(dot(light_dir, normal), 0.0) * light.color;
+      }
+      else if (light.type == LIGHT_RECTANGLE)
+      {
+         vec2 light_size = vec2(light.data[1].w, light.data[2].w);
+         irradiance += rectangleLightIrradiance(light.data[0].xyz, light_size, light.data[1].xyz, light.data[2].xyz) * light.color;
+      }
+      else if (light.type == LIGHT_SPOT)
+      {
+         vec3 light_dir = normalize(light.data[0].xyz - attr_position);
+         float light_distance = distance(light.data[0].xyz, attr_position);
+         float cos_spot_half_angle = light.data[0].w;
+         float spot_attenuation = spotLightAttenuation(light_dir, cos_spot_half_angle, light.data[1].xyz, light.data[1].w);
+         
+         // here we match cycles behaviour but it is not correct
+         // cycles consider that the light source power which is emitted outside of the cone is lost (as if the flashlight interior was made of black albedo)
+         // Well in real life flashlights have reflectors and all the light source power is redirected to the light cone.
+         // the real factor should be : light.color / (2 * PI*(1.0-cos_spot_half_angle)*light_distance*light_distance) *spot_attenuation; 
+         irradiance += max(dot(light_dir, normal), 0.0) * light.color / (4 * PI*light_distance*light_distance) *spot_attenuation; 
+      }
+   }
+   vec3 env_irradiance = texture(sky_diffuse_cubemap, normal).rgb;
+   return (irradiance+ env_irradiance) * color/PI; // color/PI is the diffuse brdf constant value
 }
 
 vec3 evalGlossyBSDF(vec3 color, vec3 normal)
@@ -163,5 +287,5 @@ void sampleTextureDifferentials(sampler2D tex,
  void main()
  {    
     %s
-    //shading_result.rgb = Image_Texture_Node_Color;
+    //shading_result.rgb = lights[0].data[0].xyz;
  }

@@ -42,5 +42,5 @@ void main()
          }
       }
    }
-   out_face_color.rgb = sum/PI; //irradiance to diffuse output radiance
+   out_face_color.rgb = sum; // we store irradiance
 }
