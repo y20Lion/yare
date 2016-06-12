@@ -147,10 +147,17 @@ float spotLightAttenuation(vec3 light_direction, float cos_spot_max_angle, vec3 
          t = t / spot_smooth;
          attenuation = smoothstep(1.0, 0.0, t);
       }
+         attenuation = 1.0;
       
    }
    
    return attenuation;
+}
+
+vec3 pointLightIncidentRadiance(vec3 light_power, vec3 light_position)
+{
+   float light_distance = distance(light_position, attr_position);   
+   return light_power / (4 * PI*light_distance*light_distance);
 }
 
 vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
@@ -161,9 +168,9 @@ vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
       Light light = lights[i];
       if (light.type == LIGHT_SPHERE)
       {
-         vec3 light_dir = normalize(light.data[0].xyz - attr_position);
-         float light_distance = distance(light.data[0].xyz, attr_position);
-         irradiance += max(dot(light_dir, normal), 0.0) * light.color / (4 * PI*light_distance*light_distance);
+         vec3 light_position = light.data[0].xyz;
+         vec3 light_dir = normalize(light_position - attr_position);         
+         irradiance += max(dot(light_dir, normal), 0.0) * pointLightIncidentRadiance(light.color, light_position);
       }
       else if (light.type == LIGHT_SUN)
       {
@@ -177,26 +184,86 @@ vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
       }
       else if (light.type == LIGHT_SPOT)
       {
-         vec3 light_dir = normalize(light.data[0].xyz - attr_position);
-         float light_distance = distance(light.data[0].xyz, attr_position);
-         float cos_spot_half_angle = light.data[0].w;
-         float spot_attenuation = spotLightAttenuation(light_dir, cos_spot_half_angle, light.data[1].xyz, light.data[1].w);
+         vec3 light_position = light.data[0].xyz;
+         vec3 light_dir = normalize(light_position - attr_position);
+         float spot_attenuation = spotLightAttenuation(light_dir, light.data[0].w, light.data[1].xyz, light.data[1].w);
          
-         // here we match cycles behaviour but it is not correct
-         // cycles consider that the light source power which is emitted outside of the cone is lost (as if the flashlight interior was made of black albedo)
-         // Well in real life flashlights have reflectors and all the light source power is redirected to the light cone.
-         // the real factor should be : light.color / (2 * PI*(1.0-cos_spot_half_angle)*light_distance*light_distance) *spot_attenuation; 
-         irradiance += max(dot(light_dir, normal), 0.0) * light.color / (4 * PI*light_distance*light_distance) *spot_attenuation; 
+         // we consider the interior of flashlight as if made of black albedo material.
+         // This means that not all the light source power is redirected to the light cone, some is lost in the directions outside of the cone.
+         irradiance += max(dot(light_dir, normal), 0.0) * pointLightIncidentRadiance(light.color, light_position) * spot_attenuation;
       }
    }
    vec3 env_irradiance = texture(sky_diffuse_cubemap, normal).rgb;
-   return (irradiance+ env_irradiance) * color/PI; // color/PI is the diffuse brdf constant value
+   return (irradiance /*+ env_irradiance*/) * color/PI; // color/PI is the diffuse brdf constant value
+}
+
+float DFactor(float alpha, float NoH)
+{
+   float alpha2 = SQR(alpha);
+   return alpha2 / (PI*SQR(SQR(NoH)*(alpha2 - 1) + 1));
+}
+
+float GGGX(float alpha, float NoX)
+{
+   float alpha2 = SQR(alpha);
+   return 2* (NoX * NoX) / ((NoX * NoX) + sqrt(1 + alpha2 * (1 - NoX * NoX)));
+}
+
+float GSchlick(float alpha, float NoX)
+{
+   float k = alpha / 2.0;
+   //float k = alpha*sqrt(2/PI);
+   return NoX / (NoX*(1 - k) + k);
+}
+
+float GSmithFactor(float alpha, float NoV, float NoL)
+{
+   return GGGX(alpha, NoV) * GGGX(alpha, NoL);
+}
+
+float evalMicrofacetGGX(float alpha, vec3 N, vec3 V, vec3 L)
+{
+   vec3 H = normalize(L+V); // half vector
+   float NoV = saturate(dot(N, V));
+   float NoL = saturate(dot(N, L));
+   float HoV = saturate(dot(H, V));
+   float NoH = saturate(dot(N, H));
+
+   return DFactor(alpha, NoH) * GSmithFactor(alpha, NoV, NoL)/ (4.0*NoL*NoV) * NoL;
 }
 
 vec3 evalGlossyBSDF(vec3 color, vec3 normal)
 {
-   vec3 reflected_vector = normalize(reflect(attr_position-eye_position, normal));
-   return texture(sky_cubemap, reflected_vector).rgb;
+   float roughness = 0.5;
+   vec3 exit_radiance = vec3(0.0);
+   vec3 view_vector = normalize(eye_position - attr_position);
+
+   for (int i = 0; i < lights.length(); ++i)
+   {
+      Light light = lights[i];
+      if (light.type == LIGHT_SPHERE)
+      {
+         vec3 light_position = light.data[0].xyz;
+         vec3 light_vector = normalize(light_position - attr_position);         
+         
+         exit_radiance += evalMicrofacetGGX(roughness, normal, view_vector, light_vector) * pointLightIncidentRadiance(light.color, light_position);
+      }
+      else if (light.type == LIGHT_SUN)
+      {
+         vec3 light_vector = light.data[0].xyz;
+         exit_radiance += evalMicrofacetGGX(roughness, normal, view_vector, light_vector) * light.color;
+      }
+      else if (light.type == LIGHT_SPOT)
+      {
+         vec3 light_position = light.data[0].xyz;
+         vec3 light_vector = normalize(light_position - attr_position);         
+         float spot_attenuation = spotLightAttenuation(light_vector, light.data[0].w, light.data[1].xyz, light.data[1].w);
+         
+         exit_radiance += evalMicrofacetGGX(roughness, normal, view_vector, light_vector) * pointLightIncidentRadiance(light.color, light_position) * spot_attenuation;
+      }
+   }   
+     
+   return exit_radiance;// texture(sky_cubemap, reflected_vector).rgb;
 }
 
 vec3 surfaceGradient(vec3 normal, vec3 dPdx, vec3 dPdy, float dHdx, float dHdy)

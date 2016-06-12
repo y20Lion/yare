@@ -8,6 +8,8 @@ struct ImageSize
    ImageSize(int width, int height) : width(width), height(height) {}
    ImageSize(const ImageSize& other) : width(other.width), height(other.height) {};
 
+   float ratio() const { return float(width) / float(height); }
+
    int width;
    int height;
 };

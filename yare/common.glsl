@@ -7,6 +7,7 @@ float luminance(vec3 color)
 }
 
 #define saturate(v) clamp(v, 0.0, 1.0)
+#define SQR(x) ((x)*(x))
 
 #define LIGHT_SPHERE    0
 #define LIGHT_RECTANGLE 1
@@ -33,4 +34,12 @@ vec3 srgbToLinear(vec3 srgb_color)
    result.y = (srgb_color.y <= 0.04045) ? result_lo.y : result_hi.y;
    result.z = (srgb_color.z <= 0.04045) ? result_lo.z : result_hi.z;
    return result;
- }
+}
+
+float fresnel(float n2, float cos_incident_angle)
+{
+   float n1 = 1.0; //air   
+   float r0 = pow((n1 - n2) / (n1 + n2), 2.0);
+
+   return r0 + (1.0 - r0)*pow(1 - cos_incident_angle, 5.0);
+}

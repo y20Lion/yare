@@ -157,7 +157,8 @@ void RenderEngine::updateScene(RenderData& render_data)
    const float zfar = 1000.0f;
    
    auto mat = lookAt(_scene.camera.point_of_view.from, _scene.camera.point_of_view.to, _scene.camera.point_of_view.up);
-   auto  matrix_projection = perspective(3.14f / 2.0f, 1.0f, znear, zfar);
+   
+   auto  matrix_projection = perspective(3.14f / 2.0f, render_resources->framebuffer_size.ratio(), znear, zfar);
    render_data.matrix_view_world = matrix_projection * mat;
    /** frustum(camera.frustum.left, camera.frustum.right,
    camera.frustum.bottom, camera.frustum.top,
