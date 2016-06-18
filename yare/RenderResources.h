@@ -31,6 +31,8 @@ struct RenderResources
 
    Uptr<GLGPUTimer> timer;
 
+   Uptr<GLBuffer> hammersley_samples;
+
    std::string shade_tree_material_fragment;
    std::string shade_tree_material_vertex;
 private:

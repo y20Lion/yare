@@ -26,5 +26,5 @@ layout(location = 0) out vec4 color;
 void main()
 {   
    vec3 eye_vector = normalize(pos - eye_position);
-   color = vec4(0.0);// vec4(texture(sky_cubemap, eye_vector).rgb, 1.0);
+   color =  max(vec4(texture(sky_cubemap, eye_vector).rgb, 1.0)-1.0, vec4(0));
 }

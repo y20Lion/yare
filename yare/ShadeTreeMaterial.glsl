@@ -42,6 +42,11 @@ void main()
 #include "scene_uniforms.glsl"
 #include "common.glsl"
 
+layout(std430, binding = BI_HAMMERSLEY_SAMPLES_SSBO) buffer HammersleySamples
+{   
+   vec2 hammersley_samples[];
+};
+
 in vec3 attr_position;
 in vec3 attr_normal;
 #ifdef USE_UV
@@ -60,6 +65,7 @@ vec3 normal = normalize(attr_normal);
 vec3 tangent = normalize(attr_tangent);
 #endif
 
+
 float vec3ToFloat(vec3 v)
 {
    return (v.x + v.y + v.z) / 3.0;
@@ -77,12 +83,12 @@ float rectangleSolidAngle(vec3 p0, vec3 p1, vec3 p2, vec3 p3)
    vec3 n2 = normalize(cross(v2, v3));
    vec3 n3 = normalize(cross(v3, v0));
 
-   float g0 = acos(dot(-n0, n1));
-   float g1 = acos(dot(-n1, n2));
-   float g2 = acos(dot(-n2, n3));
-   float g3 = acos(dot(-n3, n0));
+   float gamma0 = acos(dot(-n0, n1));
+   float gamma1 = acos(dot(-n1, n2));
+   float gamma2 = acos(dot(-n2, n3));
+   float gamma3 = acos(dot(-n3, n0));
 
-   return g0 + g1 + g2 + g3 - 2.0 * PI;
+   return gamma0 + gamma1 + gamma2 + gamma3 - 2.0 * PI;
 }
 
 /*float rectangleSolidAngle(vec3 light_pos, vec2 rec_size, vec3 plane_dir_x, vec3 plane_dir_y)
@@ -122,33 +128,27 @@ float rectangleLightIrradiance(vec3 light_pos, vec2 rec_size, vec3 plane_dir_x, 
    return irradiance;
 }
 
-// from cycles: they do some weird shit in here
-float spotLightAttenuation(vec3 light_direction, float cos_spot_max_angle, vec3 spot_direction,  float spot_smooth)
+float spotLightAttenuation(vec3 light_direction, float cos_spot_max_angle, vec3 spot_direction, float spot_smooth)
 {
    float cos_angle = dot(light_direction, spot_direction);
 
    float attenuation = cos_angle;
    
-   if (cos_angle <= cos_spot_max_angle)
+   if (cos_angle <= cos_spot_max_angle) //outside of cone
    {
       attenuation = 0.0;
    }
-   else 
-   {      
-      /*float t = attenuation - cos_spot_max_angle;
-      if (t < spot_smooth && spot_smooth != 0.0f)
+   else
+   {
+      spot_smooth = 1.0 - spot_smooth;
+      float t = (1.0 - cos_angle) / (1.0 - cos_spot_max_angle);
+      if (t - spot_smooth > 0)
       {
-         t = t / spot_smooth;
-         attenuation *= t * t * (3.0 - 2.0 * t);//smoothstep(0.0, 1.0, t / spot_smooth);
-      }*/
-      float t = (acos(cos_angle))/ acos(cos_spot_max_angle);
-      if (t > spot_smooth)
-      {
-         t = t / spot_smooth;
-         attenuation = smoothstep(1.0, 0.0, t);
+         t = saturate((t - spot_smooth) / (1.0 - spot_smooth));
+         attenuation = smoothstep(0.0, 1.0, 1.0 - t);
       }
-         attenuation = 1.0;
-      
+      else
+         attenuation = 1.0;      
    }
    
    return attenuation;
@@ -218,7 +218,7 @@ float GSchlick(float alpha, float NoX)
 
 float GSmithFactor(float alpha, float NoV, float NoL)
 {
-   return GGGX(alpha, NoV) * GGGX(alpha, NoL);
+   return GSchlick(alpha, NoV) * GSchlick(alpha, NoL);
 }
 
 float evalMicrofacetGGX(float alpha, vec3 N, vec3 V, vec3 L)
@@ -229,7 +229,137 @@ float evalMicrofacetGGX(float alpha, vec3 N, vec3 V, vec3 L)
    float HoV = saturate(dot(H, V));
    float NoH = saturate(dot(N, H));
 
-   return DFactor(alpha, NoH) * GSmithFactor(alpha, NoV, NoL)/ (4.0*NoL*NoV) * NoL;
+   return DFactor(alpha, NoH) * GSmithFactor(alpha, NoV, NoL)/ (4.0*NoV); 
+   // The NoL at the denominator is cancelled out by the cos factor when evaluation the brdf
+}
+
+vec3 importanceSampleDirGGX(vec2 Xi, float Roughness, vec3 N)
+{
+   float a = Roughness;
+   float Phi = 2 * PI * Xi.x;
+   float CosTheta = sqrt((1 - Xi.y) / (1 + (a*a - 1) * Xi.y));
+   float SinTheta = sqrt(1 - CosTheta * CosTheta);
+   vec3 H;
+   H.x = SinTheta * cos(Phi);
+   H.y = SinTheta * sin(Phi);
+   H.z = CosTheta;
+   vec3 UpVector = abs(N.z) < 0.999 ? vec3(0, 0, 1) : vec3(1, 0, 0);
+   vec3 TangentX = normalize(cross(UpVector, N));
+   vec3 TangentY = cross(N, TangentX);
+   // Tangent to world space
+   return TangentX * H.x + TangentY * H.y + N * H.z;
+}
+
+float rand(vec2 co)
+{
+   return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+vec3 importanceSampleSkyCubemap(float roughness, vec3 N, vec3 V)
+{
+   const int num_samples = 32;
+   
+   float width = textureSize(sky_cubemap, 0).x;
+   float mip_count = log2(width)+1;
+   float offset = 0;// rand(gl_FragCoord.xy);
+   vec3 env_radiance = vec3(0);
+   float weight = 0.0;
+   for (int i = 0; i < num_samples; ++i)
+   {
+      
+      vec2 sample2D = hammersley_samples[i];
+
+      vec3 H = importanceSampleDirGGX(sample2D, roughness, N);
+      vec3 L = 2 * dot(V, H) * H - V;
+      float NoV = (dot(N, V));
+      float NoL = dot(N, L);
+      float NoH = (dot(N, H));
+      float VoH = (dot(V, H));
+
+      if (NoL > 0)
+      {
+         float pdf = DFactor(roughness, NoH) * NoH / (4 * VoH);
+         float omegaS = 1.0 / (num_samples * pdf);
+         float omegaP = 4.0 * PI / (6.0 * width * width);
+         float mip_level = clamp(0.5 * log2(omegaS / omegaP), 1, mip_count);
+                     
+         vec3 sample_color = textureLod(sky_cubemap, L, mip_level).rgb;
+         float G = GSmithFactor(roughness, NoV, NoL);
+         
+         // Incident light = sample_color * NoL
+         // Microfacet specular = D*G*F*NoL / (4*NoL*NoV)
+         // pdf = D * NoH / (4 * VoH)
+         //SpecularLighting += sample_color * F * G * VoH / (NoH * NoV);
+         env_radiance += sample_color*G * VoH / (NoH * NoV);
+         weight += 1.0;
+      }
+   }   
+
+   return env_radiance / num_samples;
+}
+
+
+vec3 importanceSampleSkyCubemap2(
+   float roughness,
+   vec3 N,
+   vec3 V
+   )
+{
+
+   const int g_sampleCount = 1000;
+   vec3 upVector = abs(N.z) < 0.999 ? vec3(0, 0, 1) : vec3(1, 0, 0);
+   vec3 tangentX = normalize(cross(upVector, N));
+   vec3 tangentY = cross(N, tangentX);
+
+   vec3 accLight = vec3(0);
+   float w = 0.0;
+   for (int i = 0; i < g_sampleCount; ++i)
+   {
+      vec2 u = hammersley_samples[i];
+           // GGX NDF sampling
+      float cosThetaH = sqrt((1 - u.x) / (1 + (roughness * roughness - 1) * u.x));
+      float sinThetaH = sqrt(1 - min(1.0, cosThetaH * cosThetaH));
+      float phiH = u.y * PI * 2;
+      
+          // Convert sample from half angle to incident angle
+      vec3 H;
+       H = vec3(sinThetaH * cos(phiH), sinThetaH *sin(phiH), cosThetaH);
+       H = normalize(tangentX * H.y + tangentY * H.x + N * H.z);
+       vec3 L = normalize(2.0f * dot(V, H) * H - V);
+      
+       float LdotH = saturate(dot(H, L));
+       float NdotH = saturate(dot(H, N));
+       float NdotV = saturate(dot(V, N));
+       float NdotL = saturate(dot(L, N));
+     
+         // Importance sampling weight for each sample
+         //
+          // weight = fr . (N.L)
+         //
+         // with :
+         // fr = D(H) . F(H) . G(V, L) / ( 4 (N.L) (N.O) )
+         //
+         // Since we integrate in the microfacet space , we include the
+        // Jacobian of the transform
+        //
+         // pdf = D(H) . (N.H) / ( 4 (L.H) )
+       float D = DFactor(roughness, NdotH);
+      float pdfH = D * NdotH;
+      float pdf = pdfH / (4.0* LdotH);
+     
+         
+         // Implicit weight (N.L canceled out )
+        
+      float G = GSmithFactor(roughness, NdotV, NdotL);
+      float weight = G * D / (4.0 * NdotV);
+     
+         if (dot(L, N) >0 && pdf > 0)
+         {
+         accLight += textureLod(sky_cubemap, L, 2).rgb * weight / pdf;
+         w += 1.0;
+         }
+       }
+   return accLight / g_sampleCount;
 }
 
 vec3 evalGlossyBSDF(vec3 color, vec3 normal)
@@ -244,9 +374,17 @@ vec3 evalGlossyBSDF(vec3 color, vec3 normal)
       if (light.type == LIGHT_SPHERE)
       {
          vec3 light_position = light.data[0].xyz;
-         vec3 light_vector = normalize(light_position - attr_position);         
-         
-         exit_radiance += evalMicrofacetGGX(roughness, normal, view_vector, light_vector) * pointLightIncidentRadiance(light.color, light_position);
+         float light_size = light.data[0].w;
+         vec3 light_vector = light_position - attr_position;
+
+         vec3 reflection_vector = reflect(-view_vector, normal);
+         vec3 center_to_ray =  dot(light_vector, reflection_vector)*reflection_vector - light_vector;
+         vec3 closest_point = light_vector + center_to_ray * saturate(light_size / length(center_to_ray));
+         vec3 light_dir = normalize(closest_point);
+         float alpha_prime = saturate(roughness+light_size / (length(light_vector) * 3.0));
+         float renormalization_factor = (roughness*roughness) / (alpha_prime*alpha_prime);
+
+         exit_radiance += renormalization_factor* evalMicrofacetGGX(roughness, normal, view_vector, light_dir) * pointLightIncidentRadiance(light.color, closest_point+ attr_position);
       }
       else if (light.type == LIGHT_SUN)
       {
@@ -263,7 +401,9 @@ vec3 evalGlossyBSDF(vec3 color, vec3 normal)
       }
    }   
      
-   return exit_radiance;// texture(sky_cubemap, reflected_vector).rgb;
+   vec3 sky_radiance = importanceSampleSkyCubemap(roughness, normal, view_vector);
+
+   return /*exit_radiance+*/sky_radiance;// texture(sky_cubemap, reflect(-view_vector, normal)).rgb;
 }
 
 vec3 surfaceGradient(vec3 normal, vec3 dPdx, vec3 dPdy, float dHdx, float dHdy)
@@ -354,5 +494,5 @@ void sampleTextureDifferentials(sampler2D tex,
  void main()
  {    
     %s
-    //shading_result.rgb = lights[0].data[0].xyz;
+    //shading_result.rgb = vec3(lol/30.0);
  }

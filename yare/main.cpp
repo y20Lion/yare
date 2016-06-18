@@ -75,7 +75,6 @@ static Barrier barrier(2);
 std::atomic<bool> exit_program = false;
 void engineUpdateThread(RenderEngine* render_engine);
 
-
 int main()
 {
    if (!glfwInit())

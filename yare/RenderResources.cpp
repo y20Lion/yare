@@ -1,13 +1,20 @@
 #include "RenderResources.h"
 
+#include <random>
+#include <functional>
+#include <glm/vec2.hpp>
+
 #include "GLVertexSource.h"
 #include "GLBuffer.h"
 #include "GLProgram.h"
 #include "GLSampler.h"
 #include "GLFramebuffer.h"
 #include "GLGPUTimer.h"
+#include "glsl_binding_defines.h"
 
 namespace yare {
+
+using namespace glm;
 
 static float quad_vertices[] = { 1.0f,1.0f,   -1.0f,1.0f,   1.0f,-1.0f,  -1.0f,1.0f,   -1.0f,-1.0f,  1.0f,-1.0f };
 static float triangle_vertices[] = { -1.0f,-1.0f,  3.0f,-1.0f,  -1.0f, 3.0f };
@@ -51,6 +58,17 @@ RenderResources::RenderResources(const ImageSize& framebuffer_size_)
    fullscreen_triangle_source->setVertexAttribute(0, 2, GL_FLOAT);
    fullscreen_triangle_source->setVertexCount(3);
 
+   const int num_samples = 1000;
+   hammersley_samples = createBuffer(sizeof(vec2)*num_samples);
+   vec2* samples = (vec2*) hammersley_samples->map(GL_MAP_WRITE_BIT);
+   auto real_rand = std::bind(std::uniform_real_distribution<float>(0.0, 1.0), std::mt19937());
+   
+   for (int i = 0; i < num_samples; ++i)
+   {
+      samples[i] = vec2(real_rand(), real_rand());
+   }   
+   hammersley_samples->unmap();
+   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, BI_HAMMERSLEY_SAMPLES_SSBO, hammersley_samples->id());
 
    auto shade_tree_prog_desc = createProgramDescFromFile("ShadeTreeMaterial.glsl");
    shade_tree_material_vertex = std::move(shade_tree_prog_desc.shaders[0].code);
