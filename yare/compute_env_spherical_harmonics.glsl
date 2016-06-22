@@ -25,7 +25,7 @@ void main()
          for (int x = 0; x < input_face_size; ++x)
          {                        
             vec3 radiance_dir = normalize(faceToDirection(input_face, (vec2(x, y) + 0.5) / float(input_face_size)));
-            vec3 radiance = textureLod(input_cubemap, radiance_dir, cubemap_level).rgb;
+            vec3 radiance = min(textureLod(input_cubemap, radiance_dir, cubemap_level).rgb, vec3(DIR_LIGHT_THRESHOLD));
             
             float legendre_input[10];
             legendre_input[0] = 1.0;
@@ -49,7 +49,6 @@ void main()
          }
       }
    }
-   //sum = /*sum/(6.0* float(input_face_size*input_face_size)) * 4.0*PI*/;
 
    spherical_harmonics[gl_GlobalInvocationID.x] = sum * cos_sph_harmonics_coeffs[gl_GlobalInvocationID.x];
 }

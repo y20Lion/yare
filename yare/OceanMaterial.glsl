@@ -1,6 +1,6 @@
 ~~~~~~~~~~~~~~~~~~~ VertexShader ~~~~~~~~~~~~~~~~~~~~~
 #version 450
-#include "glsl_binding_defines.h"
+#include "glsl_global_defines.h"
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec3 normal;
 
@@ -16,7 +16,7 @@ void main()
 }
 ~~~~~~~~~~~~~~~~~~~ TessControlShader ~~~~~~~~~~~~~~~~~~~~~
 #version 450
-#include "glsl_binding_defines.h"
+#include "glsl_global_defines.h"
 layout(vertices = 3) out;
 
 #include "scene_uniforms.glsl"
@@ -57,7 +57,7 @@ void main(void)
 
 ~~~~~~~~~~~~~~~~~~~ TessEvaluationShader ~~~~~~~~~~~~~~~~~~~~~
 #version 450
-#include "glsl_binding_defines.h"
+#include "glsl_global_defines.h"
 
 layout(triangles, fractional_even_spacing, ccw) in;
 
@@ -89,7 +89,7 @@ void main()
 
 ~~~~~~~~~~~~~~~~~~ FragmentShader ~~~~~~~~~~~~~~~~~~~~~~
 #version 450
-#include "glsl_binding_defines.h"
+#include "glsl_global_defines.h"
 
 vec3 light_direction = vec3(0.0, 0.2, 1.0);
 vec3 light_color = vec3(1.0, 1.0, 1.0);

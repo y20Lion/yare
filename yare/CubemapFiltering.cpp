@@ -1,7 +1,8 @@
 #include "CubemapFiltering.h"
 
 #include <cmath>
-#include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
+#include <glm/vec2.hpp>
 #include <iostream>
 
 #include "RenderResources.h"
@@ -14,7 +15,11 @@
 #include "GLGPUTimer.h"
 #include "GLBuffer.h"
 
+#define PARALLEL_REDUCE_RESULT_WIDTH 64
+
 namespace yare {
+
+   using namespace glm;
 
    CubemapFiltering::CubemapFiltering(const RenderResources& render_resources)
  : _render_resources(render_resources)
@@ -32,10 +37,13 @@ namespace yare {
    _spherical_harmonics_to_env = createProgramFromFile("spherical_harmonics_to_env.glsl");
 
    _spherical_harmonics_ssbo = createBuffer(9 * sizeof(glm::vec3), GL_MAP_READ_BIT);
+
+   _parallel_reduce_env = createProgramFromFile("parallel_reduce_env.glsl");
+   _parallel_reduce_result = createTexture2D(PARALLEL_REDUCE_RESULT_WIDTH, PARALLEL_REDUCE_RESULT_WIDTH/2, GL_RGBA32F);
 }
 
 Uptr<GLTextureCubemap> CubemapFiltering::createCubemapFromLatlong(const GLTexture2D& latlong_texture) const
-{
+{   
    Uptr<GLTextureCubemap> cubemap = createMipmappedTextureCubemap(latlong_texture.height(), GL_RGB16F); 
    Sptr<GLTextureCubemap> cubemap_without_deleter(cubemap.get(), [](GLTextureCubemap*){});
 
@@ -84,6 +92,44 @@ Uptr<GLTextureCubemap> CubemapFiltering::createDiffuseCubemap(const GLTextureCub
    return diffuse_cubemap;
 }
 
+static vec3 _sphericalCoordinatesToDirection(float phi, float theta)
+{
+   return vec3(sin(theta)*cos(phi), sin(theta)*sin(phi), cos(theta));
+}
+
+std::vector<CubemapFiltering::ExtractedLight> CubemapFiltering::extractDirectionalLightSourcesFromLatlong(const GLTexture2D& latlong_texture) const
+{
+   GLDevice::bindTexture(BI_LATLONG_TEXTURE, latlong_texture, *_render_resources.sampler_nearest_clampToEdge);
+   GLDevice::bindImage(BI_OUTPUT_IMAGE, *_parallel_reduce_result, GL_WRITE_ONLY);
+   GLDevice::bindProgram(*_parallel_reduce_env);
+   glDispatchCompute(latlong_texture.width()/TILE_WIDTH, latlong_texture.height()/TILE_WIDTH, 1);
+   glMemoryBarrier(GL_ALL_BARRIER_BITS); //GL_TEXTURE_UPDATE_BARRIER_BIT should be enough but I'm paranoid
+
+   auto buf_ptr = std::make_unique<uint8_t[]>(_parallel_reduce_result->readbackBufferSize());
+   _parallel_reduce_result->readbackPixels(buf_ptr.get());
+   vec4* pixels = (vec4*)buf_ptr.get();
+   
+   std::vector<CubemapFiltering::ExtractedLight> lights;
+
+   for (int y = 0; y < PARALLEL_REDUCE_RESULT_WIDTH/2; ++y)
+   {
+      for (int x = 0; x < PARALLEL_REDUCE_RESULT_WIDTH; ++x)
+      {
+         vec4 val = pixels[x + y * PARALLEL_REDUCE_RESULT_WIDTH];
+         if (val.w != 0.0)
+         {      
+            lights.push_back(CubemapFiltering::ExtractedLight());
+            auto& light = lights.back();
+            light.color = val.xyz;
+            light.direction = _sphericalCoordinatesToDirection((x + 0.5f) / PARALLEL_REDUCE_RESULT_WIDTH, (y + 0.5f) / PARALLEL_REDUCE_RESULT_WIDTH / 2);
+         }
+      }
+   }
+
+   return lights;
+}
+
+
 void CubemapFiltering::_computeDiffuseEnvWithBruteForce(const GLTextureCubemap& input_cubemap,
                                                         const int used_input_cubemap_level,
                                                         const GLFramebuffer& diffuse_cubemap_framebuffer,
@@ -95,7 +141,7 @@ void CubemapFiltering::_computeDiffuseEnvWithBruteForce(const GLTextureCubemap& 
    GLDevice::bindTexture(BI_INPUT_CUBEMAP, input_cubemap, *_render_resources.sampler_nearest_clampToEdge);
 
    // brute force: for each texel of the output cubemap we sample all texels of the input cubemap
-   // That makes a total of 603 979 776 texture reads, which is done in 190ms on my GTX 770(I guess we can thank Mr cache)
+   // That makes a total of 603 979 776 texture reads, which is done in 190ms on my GTX 770 (We can thank Mr cache)
    for (int i = 0; i < 6; ++i)
    {
       GLDevice::bindFramebuffer(&diffuse_cubemap_framebuffer, i);
@@ -115,6 +161,7 @@ void CubemapFiltering::_computeDiffuseEnvWithSphericalHarmonics(const GLTextureC
    glUniform1i(BI_INPUT_CUBEMAP_LEVEL, used_input_cubemap_level);   
    GLDevice::bindTexture(BI_INPUT_CUBEMAP, input_cubemap, *_render_resources.sampler_nearest_clampToEdge);
    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, BI_SPHERICAL_HARMONICS_SSBO, _spherical_harmonics_ssbo->id());
+
    glDispatchCompute(9, 1, 1);
    glMemoryBarrier(GL_ALL_BARRIER_BITS);
 

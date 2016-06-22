@@ -3,21 +3,11 @@
 #include <assert.h>
 #include <algorithm>
 
+#include "GLFormats.h"
+
 namespace yare {
 
-static int _mipmapLevelCount(int width, int height)
-{
-    int dimension = std::max(width, height);
-    int i = 0;
-    while (dimension > 0)
-    {
-        dimension >>= 1;
-        i++;
-    }
-    return i;
-}
-
-std::pair<GLenum, GLenum> _getExternalFormatAndType(GLenum internal_format, bool bgr)
+static std::pair<GLenum, GLenum> _getExternalFormatAndType(GLenum internal_format, bool bgr)
 {
     GLenum RGB = bgr ? GL_BGR : GL_RGB;
     GLenum RGBA = bgr ? GL_BGRA : GL_RGBA;
@@ -68,7 +58,7 @@ GLTexture2D::GLTexture2D(const GLTexture2DDesc& desc)
    , _width(desc.width)
    , _internal_format(desc.internal_format)
 {
-   _level_count = desc.mipmapped ? _mipmapLevelCount(desc.width, desc.height) : 1;
+   _level_count = desc.mipmapped ? GLFormats::mipmapLevelCount(desc.width, desc.height) : 1;
 
     glCreateTextures(GL_TEXTURE_2D, 1, &_texture_id);
     glTextureStorage2D(_texture_id, _level_count, desc.internal_format, desc.width, desc.height);
@@ -101,6 +91,20 @@ GLTexture2D::~GLTexture2D()
 {    
 }
 
+void GLTexture2D::readbackPixels(void* ptr, int level) const
+{
+   auto format = _getExternalFormatAndType(_internal_format, false);
+   int buf_size = _width * _height * GLFormats::componentCount(format.first) * GLFormats::sizeOfType(format.second);
+   glGetTextureImage(_texture_id, 0, format.first, format.second, buf_size, ptr);
+}
+
+int GLTexture2D::readbackBufferSize() const
+{
+   auto format = _getExternalFormatAndType(_internal_format, false);
+   return _width * _height * GLFormats::componentCount(format.first) * GLFormats::sizeOfType(format.second);
+
+}
+
 Uptr<GLTexture2D> createMipmappedTexture2D(int width, int height, GLenum internal_format, void* pixels, bool pixels_in_bgr)
 {
     GLTexture2DDesc desc;
@@ -131,7 +135,7 @@ Uptr<GLTexture2D> createTexture2D(int width, int height, GLenum internal_format)
 GLTextureCubemap::GLTextureCubemap(const GLTextureCubemapDesc& desc)
    : _width(desc.width)
 {
-   _level_count = desc.mipmapped ? _mipmapLevelCount(desc.width, desc.width) : 1;
+   _level_count = desc.mipmapped ? GLFormats::mipmapLevelCount(desc.width, desc.width) : 1;
    glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &_texture_id);
    glTextureStorage2D(_texture_id, _level_count, desc.internal_format, desc.width, desc.width);
    

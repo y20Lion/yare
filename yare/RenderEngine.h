@@ -23,6 +23,7 @@ public:
    void offlinePrepareScene();
    void updateScene(RenderData& render_data);
    void renderScene(const RenderData& render_data);
+   void presentDebugTexture();
    Scene* scene() { return &_scene; }
 
    glm::vec3 pickPosition(int x, int y);

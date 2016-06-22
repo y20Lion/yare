@@ -37,7 +37,7 @@ void main()
          for (int x = 0; x < input_face_size; ++x)
          {
             vec3 radiance_dir = normalize(faceToDirection(input_face, (vec2(x, y) + 0.5) / float(input_face_size)));
-            vec3 radiance = textureLod(input_cubemap, radiance_dir, cubemap_level).rgb;
+            vec3 radiance = min(textureLod(input_cubemap, radiance_dir, cubemap_level).rgb, vec3(DIR_LIGHT_THRESHOLD));
             sum += radiance * max(dot(normal_dir, radiance_dir), 0.0) * texelSolidAngle(x, y, input_face_size);
          }
       }

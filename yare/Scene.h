@@ -15,6 +15,7 @@ namespace yare {
 class IMaterial;
 class RenderMesh;
 class GLTextureCubemap;
+class GLTexture2D;
 
 struct SurfaceInstance
 {
@@ -27,52 +28,6 @@ struct SurfaceInstance
 };
 
 enum class LightType { Sphere = 0, Rectangle = 1, Sun = 2, Spot = 3 };
-
-/*struct LightSphereData
-{
-
-};
-
-struct LightSunData
-{
-   glm::vec3 direction;
-   float size;
-};
-
-struct LightRectangleData
-{   
-   glm::vec3 position;
-   float padding;
-   glm::vec3 direction_x;
-   float size_x;
-   glm::vec3 direction_y;
-   float size_y;
-};
-
-struct LightSunData
-{
-   glm::vec3 direction;
-   float size;
-};
-
-struct LightSpotData
-{
-   glm::vec3 position;
-   float size_blend;
-};
-
-struct Light
-{
-    LightType type;
-    glm::vec3 color;    
-    union
-    {
-       LightSphereData sphere;
-       LightRectangleData rectangle;
-       LightSunData sun;
-       LightSpotData spot;
-    };    
-};*/
 
 struct LightSphereData
 {
@@ -135,6 +90,7 @@ public:
    std::vector<SurfaceInstance> surfaces;
    std::vector<Light> lights;
    Uptr<GLTextureCubemap> sky_cubemap;
+   Uptr<GLTexture2D> sky_latlong;
    Uptr<GLTextureCubemap> sky_diffuse_cubemap;
    Uptr<GLTextureCubemap> sky_diffuse_cubemap_sh;
 

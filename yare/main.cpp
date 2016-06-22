@@ -135,6 +135,8 @@ int main()
       
       render_engine.updateScene(render_engine.scene()->render_data[render_index]);
       render_engine.renderScene(render_engine.scene()->render_data[render_index]);
+      //render_engine.presentDebugTexture();
+      
       exit_program = bool(glfwWindowShouldClose(window));
       //barrier.wait();
       std::swap(update_index, render_index);

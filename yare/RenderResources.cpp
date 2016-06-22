@@ -10,7 +10,7 @@
 #include "GLSampler.h"
 #include "GLFramebuffer.h"
 #include "GLGPUTimer.h"
-#include "glsl_binding_defines.h"
+#include "glsl_global_defines.h"
 
 namespace yare {
 
@@ -73,6 +73,8 @@ RenderResources::RenderResources(const ImageSize& framebuffer_size_)
    auto shade_tree_prog_desc = createProgramDescFromFile("ShadeTreeMaterial.glsl");
    shade_tree_material_vertex = std::move(shade_tree_prog_desc.shaders[0].code);
    shade_tree_material_fragment = std::move(shade_tree_prog_desc.shaders[1].code);   
+
+   present_texture = createProgramFromFile("present_texture.glsl");
 }
 
 RenderResources::~RenderResources()

@@ -40,6 +40,9 @@ public:
    GLTexture2D(const GLTexture2DDesc& desc);
    virtual ~GLTexture2D();
 
+   void readbackPixels(void* ptr, int level = 0) const;
+   int readbackBufferSize() const;
+
    int width() const override { return _width;  }
    int height() const override { return _height;  }
    GLenum internalFormat() const { return _internal_format;  }

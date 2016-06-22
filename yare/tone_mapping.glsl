@@ -1,6 +1,5 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ VertexShader ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #version 450
-#include "glsl_binding_defines.h"
 
 layout(location = 0) in vec2 position;
 
@@ -11,7 +10,8 @@ void main()
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ FragmentShader ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #version 450
-#include "glsl_binding_defines.h"
+#include "glsl_global_defines.h"
+#include "glsl_film_postprocessing_defines.h"
 
 layout(binding = BI_SCENE_TEXTURE) uniform sampler2D scene_texture;
 layout(binding = BI_BLOOM_TEXTURE) uniform sampler2D bloom_texture;

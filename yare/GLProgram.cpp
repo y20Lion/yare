@@ -5,6 +5,7 @@
 #include <sstream>
 #include <regex>
 #include <map>
+#include <set>
 
 #include "error.h"
 
@@ -145,6 +146,80 @@ static std::string _getIncludeFileContent(const std::string& line)
    return it->second;
 }
 
+struct IncludeCacheData
+{
+   std::vector<std::string> content;
+   std::vector<std::string> includes;
+};
+static std::map<std::string, IncludeCacheData> _include_cache;
+static std::regex _include_regex("#include.+\"(.+)\".*");
+
+
+bool _getFilenameOfInclude(const std::string& line, std::string& include_name)
+{
+   std::smatch regex_result;
+   if (!std::regex_search(line, regex_result, _include_regex))
+      return false;
+
+   include_name = regex_result[1];
+   return true;
+}
+
+IncludeCacheData* _addIncludeFileContentToCache(const std::string& include_file_name)
+{
+   std::ifstream file(include_file_name);
+   if (!file.is_open())
+      RUNTIME_ERROR("Include file not found");
+
+   IncludeCacheData* include_data = &_include_cache[include_file_name];
+   include_data->content.push_back(std::string());
+
+   std::string line;
+   while (std::getline(file, line))
+   {
+      std::string include_name;
+      if (line.length() > 1 && line[0] == '#' && _getFilenameOfInclude(line, include_name))
+      {
+         include_data->includes.push_back(include_name);
+         include_data->content.push_back(std::string());
+      }
+      else
+      {
+         include_data->content.back() += line + "\n";
+      }
+   }
+
+   return include_data;
+}
+
+static std::string _getIncludeFileContent(const std::string& include_file_name, std::set<std::string>& included_files_so_far)
+{
+   included_files_so_far.insert(include_file_name);
+
+   IncludeCacheData* include_data = nullptr;
+   auto it = _include_cache.find(include_file_name);
+   if (it != _include_cache.end())
+   {
+      include_data = &it->second;
+   }
+   else
+   {      
+      include_data = _addIncludeFileContentToCache(include_file_name);
+   }
+
+   std::string result;
+   for (int i = 0; i < include_data->includes.size(); ++i)
+   {
+      result += include_data->content[i];
+      std::string& include_name = include_data->content[i];
+      if (included_files_so_far.find(include_file_name) == included_files_so_far.end())
+         result += _getIncludeFileContent(include_name, included_files_so_far);
+   }
+   result += include_data->content.back();
+
+   return result;
+}
+
 Uptr<GLProgram> createProgramFromFile(const std::string& filepath)
 {      
    auto program_desc = createProgramDescFromFile(filepath);
@@ -161,6 +236,7 @@ GLProgramDesc createProgramDescFromFile(const std::string& filepath)
 
    while (std::getline(file, line))
    {
+      std::string include_name;
       if (line.length() > 1 && line[0] == '~')
       {
          if (shader_type != 0)
@@ -169,9 +245,9 @@ GLProgramDesc createProgramDescFromFile(const std::string& filepath)
 
          shader_type = _toShaderType(line);
       }
-      else if (line.length() > 1 && line[0] == '#' && line.find("#include") != std::string::npos)
+      else if (line.length() > 1 && line[0] == '#' && _getFilenameOfInclude(line, include_name))
       {
-         shader_code << _getIncludeFileContent(line) << std::endl;
+         shader_code << _getIncludeFileContent(include_name, std::set<std::string>()) << std::endl;
       }
       else
          shader_code << line << std::endl;

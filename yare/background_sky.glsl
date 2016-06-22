@@ -1,6 +1,6 @@
 ~~~~~~~~~~~~~~~~~~~VertexShader ~~~~~~~~~~~~~~~~~~~~~
 #version 450
-#include "glsl_binding_defines.h"
+#include "glsl_global_defines.h"
 #include "scene_uniforms.glsl"
 
 layout(location = 0) in vec2 position;
@@ -16,7 +16,7 @@ void main()
 
 ~~~~~~~~~~~~~~~~~~FragmentShader ~~~~~~~~~~~~~~~~~~~~~~
 #version 450
-#include "glsl_binding_defines.h"
+#include "glsl_global_defines.h"
 #include "scene_uniforms.glsl"
 
 in vec3 pos;
@@ -26,5 +26,5 @@ layout(location = 0) out vec4 color;
 void main()
 {   
    vec3 eye_vector = normalize(pos - eye_position);
-   color =  max(vec4(texture(sky_cubemap, eye_vector).rgb, 1.0)-1.0, vec4(0));
+   color = vec4(texture(sky_cubemap, eye_vector).rgb, 1.0);
 }

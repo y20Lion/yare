@@ -15,6 +15,7 @@ import json
 import bpy
 import mathutils
 import os
+import shutil
 from array import array
 from bpy_extras.io_utils import ExportHelper
 from bpy.props import *
@@ -210,8 +211,10 @@ def writeTextures(texture_names, output_folder_path):
     
 def writeEnvironment(output_folder_path):
     try:
-        image_name = bpy.context.scene.world.node_tree.nodes['Environment Texture'].image.name
-        json_environment = writeTexture(image_name, output_folder_path)
+        env_image=bpy.context.scene.world.node_tree.nodes['Environment Texture'].image
+        env_path = bpy.path.abspath(env_image.filepath, library=env_image.library)
+        shutil.copy2(env_path, output_folder_path)
+        json_environment = {'Name':env_image.name, 'Path':output_folder_path+env_image.name }
     except Exception as e:
         print("Environment texture export failed: "+str(e))        
         json_environment = None

@@ -22,14 +22,14 @@ namespace yare {
 using namespace std;
 using namespace glm;
 
-void readDataBlock(const Json::Value& json_object, uint64_t* address, uint64_t* size)
+static void readDataBlock(const Json::Value& json_object, uint64_t* address, uint64_t* size)
 {
 	const auto& datablock = json_object["DataBlock"];
 	*address = datablock["Address"].asUInt64();
 	*size = datablock["Size"].asUInt64();
 }
 
-MeshFieldName _fieldName(const std::string& field_name)
+static MeshFieldName _fieldName(const std::string& field_name)
 {
     if (field_name == "position")
         return MeshFieldName::Position;
@@ -46,7 +46,7 @@ MeshFieldName _fieldName(const std::string& field_name)
     }
 }
 
-Uptr<RenderMesh> readMesh(const Json::Value& mesh_object, std::ifstream& data_file)
+static Uptr<RenderMesh> readMesh(const Json::Value& mesh_object, std::ifstream& data_file)
 {
 	int vertex_count = mesh_object["VertexCount"].asInt();
 	int triangle_count = mesh_object["TriangleCount"].asInt();
@@ -81,7 +81,7 @@ Uptr<RenderMesh> readMesh(const Json::Value& mesh_object, std::ifstream& data_fi
 	return render_mesh;
 }
 
-mat4x3 readMatrix4x3(const Json::Value& json_matrix)
+static mat4x3 readMatrix4x3(const Json::Value& json_matrix)
 {
 	mat4x3 matrix;
 	for (int i = 0; i < 4; ++i)
@@ -93,7 +93,7 @@ mat4x3 readMatrix4x3(const Json::Value& json_matrix)
 	return matrix;
 }
 
-void readNodeSlots(const Json::Value& json_slots, std::map<std::string, ShadeTreeNodeSlot>& slots)
+static void readNodeSlots(const Json::Value& json_slots, std::map<std::string, ShadeTreeNodeSlot>& slots)
 {
     for (const auto& json_slot : json_slots)
     {
@@ -140,24 +140,24 @@ void readNodeSlots(const Json::Value& json_slots, std::map<std::string, ShadeTre
 typedef std::map<std::string, Sptr<GLTexture>> TextureMap;
 typedef std::map<std::string, Sptr<IMaterial>> MaterialMap;
 
-void readTexImageNodeProperties(const Json::Value& json_node, const TextureMap& textures, TexImageNode& node)
+static void readTexImageNodeProperties(const Json::Value& json_node, const TextureMap& textures, TexImageNode& node)
 {
     node.texture = textures.at(json_node["Image"].asString());
     node.texture_transform = readMatrix4x3(json_node["TransformMatrix"]);
 }
 
-void readMathNodeProperties(const Json::Value& json_node, MathNode& node)
+static void readMathNodeProperties(const Json::Value& json_node, MathNode& node)
 {
    node.clamp = json_node["Clamp"].asBool();
    node.operation = json_node["Operation"].asString();
 }
 
-void readVectMathNodeProperties(const Json::Value& json_node, VectorMathNode& node)
+static void readVectMathNodeProperties(const Json::Value& json_node, VectorMathNode& node)
 {
    node.operation = json_node["Operation"].asString();
 }
 
-Uptr<ShadeTreeMaterial> readMaterial(const RenderEngine& render_engine, const Json::Value& json_material, const TextureMap& textures)
+static Uptr<ShadeTreeMaterial> readMaterial(const RenderEngine& render_engine, const Json::Value& json_material, const TextureMap& textures)
 {   
    Uptr<ShadeTreeMaterial> material = std::make_unique<ShadeTreeMaterial>();
     material->name = json_material["Name"].asString();
@@ -169,6 +169,7 @@ Uptr<ShadeTreeMaterial> readMaterial(const RenderEngine& render_engine, const Js
         node->name = json_node["Name"].asString();
         readNodeSlots(json_node["InputSlots"], node->input_slots);
         readNodeSlots(json_node["OutputSlots"], node->output_slots); 
+
         if (node->type == "TEX_IMAGE")
            readTexImageNodeProperties(json_node, textures, (TexImageNode&)*node);
         else if (node->type == "MATH")
@@ -185,7 +186,7 @@ Uptr<ShadeTreeMaterial> readMaterial(const RenderEngine& render_engine, const Js
 }
 
 
-MaterialMap readMaterials(const RenderEngine& render_engine, const Json::Value& json_materials, const TextureMap& textures)
+static MaterialMap readMaterials(const RenderEngine& render_engine, const Json::Value& json_materials, const TextureMap& textures)
 {
    MaterialMap materials;
    for (const auto& json_material : json_materials)
@@ -204,7 +205,7 @@ MaterialMap readMaterials(const RenderEngine& render_engine, const Json::Value& 
    return materials;
 }
 
-std::map<std::string, Sptr<GLTexture>> readTextures(const Json::Value& json_textures)
+static std::map<std::string, Sptr<GLTexture>> readTextures(const Json::Value& json_textures)
 {
     std::map<std::string, Sptr<GLTexture>> textures;
     for (const auto& json_texture : json_textures)
@@ -216,16 +217,39 @@ std::map<std::string, Sptr<GLTexture>> readTextures(const Json::Value& json_text
     return textures;
 }
 
+static mat4x3 sunMatFromDirection(const vec3& dir)
+{
+   // degenerate matrix but only z dir will be used
+   return mat4x3(vec3(0), vec3(0), dir, vec3(0));
+}
+
 void readEnvironment(const RenderEngine& render_engine, const Json::Value& json_env, Scene* scene)
 {
    const auto& texture_name = json_env["Name"].asString();
    const auto& texture_path = json_env["Path"].asString();
-   scene->sky_cubemap = TextureImporter::importCubemapFromFile(texture_path.c_str(), *render_engine.cubemap_converter);
+
+   Uptr<GLTexture2D> latlong_texture = TextureImporter::importTextureFromFile(texture_path.c_str(), true);
+   scene->sky_cubemap = render_engine.cubemap_converter->createCubemapFromLatlong(*latlong_texture);
+   
+   //scene->sky_cubemap = TextureImporter::importCubemapFromFile(texture_path.c_str(), *render_engine.cubemap_converter);
    scene->sky_diffuse_cubemap = render_engine.cubemap_converter->createDiffuseCubemap(*scene->sky_cubemap, DiffuseFilteringMethod::BruteForce);
    scene->sky_diffuse_cubemap_sh = render_engine.cubemap_converter->createDiffuseCubemap(*scene->sky_cubemap, DiffuseFilteringMethod::SphericalHarmonics);
+   auto lights_from_env = render_engine.cubemap_converter->extractDirectionalLightSourcesFromLatlong(*latlong_texture);
+   scene->sky_latlong = std::move(latlong_texture);
+   for (const auto& env_light : lights_from_env)
+   {
+
+      Light light; 
+      light.color = env_light.color;
+      light.type = LightType::Sun;
+      light.strength = 1.0f;
+      light.world_to_local_matrix = sunMatFromDirection(env_light.direction);
+      light.sun.size = 1.0;
+      scene->lights.push_back(light);
+   }
 }
 
-LightType convertToLightType(const std::string& name)
+static LightType convertToLightType(const std::string& name)
 {
    if (name == "AREA")
       return LightType::Rectangle;
@@ -237,7 +261,7 @@ LightType convertToLightType(const std::string& name)
       return LightType::Sun;
 }
 
-void readLights(const Json::Value& json_lights, Scene* scene)
+static void readLights(const Json::Value& json_lights, Scene* scene)
 {
    for (const auto& json_light : json_lights)
    {

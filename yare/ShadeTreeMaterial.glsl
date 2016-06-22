@@ -1,6 +1,6 @@
 ~~~~~~~~~~~~~~~~~~~ VertexShader ~~~~~~~~~~~~~~~~~~~~~
 #version 450
-#include "glsl_binding_defines.h"
+#include "glsl_global_defines.h"
 %s
 layout(location=0) in vec3 position;
 layout(location=1) in vec3 normal;
@@ -37,7 +37,7 @@ void main()
 
 ~~~~~~~~~~~~~~~~~~ FragmentShader ~~~~~~~~~~~~~~~~~~~~~~
 #version 450
-#include "glsl_binding_defines.h"
+#include "glsl_global_defines.h"
 %s
 #include "scene_uniforms.glsl"
 #include "common.glsl"
@@ -194,7 +194,7 @@ vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
       }
    }
    vec3 env_irradiance = texture(sky_diffuse_cubemap, normal).rgb;
-   return (irradiance /*+ env_irradiance*/) * color/PI; // color/PI is the diffuse brdf constant value
+   return (irradiance + env_irradiance) * color/PI; // color/PI is the diffuse brdf constant value
 }
 
 float DFactor(float alpha, float NoH)
@@ -212,7 +212,6 @@ float GGGX(float alpha, float NoX)
 float GSchlick(float alpha, float NoX)
 {
    float k = alpha / 2.0;
-   //float k = alpha*sqrt(2/PI);
    return NoX / (NoX*(1 - k) + k);
 }
 
@@ -261,27 +260,25 @@ vec3 importanceSampleSkyCubemap(float roughness, vec3 N, vec3 V)
    
    float width = textureSize(sky_cubemap, 0).x;
    float mip_count = log2(width)+1;
-   float offset = 0;// rand(gl_FragCoord.xy);
+
    vec3 env_radiance = vec3(0);
-   float weight = 0.0;
    for (int i = 0; i < num_samples; ++i)
-   {
-      
+   {      
       vec2 sample2D = hammersley_samples[i];
 
       vec3 H = importanceSampleDirGGX(sample2D, roughness, N);
       vec3 L = 2 * dot(V, H) * H - V;
-      float NoV = (dot(N, V));
+      float NoV = dot(N, V);
       float NoL = dot(N, L);
-      float NoH = (dot(N, H));
-      float VoH = (dot(V, H));
+      float NoH = dot(N, H);
+      float VoH = dot(V, H);
 
       if (NoL > 0)
       {
          float pdf = DFactor(roughness, NoH) * NoH / (4 * VoH);
          float omegaS = 1.0 / (num_samples * pdf);
          float omegaP = 4.0 * PI / (6.0 * width * width);
-         float mip_level = clamp(0.5 * log2(omegaS / omegaP), 1, mip_count);
+         float mip_level = clamp(0.5 * log2(omegaS / omegaP)+1, 0, mip_count);
                      
          vec3 sample_color = textureLod(sky_cubemap, L, mip_level).rgb;
          float G = GSmithFactor(roughness, NoV, NoL);
@@ -291,7 +288,6 @@ vec3 importanceSampleSkyCubemap(float roughness, vec3 N, vec3 V)
          // pdf = D * NoH / (4 * VoH)
          //SpecularLighting += sample_color * F * G * VoH / (NoH * NoV);
          env_radiance += sample_color*G * VoH / (NoH * NoV);
-         weight += 1.0;
       }
    }   
 
@@ -403,7 +399,7 @@ vec3 evalGlossyBSDF(vec3 color, vec3 normal)
      
    vec3 sky_radiance = importanceSampleSkyCubemap(roughness, normal, view_vector);
 
-   return /*exit_radiance+*/sky_radiance;// texture(sky_cubemap, reflect(-view_vector, normal)).rgb;
+   return exit_radiance+sky_radiance;//+ textureLod(sky_cubemap, reflect(-view_vector, normal), 6).rgb;
 }
 
 vec3 surfaceGradient(vec3 normal, vec3 dPdx, vec3 dPdy, float dHdx, float dHdy)

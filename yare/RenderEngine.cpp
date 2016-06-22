@@ -14,7 +14,7 @@
 #include "RenderResources.h"
 #include "CubemapFiltering.h"
 #include "GLTexture.h"
-#include "glsl_binding_defines.h"
+#include "glsl_global_defines.h"
 #include "OceanMaterial.h"
 #include "BackgroundSky.h"
 #include "GLFramebuffer.h"
@@ -223,6 +223,15 @@ void RenderEngine::renderScene(const RenderData& render_data)
    GLGPUTimer::swapCounters();
 }
 
+void RenderEngine::presentDebugTexture()
+{
+   glViewport(0, 0, 1024, 1024);  
+   GLDevice::bindProgram(*render_resources->present_texture);
+   //GLDevice::bindTexture(BI_INPUT_TEXTURE, *cubemap_converter->_parallel_reduce_result, *render_resources->sampler_bilinear_clampToEdge);
+   //GLDevice::bindTexture(BI_INPUT_TEXTURE, *_scene.sky_latlong, *render_resources->sampler_bilinear_clampToEdge);
+   GLDevice::draw(*render_resources->fullscreen_triangle_source);
+}
+
 void RenderEngine::_renderSurfaces(const RenderData& render_data)
 {
    static int counter = 0; 
@@ -284,7 +293,7 @@ void RenderEngine::_createSceneLightsBuffer()
             buffer_light->color = light.color*light.strength;
             buffer_light->spot.position = light.world_to_local_matrix[3];
             buffer_light->spot.direction = light.world_to_local_matrix[2];
-            buffer_light->spot.cos_half_angle = cos(light.spot.angle/2.0);
+            buffer_light->spot.cos_half_angle = cos(light.spot.angle/2.0f);
             buffer_light->spot.angle_smooth = light.spot.angle_blend;
             break;
       }

@@ -9,7 +9,7 @@
 #include "GLVertexSource.h"
 #include "GLBuffer.h"
 #include "GLFramebuffer.h"
-#include "glsl_binding_defines.h"
+#include "glsl_global_defines.h"
 #include "GLTexture.h"
 #include "CubemapFiltering.h"
 
@@ -26,6 +26,8 @@ Uptr<GLTexture2D> importTextureFromFile(const char* filename, bool float_pixels)
       prepared_image = FreeImage_ConvertTo32Bits(image);
    FreeImage_Unload(image);
 
+   FreeImage_FlipVertical(prepared_image);
+
    int width = FreeImage_GetWidth(prepared_image);
    int height = FreeImage_GetHeight(prepared_image);
 
@@ -37,14 +39,6 @@ Uptr<GLTexture2D> importTextureFromFile(const char* filename, bool float_pixels)
    FreeImage_Unload(prepared_image);
 
    return texture;
-}
-
-float quad_vertices[] = {1.0f,1.0f,   -1.0f,1.0f,   1.0f,-1.0f,  -1.0f,1.0f,   -1.0f,-1.0f,  1.0f,-1.0f};
-
-Uptr<GLTextureCubemap> TextureImporter::importCubemapFromFile(const char* filename, const CubemapFiltering& cubemap_converter)
-{
-   Uptr<GLTexture2D> latlong_texture = importTextureFromFile(filename, true);
-   return cubemap_converter.createCubemapFromLatlong(*latlong_texture);
 }
 
 }}

@@ -12,6 +12,7 @@ class GLVertexSource;
 class GLSampler;
 class GLFramebuffer;
 class GLGPUTimer;
+class GLProgram;
 
 struct RenderResources
 {
@@ -32,6 +33,8 @@ struct RenderResources
    Uptr<GLGPUTimer> timer;
 
    Uptr<GLBuffer> hammersley_samples;
+
+   Uptr<GLProgram> present_texture;
 
    std::string shade_tree_material_fragment;
    std::string shade_tree_material_vertex;

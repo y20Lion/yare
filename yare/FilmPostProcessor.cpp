@@ -6,8 +6,9 @@
 #include "GLFramebuffer.h"
 #include "GLTexture.h"
 #include "GLDevice.h"
-#include "glsl_binding_defines.h"
+#include "glsl_global_defines.h"
 #include "glsl_histogram_defines.h"
+#include "glsl_film_postprocessing_defines.h"
 #include "GLProgram.h"
 #include "GLBuffer.h"
 
@@ -16,13 +17,13 @@ namespace yare {
 FilmPostProcessor::FilmPostProcessor(const RenderResources& render_resources)
  : _rr(render_resources)
 {
-   _luminance_histogram = createProgramFromFile("LuminanceHistogram.glsl");
-   _luminance_histogram_reduce = createProgramFromFile("LuminanceHistogramReduce.glsl");
-   _tone_mapping = createProgramFromFile("ToneMapping.glsl");
-   _downscale_program = createProgramFromFile("Downscale.glsl");
-   _kawase_blur_program = createProgramFromFile("KawaseBlur.glsl");
-   _kawase_blur_render_program = createProgramFromFile("KawaseBlurRender.glsl");
-   _extract_bloom_pixels_program = createProgramFromFile("ExtractBloomPixels.glsl");
+   _luminance_histogram = createProgramFromFile("luminance_histogram.glsl");
+   _luminance_histogram_reduce = createProgramFromFile("luminance_histogram_reduce.glsl");
+   _tone_mapping = createProgramFromFile("tone_mapping.glsl");
+   _downscale_program = createProgramFromFile("downscale.glsl");
+   _kawase_blur_program = createProgramFromFile("kawase_blur.glsl");
+   _kawase_blur_render_program = createProgramFromFile("kawase_blur_render.glsl");
+   _extract_bloom_pixels_program = createProgramFromFile("extract_bloom_pixels.glsl");
    
    float initial_exposures[] = { 1.0f , 1.0f };
    _exposure_values_ssbo = createBuffer(2*sizeof(float), 0, initial_exposures);

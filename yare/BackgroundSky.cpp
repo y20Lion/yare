@@ -10,7 +10,7 @@ namespace yare {
 BackgroundSky::BackgroundSky(const RenderResources& render_resources)
  : _render_resources(render_resources)
 {
-   _program = createProgramFromFile("BackgroundSky.glsl");
+   _program = createProgramFromFile("background_sky.glsl");
 }
 
 BackgroundSky::~BackgroundSky()

@@ -1,6 +1,5 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~VertexShader ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #version 450
-#include "glsl_binding_defines.h"
 
 layout(location = 0) in vec2 position;
 
@@ -10,7 +9,7 @@ void main()
 }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~FragmentShader ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #version 450
-#include "glsl_binding_defines.h"
+#include "glsl_film_postprocessing_defines.h"
 
 layout(binding = BI_INPUT_TEXTURE) uniform sampler2D input_texture;
 layout(location = BI_KERNEL_SIZE) uniform int kernel_size;

@@ -3,31 +3,11 @@
 #include <assert.h>
 
 #include "GLVertexSource.h"
+#include "GLFormats.h"
 
 namespace yare {
 
-static int _sizeOfType(GLuint type)
-{
-	switch (type)
-	{
-		case GL_BYTE: 
-		case GL_UNSIGNED_BYTE: 
-			return 1;
-		case GL_SHORT:
-		case GL_UNSIGNED_SHORT:
-		case GL_HALF_FLOAT:
-			return 2;
-		case GL_INT:
-		case GL_UNSIGNED_INT:
-		case GL_FLOAT:
-			return 4;
-		case GL_DOUBLE: 
-			return 8;
-		default: 
-			assert(false);
-			return 0;
-	}	
-}
+
 
 
 RenderMesh::RenderMesh(int triangle_count, int vertex_count, const std::vector<VertexField>& input_fields)
@@ -41,7 +21,7 @@ RenderMesh::RenderMesh(int triangle_count, int vertex_count, const std::vector<V
 		field.components = input_field.components;
 		field.component_type = input_field.component_type;
 		field.offset = vertex_buffer_size;
-		field.size = input_field.components*_sizeOfType(input_field.component_type)*vertex_count;
+		field.size = input_field.components*GLFormats::sizeOfType(input_field.component_type)*vertex_count;
 		vertex_buffer_size += field.size;
 	}
 

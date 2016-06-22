@@ -1,6 +1,6 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ComputeShader ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #version 450
-#include "glsl_binding_defines.h"
+#include "glsl_film_postprocessing_defines.h"
 
 layout(binding = BI_INPUT_TEXTURE) uniform sampler2D input_texture;
 layout(binding = BI_OUTPUT_IMAGE, rgba32f) uniform writeonly image2D output_image;

@@ -4,7 +4,7 @@
 #include "RenderMesh.h"
 #include "GLDevice.h"
 #include "GLVertexSource.h"
-#include "glsl_binding_defines.h"
+#include "glsl_global_defines.h"
 
 namespace yare {
 

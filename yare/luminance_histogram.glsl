@@ -1,6 +1,6 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ComputeShader ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #version 450
-#include "glsl_binding_defines.h"
+#include "glsl_film_postprocessing_defines.h"
 #include "glsl_histogram_defines.h"
 
 layout(binding = BI_INPUT_IMAGE, rgba32f) uniform readonly image2D input_image;

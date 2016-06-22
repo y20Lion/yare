@@ -1,6 +1,6 @@
 ~~~~~~~~~~~~~~~~~~~VertexShader ~~~~~~~~~~~~~~~~~~~~~
 #version 450
-#include "glsl_binding_defines.h"
+#include "glsl_global_defines.h"
 #include "surface_uniforms.glsl"
 
 layout(location = 0) in vec3 position;
@@ -18,7 +18,7 @@ void main()
 
 ~~~~~~~~~~~~~~~~~~FragmentShader ~~~~~~~~~~~~~~~~~~~~~~
 #version 450
-#include "glsl_binding_defines.h"
+#include "glsl_global_defines.h"
 #include "scene_uniforms.glsl"
 
 in vec3 attr_position;
