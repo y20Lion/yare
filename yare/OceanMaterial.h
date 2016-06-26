@@ -23,8 +23,9 @@ public:
 
    const GLProgram& program() const { return *_program; }
 
-   virtual void render(const RenderResources& resources, const GLVertexSource& mesh_source) override;
-   virtual int requiredMeshFields() override;
+   virtual int requiredMeshFields(MaterialVariant material_variant) override;
+   virtual const GLProgram& compile(MaterialVariant material_variant) override { return *_program; }
+   virtual void render(const GLVertexSource& mesh_source, const GLProgram& program) override;
 
 private:
    DISALLOW_COPY_AND_ASSIGN(OceanMaterial)

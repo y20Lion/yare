@@ -13,10 +13,11 @@
 
 namespace yare {
 
-ShadeTreeMaterial::ShadeTreeMaterial()
+ShadeTreeMaterial::ShadeTreeMaterial(const RenderResources& render_resources)
    : _first_texture_binding(5)
    , _is_transparent(false)
    , _uses_uv(false)
+   , _render_resources(render_resources)
 {
 }
 
@@ -25,10 +26,25 @@ ShadeTreeMaterial::~ShadeTreeMaterial()
 
 }
 
-void ShadeTreeMaterial::render(const RenderResources& resources, const GLVertexSource& mesh_source)
+int ShadeTreeMaterial::requiredMeshFields(MaterialVariant material_variant)
+{
+   int fields = int(MeshFieldName::Position) | int(MeshFieldName::Normal);
+   if (_uses_uv)
+      fields |= int(MeshFieldName::Uv0);
+
+   if (_uses_normal_mapping)
+      fields |= int(MeshFieldName::Tangent0);
+
+   if (int(material_variant) & int(MaterialVariant::WithSkinning))
+      fields |= int(MeshFieldName::BoneIndices) | int(MeshFieldName::BoneWeights);
+
+   return fields;
+}
+
+void ShadeTreeMaterial::render(const GLVertexSource& mesh_source, const GLProgram& program)
 {   
    bindTextures();
-   GLDevice::bindProgram(program());   
+   GLDevice::bindProgram(program);
    GLDevice::bindVertexSource(mesh_source);
 
    if (isTransparent())
@@ -44,23 +60,12 @@ void ShadeTreeMaterial::render(const RenderResources& resources, const GLVertexS
    }
 }
 
-int ShadeTreeMaterial::requiredMeshFields()
+const GLProgram& ShadeTreeMaterial::compile(MaterialVariant material_variant)
 {
-   int fields = int(MeshFieldName::Position) | int(MeshFieldName::Normal);
-   if (_uses_uv)
-      fields |= int(MeshFieldName::Uv0);
+   auto prog_it =_program_variants.find(material_variant);
+   if (prog_it != _program_variants.end())
+      return *prog_it->second;
 
-   if (_uses_normal_mapping)
-      fields |= int(MeshFieldName::Tangent0);
-
-   //if (_uses_skinning)
-      fields |= int(MeshFieldName::BoneIndices) | int(MeshFieldName::BoneWeights);
-   
-   return fields;   
-}
-
-void ShadeTreeMaterial::compile(const RenderResources& resources)
-{
    auto is_output_node = [](const auto& name_node_pair)
    {
       return name_node_pair.second->type == "OUTPUT_MATERIAL";
@@ -79,13 +84,13 @@ void ShadeTreeMaterial::compile(const RenderResources& resources)
    _is_transparent = evaluation.is_transparent;
    _uses_normal_mapping = evaluation.normal_mapping_needed;
    _uses_uv = evaluation.uv_needed;   
-   _buildProgramDefinesString();
-   
-   std::string fragment_shader = _createFragmentShaderCode(evaluation, resources.shade_tree_material_fragment);
-   std::string vertex_shader = _createVertexShaderCode(evaluation, resources.shade_tree_material_vertex);
 
-   _program = createProgram(vertex_shader, fragment_shader);
-   
+   std::string program_defines = _buildProgramDefinesString(material_variant);   
+   std::string fragment_shader = _createFragmentShaderCode(evaluation, _render_resources.shade_tree_material_fragment, program_defines);
+   std::string vertex_shader = _createVertexShaderCode(evaluation, _render_resources.shade_tree_material_vertex, program_defines);
+
+   _program_variants[material_variant] = createProgram(vertex_shader, fragment_shader);
+   return *_program_variants[material_variant];
 }
 
 void ShadeTreeMaterial::bindTextures()
@@ -93,7 +98,7 @@ void ShadeTreeMaterial::bindTextures()
    glBindTextures(_first_texture_binding, (GLuint)_used_textures.size(), _used_textures.data());   
 }
 
-std::string ShadeTreeMaterial::_createFragmentShaderCode(const ShadeTreeEvaluation& evaluation, const std::string& fragment_template)
+std::string ShadeTreeMaterial::_createFragmentShaderCode(const ShadeTreeEvaluation& evaluation, const std::string& fragment_template, const std::string& defines)
 {
    std::string texture_bindings;
    _used_textures.clear();
@@ -107,22 +112,27 @@ std::string ShadeTreeMaterial::_createFragmentShaderCode(const ShadeTreeEvaluati
    for (const std::string& glsl : evaluation.glsl_code)
       nodes_shading.append(glsl);
 
-   return string_format(fragment_template, _defines, texture_bindings, nodes_shading);
+   return string_format(fragment_template, defines, texture_bindings, nodes_shading);
 }
 
-std::string ShadeTreeMaterial::_createVertexShaderCode(const ShadeTreeEvaluation& evaluation, const std::string& vertex_template)
+std::string ShadeTreeMaterial::_createVertexShaderCode(const ShadeTreeEvaluation& evaluation, const std::string& vertex_template, const std::string& defines)
 {
-   return string_format(vertex_template, _defines);
+   return string_format(vertex_template, defines );
 }
 
-void ShadeTreeMaterial::_buildProgramDefinesString()
+std::string ShadeTreeMaterial::_buildProgramDefinesString(MaterialVariant material_variant)
 {
-   _defines.clear();
+   std::string defines;
    if (_uses_uv)
-      _defines += "#define USE_UV \n";
+      defines += "#define USE_UV \n";
 
    if (_uses_normal_mapping)
-      _defines += "#define USE_NORMAL_MAPPING \n";
+      defines += "#define USE_NORMAL_MAPPING \n";
+
+   if (int(material_variant) & int(MaterialVariant::WithSkinning))
+      defines += "#define USE_SKINNING \n";
+
+   return defines;
 }
 
 void ShadeTreeMaterial::_markNodesThatNeedPixelDifferentials(ShadeTreeNode& node, bool parent_needs_pixels_differentials)

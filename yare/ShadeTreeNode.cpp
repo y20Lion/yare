@@ -326,11 +326,6 @@ const NodeEvaluatedOutputs& TexImageNode::evaluate(const ShadeTreeParams& params
     {
        node_glsl_code = "vec3 " + glsl_color + ";\n";
        node_glsl_code += "float " + glsl_alpha + ";\n";
-       /*node_glsl_code += "sampleTexture("+ glsl_texture
-       +","+ "vec3(attr_uv, 1.0)" // TODO Yvain handle multi uv
-       +", "+ _toGLSLMatrix(texture_transform)
-       +","+ glsl_color
-       +","+ glsl_alpha +");\n";*/
        node_glsl_code += string_format("sampleTexture(%s, vec3(attr_uv, 1.0), %s, %s, %s)\n",
           glsl_texture, glsl_matrix, glsl_color, glsl_alpha);
     }

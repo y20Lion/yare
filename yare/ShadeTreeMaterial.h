@@ -20,37 +20,34 @@ struct RenderResources;
 class ShadeTreeMaterial : public IMaterial
 {
 public:
-   ShadeTreeMaterial();
+   ShadeTreeMaterial(const RenderResources& render_resources);
    virtual ~ShadeTreeMaterial();
    std::string name;
+
+   virtual int requiredMeshFields(MaterialVariant material_variant) override;
+   virtual const GLProgram& compile(MaterialVariant material_variant) override;
+   virtual void render(const GLVertexSource& mesh_source, const GLProgram& program) override;
    
-   virtual void render(const RenderResources& resources, const GLVertexSource& mesh_source) override;
-   virtual int requiredMeshFields() override;
-
-   void compile(const RenderResources& resources);
-
    std::map<std::string, std::unique_ptr<ShadeTreeNode>> tree_nodes;
-
-   const GLProgram& program() const { return *_program; }
 
    void bindTextures();
    bool isTransparent() const { return _is_transparent; }
 
 private:
-   std::string _createVertexShaderCode(const ShadeTreeEvaluation& evaluation, const std::string& fragment_template);
-   std::string _createFragmentShaderCode(const ShadeTreeEvaluation& evaluation, const std::string& vertex_template);
-   void _buildProgramDefinesString();
+   std::string _createVertexShaderCode(const ShadeTreeEvaluation& evaluation, const std::string& fragment_template, const std::string& defines);
+   std::string _createFragmentShaderCode(const ShadeTreeEvaluation& evaluation, const std::string& vertex_template, const std::string& defines);
+   std::string _buildProgramDefinesString(MaterialVariant material_variant);
    void _markNodesThatNeedPixelDifferentials(ShadeTreeNode& node, bool parent_needs_pixels_differentials);
 
 private:
-
-   Uptr<GLProgram> _program;
+   const RenderResources& _render_resources;
+   std::map<MaterialVariant, Uptr<GLProgram>> _program_variants;
+   
    std::vector<GLuint> _used_textures;
    int _first_texture_binding;
    bool _is_transparent;
    bool _uses_uv;
    bool _uses_normal_mapping;
-   std::string _defines;
 };
 
 }

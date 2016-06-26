@@ -47,7 +47,7 @@ private:
                                                  const GLFramebuffer& diffuse_cubemap_framebuffer,
                                                  GLTextureCubemap& diffuse_cubemap) const;
 
-public: // TODO
+private:
    DISALLOW_COPY_AND_ASSIGN(CubemapFiltering)
    Uptr<GLProgram> _render_cubemap_face;
    Uptr<GLProgram> _render_diffuse_cubemap_face;

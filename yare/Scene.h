@@ -9,6 +9,7 @@
 #include "tools.h"
 #include "Camera.h"
 #include "GLVertexSource.h"
+#include "IMaterial.h"
 
 namespace yare {
 
@@ -24,6 +25,8 @@ struct SurfaceInstance
     Sptr<RenderMesh> mesh;
     Sptr<Skeleton> skeleton;
     Sptr<IMaterial> material;
+    MaterialVariant material_variant;
+    const GLProgram* material_program;
 
     glm::mat3 normal_matrix_world_local;    
     Sptr<GLVertexSource> vertex_source_for_material;

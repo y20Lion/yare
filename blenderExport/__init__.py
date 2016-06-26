@@ -42,6 +42,8 @@ def writeMeshField(json_mesh_fields, field_name, components, field_array, binary
     
     if field_array.typecode == 'f':
         scalar_type = 'Float'
+    elif field_array.typecode == 'H':
+        scalar_type = 'UnsignedShort'
     else: #field_array.typecode == 'B'
         scalar_type = 'UnsignedByte'
 
@@ -97,7 +99,7 @@ def writeMesh(binary_file, mesh, mesh_vertex_groups, bone_name_to_index):
     output_binormals = array('f', [])
     output_uvs = array('f', [])
     output_bone_weights = array('f', [])
-    output_bone_indices = array('B', []) #filter used bone
+    output_bone_indices = array('H', []) #TODO filter used bone
     
     loop_idx = 0
     vertex_count=0
@@ -326,7 +328,7 @@ def writeLights():
 def getMeshArmature(object):   
     armature_name = None
     for modifier in object.modifiers:
-        if modifier.type == 'ARMATURE':
+        if modifier.type == 'ARMATURE' and modifier.object is not None:
             armature_name = modifier.object.name
             break
     return armature_name

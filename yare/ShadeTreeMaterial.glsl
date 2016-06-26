@@ -10,7 +10,7 @@ layout(location=2) in vec2 uv;
 #ifdef USE_NORMAL_MAPPING
 layout(location = 3) in vec3 tangent;
 #endif
-#define USE_SKINNING
+
 #ifdef USE_SKINNING
 layout(location = 4) in uvec4 bone_index;
 layout(location = 5) in vec4 bone_weight;
@@ -50,7 +50,7 @@ void main()
    gl_Position = matrix_view_world * vec4(skinned_position, 1.0);
    attr_normal = skinned_normal;
    attr_position = skinned_position;
-#else   
+#else 
    gl_Position = matrix_view_local * vec4(position, 1.0);
    attr_normal = mat3(normal_matrix_world_local)*normal;
    attr_position = matrix_world_local*vec4(position, 1.0);

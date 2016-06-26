@@ -57,6 +57,8 @@ GLenum _componentType(const std::string& component_type)
       return GL_FLOAT;
    else if (component_type == "UnsignedByte")
       return GL_UNSIGNED_BYTE;
+   else if (component_type == "UnsignedShort")
+      return GL_UNSIGNED_SHORT;
    else
       assert(false);
    return 0;
@@ -165,6 +167,7 @@ static void readNodeSlots(const Json::Value& json_slots, std::map<std::string, S
 
 typedef std::map<std::string, Sptr<GLTexture>> TextureMap;
 typedef std::map<std::string, Sptr<IMaterial>> MaterialMap;
+typedef std::map<std::string, Sptr<Skeleton>> SkeletonMap;
 
 static void readTexImageNodeProperties(const Json::Value& json_node, const TextureMap& textures, TexImageNode& node)
 {
@@ -185,7 +188,7 @@ static void readVectMathNodeProperties(const Json::Value& json_node, VectorMathN
 
 static Uptr<ShadeTreeMaterial> readMaterial(const RenderEngine& render_engine, const Json::Value& json_material, const TextureMap& textures)
 {   
-   Uptr<ShadeTreeMaterial> material = std::make_unique<ShadeTreeMaterial>();
+   Uptr<ShadeTreeMaterial> material = std::make_unique<ShadeTreeMaterial>(*render_engine.render_resources);
     material->name = json_material["Name"].asString();
     for (const auto& json_node : json_material["Nodes"])
     {
@@ -206,7 +209,7 @@ static Uptr<ShadeTreeMaterial> readMaterial(const RenderEngine& render_engine, c
         material->tree_nodes[json_node["Name"].asString()] = std::move(node);
     }
 
-    material->compile(*render_engine.render_resources);
+    //material->compile(*render_engine.render_resources);
     
     return material;
 }
@@ -316,8 +319,9 @@ static void readLights(const Json::Value& json_lights, Scene* scene)
    }
 }
 
-void readSkeletons(const Json::Value& json_skeletons, Scene* scene)
+SkeletonMap readSkeletons(const Json::Value& json_skeletons, Scene* scene)
 {
+   SkeletonMap skeletons;
    for (const auto& json_skeleton : json_skeletons)
    {
       const auto& json_bones = json_skeleton["Bones"];      
@@ -337,9 +341,10 @@ void readSkeletons(const Json::Value& json_skeletons, Scene* scene)
          skeleton->skeleton_to_bone_bind_pose_matrices[i] = readMatrix4x3(json_bone["SkeletonToBoneMatrix"]);
          ++i;
       }
-      
+      skeletons[skeleton->name] = skeleton;
       scene->skeletons.push_back(skeleton);
    }
+   return skeletons;
 }
 
 void import3DY(const std::string& filename, const RenderEngine& render_engine, Scene* scene)
@@ -353,7 +358,7 @@ void import3DY(const std::string& filename, const RenderEngine& render_engine, S
 
    readLights(root["Lights"], scene);
    readEnvironment(render_engine, root["Environment"], scene);
-   readSkeletons(root["Skeletons"], scene);
+   auto skeletons = readSkeletons(root["Skeletons"], scene);
    auto textures = readTextures(root["Textures"]);
    auto materials = readMaterials(render_engine, root["Materials"], textures);        
    
@@ -372,14 +377,26 @@ void import3DY(const std::string& filename, const RenderEngine& render_engine, S
 		surface_instance.mesh = std::move(render_mesh);
 		surface_instance.matrix_world_local = readMatrix4x3(json_matrix);
 
-      auto it = materials.find(json_surface["Material"].asString());
-      if (it != materials.end())
-         surface_instance.material = it->second;
+      auto mat_it = materials.find(json_surface["Material"].asString());
+      if (mat_it != materials.end())
+         surface_instance.material = mat_it->second;
       else
          surface_instance.material = default_material;
 
+      auto sk_it = skeletons.find(json_surface["Skeleton"].asString());
+      if (sk_it != skeletons.end())
+      {
+         surface_instance.skeleton = sk_it->second;
+         surface_instance.material_variant = MaterialVariant::WithSkinning;
+      }
+      else
+      {
+         surface_instance.skeleton = nullptr;
+         surface_instance.material_variant = MaterialVariant::Normal;
+      }
+      surface_instance.material_program = &surface_instance.material->compile(surface_instance.material_variant);
 		scene->surfaces.push_back(surface_instance);
-	}   
+	}
 }
 
 }

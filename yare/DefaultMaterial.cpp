@@ -16,14 +16,14 @@ DefaultMaterial::~DefaultMaterial()
 
 }
 
-void DefaultMaterial::render(const RenderResources& resources, const GLVertexSource& mesh_source)
+void DefaultMaterial::render(const GLVertexSource& mesh_source, const GLProgram& program_)
 {
    GLDevice::bindProgram(program());
    GLDevice::bindVertexSource(mesh_source);
    GLDevice::draw(0, mesh_source.vertexCount());
 }
 
-int DefaultMaterial::requiredMeshFields()
+int DefaultMaterial::requiredMeshFields(MaterialVariant material_variant)
 {
    return int(MeshFieldName::Position) | int(MeshFieldName::Normal);
 }

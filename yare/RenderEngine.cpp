@@ -120,7 +120,7 @@ void RenderEngine::offlinePrepareScene()
    for (int i = 0; i < _scene.surfaces.size(); ++i)
    {
       if (_scene.surfaces[i].vertex_source_for_material == nullptr)
-         _scene.surfaces[i].vertex_source_for_material = createVertexSource(*_scene.surfaces[i].mesh, _scene.surfaces[i].material->requiredMeshFields());
+         _scene.surfaces[i].vertex_source_for_material = createVertexSource(*_scene.surfaces[i].mesh, _scene.surfaces[i].material->requiredMeshFields(_scene.surfaces[i].material_variant));
    }
 
    for (int i = 0; i < _scene.surfaces.size(); ++i)
@@ -252,20 +252,27 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
    glBindBufferRange(GL_UNIFORM_BUFFER, BI_SCENE_UNIFORMS, _scene_uniforms->id(),
       _scene_uniforms->getCurrentWindowOffset(), _scene_uniforms->windowSize());
 
-   glBindBufferRange(GL_SHADER_STORAGE_BUFFER, BI_SKINNING_PALETTE_SSBO, _scene.skeletons[0]->skinningPalette().id(),
-      _scene.skeletons[0]->skinningPalette().getCurrentWindowOffset(), _scene.skeletons[0]->skinningPalette().windowSize());
+   
 
    for (int i = 0; i < render_data.main_view_surface_data.size(); ++i)
    {
+      const auto& surface_data = render_data.main_view_surface_data[i];
+      const auto& surface = _scene.surfaces[i];
+      
+      if (surface.skeleton)
+      {
+         glBindBufferRange(GL_SHADER_STORAGE_BUFFER, BI_SKINNING_PALETTE_SSBO, surface.skeleton->skinningPalette().id(),
+                           surface.skeleton->skinningPalette().getCurrentWindowOffset(), surface.skeleton->skinningPalette().windowSize());
+      }
+
       glBindBufferRange(GL_UNIFORM_BUFFER, BI_SURFACE_DYNAMIC_UNIFORMS,
          _surface_dynamic_uniforms->id(),
          _surface_dynamic_uniforms->getCurrentWindowOffset() + _surface_dynamic_uniforms_size*i,
          _surface_dynamic_uniforms_size);
 
-      const auto& surface_data = render_data.main_view_surface_data[i];
-      const auto& surface = _scene.surfaces[i];
+      
 
-      surface.material->render(*render_resources, *surface.vertex_source_for_material);
+      surface.material->render(*surface.vertex_source_for_material, *surface.material_program);
    }
 }
 
