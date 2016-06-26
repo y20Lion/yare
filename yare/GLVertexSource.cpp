@@ -16,12 +16,15 @@ GLVertexSource::~GLVertexSource()
     glDeleteVertexArrays(1, &_vao_id);
 }
 
-void GLVertexSource::setVertexAttribute(int attribute_slot, int components, GLenum component_type, int attribute_stride, std::int64_t attribute_offset)
+void GLVertexSource::setVertexAttribute(int attribute_slot, int components, GLenum component_type, GLSLVecType glsl_type, int attribute_stride, std::int64_t attribute_offset)
 {
-    glBindVertexArray(_vao_id);
-    glEnableVertexAttribArray(attribute_slot);
-    glVertexAttribPointer(attribute_slot, components, component_type, GL_FALSE, attribute_stride, (const void*)attribute_offset);
-    glBindVertexArray(0);
+   glBindVertexArray(_vao_id);
+   glEnableVertexAttribArray(attribute_slot);
+   if (glsl_type == GLSLVecType::ivec || glsl_type == GLSLVecType::uvec)
+      glVertexAttribIPointer(attribute_slot, components, component_type, attribute_stride, (const void*)attribute_offset);
+   else
+      glVertexAttribPointer(attribute_slot, components, component_type, GL_FALSE, attribute_stride, (const void*)attribute_offset);
+   glBindVertexArray(0);
 }
 
 void GLVertexSource::setIndexBuffer(const GLBuffer& index_buffer)

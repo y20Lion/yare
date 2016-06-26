@@ -55,7 +55,7 @@ RenderResources::RenderResources(const ImageSize& framebuffer_size_)
    fullscreen_triangle_vbo = createBuffer(sizeof(triangle_vertices), 0, triangle_vertices);
    fullscreen_triangle_source = std::make_unique<GLVertexSource>();
    fullscreen_triangle_source->setVertexBuffer(*fullscreen_triangle_vbo);
-   fullscreen_triangle_source->setVertexAttribute(0, 2, GL_FLOAT);
+   fullscreen_triangle_source->setVertexAttribute(0, 2, GL_FLOAT, GLSLVecType::vec);
    fullscreen_triangle_source->setVertexCount(3);
 
    const int num_samples = 1000;

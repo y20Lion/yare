@@ -94,7 +94,7 @@ int main()
    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
    glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
-   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);/*GLFW_OPENGL_COMPAT_PROFILE*/
    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
    glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
    GLFWwindow* window = glfwCreateWindow(1500, 1000, "MyWindow", NULL, NULL);
@@ -111,11 +111,11 @@ int main()
    GLDevice::bindDefaultDepthStencilState();
    GLDevice::bindDefaultColorBlendState();
    GLDevice::bindDefaultRasterizationState();
-   glEnable(GL_CULL_FACE);
+   //glEnable(GL_CULL_FACE);
 
    RenderEngine render_engine(ImageSize(1500, 1000));
    //char* file = "D:\\BlenderTests\\Sintel_Lite_Cycles_V2.3dy";
-   char* file = "D:\\BlenderTests\\test_lighting.3dy";
+   char* file = "D:\\BlenderTests\\test_armature.3dy";
    //char* file = "D:\\BlenderTests\\town.3dy";
    import3DY(file, render_engine, render_engine.scene());
    render_engine.offlinePrepareScene();

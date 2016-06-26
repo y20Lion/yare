@@ -20,6 +20,9 @@
 #include "GLFramebuffer.h"
 #include "FilmPostProcessor.h"
 #include "GLGPUTimer.h"
+#include "Skeleton.h"
+#include "matrix_math.h"
+#include "GLFormats.h"
 
 namespace yare {
 
@@ -99,41 +102,16 @@ RenderEngine::~RenderEngine()
 }
 
 
-static size_t _alignSize(size_t real_size, int aligned_size)
-{
-    return (real_size + aligned_size - 1) & -aligned_size;
-}
-
-static mat4 _toMat4(const mat4x3& matrix)
-{
-   mat4 result;
-   result[0] = vec4(matrix[0], 0.0);
-   result[1] = vec4(matrix[1], 0.0);
-   result[2] = vec4(matrix[2], 0.0);
-   result[3] = vec4(matrix[3], 1.0);
-   return result;
-}
-
-static mat4x3 _toMat4x3(const mat4& matrix)
-{
-   mat4x3 result;
-   result[0] = matrix[0].xyz;
-   result[1] = matrix[1].xyz;
-   result[2] = matrix[2].xyz;
-   result[3] = matrix[3].xyz;
-   return result;
-}
 
 void RenderEngine::offlinePrepareScene()
 {
    int uniform_buffer_align_size;
    glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &uniform_buffer_align_size);
-   _surface_dynamic_uniforms_size = _alignSize(sizeof(SurfaceDynamicUniforms), uniform_buffer_align_size);
-   _scene_uniforms_size = _alignSize(sizeof(SceneUniforms), uniform_buffer_align_size);
+   _surface_dynamic_uniforms_size = GLFormats::alignSize(sizeof(SurfaceDynamicUniforms), uniform_buffer_align_size);
 
    int surface_count = int(_scene.surfaces.size());
    _surface_dynamic_uniforms = createPersistentBuffer(_surface_dynamic_uniforms_size * surface_count);
-   _scene_uniforms = createPersistentBuffer(_scene_uniforms_size);   
+   _scene_uniforms = createPersistentBuffer(sizeof(SceneUniforms));
    _createSceneLightsBuffer();
    
    _scene.render_data[0].main_view_surface_data.resize(_scene.surfaces.size());
@@ -147,7 +125,7 @@ void RenderEngine::offlinePrepareScene()
 
    for (int i = 0; i < _scene.surfaces.size(); ++i)
    {    
-      _scene.surfaces[i].normal_matrix_world_local = mat3(transpose(inverse(_toMat4(_scene.surfaces[i].matrix_world_local))));
+      _scene.surfaces[i].normal_matrix_world_local = mat3(transpose(inverse(toMat4(_scene.surfaces[i].matrix_world_local))));
    }
 }
 
@@ -163,10 +141,10 @@ void RenderEngine::updateScene(RenderData& render_data)
    /** frustum(camera.frustum.left, camera.frustum.right,
    camera.frustum.bottom, camera.frustum.top,
    camera.frustum.near, camera.frustum.far);*/
-
+   //_scene.surfaces[3].matrix_world_local = mat4x3(1.0);
    for (int i = 0; i < render_data.main_view_surface_data.size(); ++i)
    {
-      render_data.main_view_surface_data[i].matrix_view_local = render_data.matrix_view_world * _toMat4(_scene.surfaces[i].matrix_world_local);
+      render_data.main_view_surface_data[i].matrix_view_local = render_data.matrix_view_world * toMat4(_scene.surfaces[i].matrix_world_local);
    }
 
    char* buffer = (char*)_surface_dynamic_uniforms->getCurrentWindowPtr(); // yeah I don't care if that buffer is still used by OpenGL
@@ -178,6 +156,9 @@ void RenderEngine::updateScene(RenderData& render_data)
       buffer += _surface_dynamic_uniforms_size;
    }
 
+   for (const auto& skeleton: _scene.skeletons)
+      skeleton->update();
+   
    static float last_update_time = 0.0;
    static auto start = std::chrono::steady_clock::now();
    auto now = std::chrono::steady_clock::now();
@@ -232,6 +213,32 @@ void RenderEngine::presentDebugTexture()
    GLDevice::draw(*render_resources->fullscreen_triangle_source);
 }
 
+static void _debugDrawBasis(const mat4x3& mat)
+{
+   glLineWidth(3);
+   glBegin(GL_LINES);
+   glColor3f(1.0, 0.0, 0.0);
+   glVertex3fv(glm::value_ptr(mat[0] + mat[3]));
+   glVertex3fv(glm::value_ptr(mat[3]));
+   glColor3f(0.0, 1.0, 0.0);
+   glVertex3fv(glm::value_ptr(mat[1] + mat[3]));
+   glVertex3fv(glm::value_ptr(mat[3]));
+   glColor3f(0.0, 0.0, 1.0);
+   glVertex3fv(glm::value_ptr(mat[2] + mat[3]));
+   glVertex3fv(glm::value_ptr(mat[3]));
+   glEnd();
+}
+
+static void _debugSetMVP(const mat4x3& mat)
+{
+   glUseProgram(0);
+   glMatrixMode(GL_MODELVIEW);
+   glLoadIdentity();
+   glMatrixMode(GL_PROJECTION);
+   glLoadIdentity();
+   glLoadMatrixf(glm::value_ptr(mat));//_scene.render_data[0].matrix_view_world
+}
+
 void RenderEngine::_renderSurfaces(const RenderData& render_data)
 {
    static int counter = 0; 
@@ -244,6 +251,9 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
       counter = 0;
    glBindBufferRange(GL_UNIFORM_BUFFER, BI_SCENE_UNIFORMS, _scene_uniforms->id(),
       _scene_uniforms->getCurrentWindowOffset(), _scene_uniforms->windowSize());
+
+   glBindBufferRange(GL_SHADER_STORAGE_BUFFER, BI_SKINNING_PALETTE_SSBO, _scene.skeletons[0]->skinningPalette().id(),
+      _scene.skeletons[0]->skinningPalette().getCurrentWindowOffset(), _scene.skeletons[0]->skinningPalette().windowSize());
 
    for (int i = 0; i < render_data.main_view_surface_data.size(); ++i)
    {

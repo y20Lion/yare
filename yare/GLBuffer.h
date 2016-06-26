@@ -42,7 +42,7 @@ struct GLPersistentlyMappedBufferDesc
    std::int64_t window_size_bytes;
 };
 
-// I know inheritance sets always the course towards disaster, but for now it's just a bit awkwardly
+// Deriving direcltly from GLBuffer is awkward, there should be a GLBufferBase
 class GLPersistentlyMappedBuffer : public GLBuffer
 {
 public:
@@ -64,6 +64,6 @@ private:
 };
 
 Uptr<GLBuffer> createBuffer(std::int64_t size_bytes, GLenum flags = 0, void* data=nullptr);
-Uptr<GLPersistentlyMappedBuffer> createPersistentBuffer(std::int64_t size_bytes);
+Uptr<GLPersistentlyMappedBuffer> createPersistentBuffer(std::int64_t requested_size_bytes);
 
 }

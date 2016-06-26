@@ -14,6 +14,7 @@ namespace yare {
 
 class IMaterial;
 class RenderMesh;
+class Skeleton;
 class GLTextureCubemap;
 class GLTexture2D;
 
@@ -21,6 +22,7 @@ struct SurfaceInstance
 {
     glm::mat4x3 matrix_world_local;    
     Sptr<RenderMesh> mesh;
+    Sptr<Skeleton> skeleton;
     Sptr<IMaterial> material;
 
     glm::mat3 normal_matrix_world_local;    
@@ -87,6 +89,7 @@ public:
    ~Scene();
    
    Camera camera;
+   std::vector<Sptr<Skeleton>> skeletons;
    std::vector<SurfaceInstance> surfaces;
    std::vector<Light> lights;
    Uptr<GLTextureCubemap> sky_cubemap;

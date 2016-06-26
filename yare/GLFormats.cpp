@@ -60,4 +60,10 @@ int GLFormats::sizeOfType(GLuint type)
    }
 }
 
+
+size_t GLFormats::alignSize(size_t real_size, int aligned_size)
+{
+   return (real_size + aligned_size - 1) & -aligned_size;
+}
+
 }

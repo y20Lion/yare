@@ -1,5 +1,7 @@
 #include "GLBuffer.h"
 
+#include "GLFormats.h"
+
 namespace yare {
 
 GLBuffer::GLBuffer(const GLBufferDesc& desc)
@@ -65,10 +67,13 @@ Uptr<GLBuffer> createBuffer(std::int64_t size_bytes, GLenum flags, void* data)
     return std::make_unique<GLBuffer>(desc);
 }
 
-Uptr<GLPersistentlyMappedBuffer> createPersistentBuffer(std::int64_t size_bytes)
+Uptr<GLPersistentlyMappedBuffer> createPersistentBuffer(std::int64_t requested_size_bytes)
 {
+   int uniform_buffer_align_size;
+   glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &uniform_buffer_align_size);
+
    GLPersistentlyMappedBufferDesc desc;
-   desc.window_size_bytes = size_bytes;
+   desc.window_size_bytes = GLFormats::alignSize(requested_size_bytes, uniform_buffer_align_size);
    return std::make_unique<GLPersistentlyMappedBuffer>(desc);
 }
 

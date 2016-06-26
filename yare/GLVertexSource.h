@@ -9,6 +9,10 @@ namespace yare {
 
 class GLBuffer;
 
+enum class GLSLVecType {
+   vec, uvec, ivec
+};
+
 class GLVertexSource
 {
 public:
@@ -16,7 +20,8 @@ public:
     ~GLVertexSource();
     GLuint id() const { return _vao_id; }
 
-    void setVertexAttribute(int attribute_slot, int components, GLenum component_type, int attribute_stride = 0, std::int64_t attribute_offset = 0);
+    void setVertexAttribute(int attribute_slot, int components, GLenum component_type,
+                            GLSLVecType glsl_type = GLSLVecType::vec, int attribute_stride = 0, std::int64_t attribute_offset = 0);
     void setIndexBuffer(const GLBuffer& index_buffer);
     void setVertexBuffer(const GLBuffer& vertex_buffer);
 

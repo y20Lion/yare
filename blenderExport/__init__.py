@@ -39,10 +39,41 @@ def writeDataBlockToFile(array, binary_file):
 
 def writeMeshField(json_mesh_fields, field_name, components, field_array, binary_file):    
     json_blob = writeDataBlockToFile(field_array, binary_file)
-    json_mesh_field = {'Name': field_name, 'Components':components, 'DataBlock': json_blob}    
-    json_mesh_fields.append(json_mesh_field)
     
-def writeMesh(binary_file, mesh):
+    if field_array.typecode == 'f':
+        scalar_type = 'Float'
+    else: #field_array.typecode == 'B'
+        scalar_type = 'UnsignedByte'
+
+    json_mesh_field = {'Name': field_name, 'Components':components, 'DataBlock': json_blob, 'Type':scalar_type}    
+    json_mesh_fields.append(json_mesh_field)
+
+def getBoneIndicesAndWeights(mesh_vertex_groups, vertex, bone_name_to_index):
+    bones = []
+    for vertex_group in vertex.groups:
+        group_name = mesh_vertex_groups[vertex_group.group].name
+        bone_index = bone_name_to_index.get(group_name)
+        if bone_index is None:
+            continue
+        bone_weight = vertex_group.weight
+        bones.append((bone_index, bone_weight))
+        
+    if len(bones) < 4:
+        dummy_elem_count = 4 - len(bones)
+        for i in range(dummy_elem_count):
+            bones.append((0, 0))
+    elif len(bones) > 4:
+        bones.sort(key=lambda index_weight_pair: index_weight_pair[1])
+        bones = bones[-4:]
+    
+    bone_indices, bone_weights = zip(*bones)
+    #weight_sum = sum(bone_weights)
+    #if weight_sum > 0:
+    #    bone_weights = [w/weight_sum for w in bone_weights]
+        
+    return (bone_indices, bone_weights)
+    
+def writeMesh(binary_file, mesh, mesh_vertex_groups, bone_name_to_index):
 
     # Be sure tessface & co are available!
     #if not mesh.tessfaces and mesh.polygons:
@@ -53,6 +84,8 @@ def writeMesh(binary_file, mesh):
         has_uv = True
     else:
         has_uv = False
+        
+    has_bones = (bone_name_to_index is not None)
     #has_uv = False    
     #if has_uv:
         #mesh.calc_tangents(active_uv_layer.name)
@@ -63,6 +96,8 @@ def writeMesh(binary_file, mesh):
     output_tangents = array('f', [])
     output_binormals = array('f', [])
     output_uvs = array('f', [])
+    output_bone_weights = array('f', [])
+    output_bone_indices = array('B', []) #filter used bone
     
     loop_idx = 0
     vertex_count=0
@@ -81,6 +116,12 @@ def writeMesh(binary_file, mesh):
 
             output_positions.extend(vertex.co[:])            
             output_normals.extend(normal[:])
+            if has_bones:
+                bone_indices, bone_weights = getBoneIndicesAndWeights(mesh_vertex_groups, vertex, bone_name_to_index)
+                #print(bone_weights[:])
+                output_bone_indices.extend(bone_indices[:])
+                output_bone_weights.extend(bone_weights[:])
+                
             if has_uv:
                 #output_tangents.extend(mesh.loops[loop_idx+i].bitangent[:])
                 #output_binormals.extend(mesh.loops[loop_idx].bitangent[:])
@@ -99,6 +140,10 @@ def writeMesh(binary_file, mesh):
         #writeMeshField(json_mesh_fields, 'tangent', 3, output_tangents, binary_file)
         #writeMeshField(json_mesh_fields, 'binormal', 3, output_binormals, binary_file)
         writeMeshField(json_mesh_fields, 'uv', 2, output_uvs, binary_file)    
+        
+    if has_bones:
+        writeMeshField(json_mesh_fields, 'bone_indices', 4, output_bone_indices, binary_file)
+        writeMeshField(json_mesh_fields, 'bone_weights', 4, output_bone_weights, binary_file)    
     json_mesh['Fields'] = json_mesh_fields
     
     return json_mesh
@@ -111,6 +156,35 @@ def writeMatrix(mat):
         for line_index in range(3):
             result.append(mat[line_index][column_index])
     return result
+
+def writeArmature(armature_object, armature_data):        
+    bone_name_to_index = {}
+    json_bones = []
+    i = 0
+    for bone in armature_data.bones:
+        json_parent = bone.parent.name if (bone.parent is not None) else None
+        json_children = [child.name for child in bone.children]
+        pose = armature_object.pose.bones[bone.name]
+        json_bone_pose = {'Location':pose.location[:], 'Quaternion':pose.rotation_quaternion[:], 'Scale':pose.scale[:], 'PoseMatrix':writeMatrix(pose.matrix)}
+        json_bone = {'Name':bone.name, 'Index':i, 'SkeletonToBoneMatrix':writeMatrix(bone.matrix_local), 'Pose':json_bone_pose, 'Parent':json_parent, 'Children':json_children}
+        json_bones.append(json_bone)
+        bone_name_to_index[bone.name] = i
+        i += 1
+    json_armature = {'Name': armature_object.name, 'Bones':json_bones, 'WorldToSkeletonMatrix':writeMatrix(armature_object.matrix_world), }
+    
+    return (json_armature, bone_name_to_index)
+
+def writeArmatures():
+    armatures_bone_indices = {}
+    json_armatures = []
+    for object in bpy.context.scene.objects:
+        if object.type != 'ARMATURE':                    
+                continue
+    
+        json_armature, bone_name_to_index = writeArmature(object, object.data)
+        armatures_bone_indices[json_armature['Name']] = bone_name_to_index
+        json_armatures.append(json_armature)
+    return (json_armatures, armatures_bone_indices)
     
 def hasMesh(object):
     return hasattr(object.data, "polygons")
@@ -248,6 +322,14 @@ def writeLights():
         json_lights.append(json_light)
         
     return json_lights
+
+def getMeshArmature(object):   
+    armature_name = None
+    for modifier in object.modifiers:
+        if modifier.type == 'ARMATURE':
+            armature_name = modifier.object.name
+            break
+    return armature_name
     
 class Export3DY(bpy.types.Operator, ExportHelper):
     bl_idname = "export.3dy"
@@ -263,11 +345,12 @@ class Export3DY(bpy.types.Operator, ExportHelper):
         
         binary_file = open(output_path+'data.bin', "wb")
         
-        textures = set()
+        textures = set()        
         json_lights = writeLights()
+        json_armatures, armatures_bone_indices = writeArmatures()
         json_materials = writeMaterials(textures)
         json_environment = writeEnvironment(output_path)
-        json_textures = writeTextures(textures, output_path)
+        json_textures = writeTextures(textures, output_path)        
         json_surfaces = []
         bpy.ops.wm.console_toggle()
         #bpy.ops.object.make_single_user(type='ALL', object=True, obdata=True)
@@ -278,14 +361,17 @@ class Export3DY(bpy.types.Operator, ExportHelper):
                 continue
             if not hasMesh(object):                    
                 continue
-
+            
+            armature_name = getMeshArmature(object)
+            bone_name_to_index = armatures_bone_indices[armature_name] if (armature_name is not None) else None
+            
             mesh = object.data ##to_mesh(bpy.context.scene, True, "PREVIEW")#
-            json_mesh = writeMesh(binary_file, mesh)
+            json_mesh = writeMesh(binary_file, mesh, object.vertex_groups, bone_name_to_index)
             if len(object.data.materials) != 0:
                 material_name = object.data.materials[0].name
             else:
                 material_name = ""
-            json_surface = {'Name':object.name, 'Mesh':json_mesh, 'Material':material_name, 'WorldToLocalMatrix':writeMatrix(object.matrix_world) }
+            json_surface = {'Name':object.name, 'Mesh':json_mesh, 'Material':material_name, 'WorldToLocalMatrix':writeMatrix(object.matrix_world), 'Skeleton':armature_name }
             json_surfaces.append(json_surface)
             i+= 1
             updateProgress("progress", i/object_count)            
@@ -298,6 +384,7 @@ class Export3DY(bpy.types.Operator, ExportHelper):
         root['Materials'] = json_materials
         root['Environment'] = json_environment
         root['Lights'] = json_lights
+        root['Skeletons'] = json_armatures
         with open(output_path+'structure.json', 'w') as json_file:
             json.dump(root, json_file, indent=1)
         return {'FINISHED'}

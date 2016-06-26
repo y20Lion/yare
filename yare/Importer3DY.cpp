@@ -16,6 +16,7 @@
 #include "CubemapFiltering.h"
 #include "DefaultMaterial.h"
 #include "OceanMaterial.h"
+#include "Skeleton.h"
 
 namespace yare {
 
@@ -39,11 +40,26 @@ static MeshFieldName _fieldName(const std::string& field_name)
         return MeshFieldName::Uv0;
     else if (field_name == "tangent")
        return MeshFieldName::Tangent0;
+    else if (field_name == "bone_indices")
+       return MeshFieldName::BoneIndices;
+    else if (field_name == "bone_weights")
+       return MeshFieldName::BoneWeights;
     else
     {
         assert(false);
         return MeshFieldName::Position;
     }
+}
+
+GLenum _componentType(const std::string& component_type)
+{
+   if (component_type == "Float")
+      return GL_FLOAT;
+   else if (component_type == "UnsignedByte")
+      return GL_UNSIGNED_BYTE;
+   else
+      assert(false);
+   return 0;
 }
 
 static Uptr<RenderMesh> readMesh(const Json::Value& mesh_object, std::ifstream& data_file)
@@ -59,7 +75,7 @@ static Uptr<RenderMesh> readMesh(const Json::Value& mesh_object, std::ifstream& 
 	{
 		VertexField mesh_field;
 		mesh_field.components = field["Components"].asInt();
-		mesh_field.component_type = GL_FLOAT;
+		mesh_field.component_type = _componentType(field["Type"].asString());
 		mesh_field.name = _fieldName(field["Name"].asString());
 		mesh_fields.push_back(mesh_field);
 	}
@@ -93,6 +109,16 @@ static mat4x3 readMatrix4x3(const Json::Value& json_matrix)
 	return matrix;
 }
 
+static vec3 readVec3(const Json::Value& json_vec)
+{
+   return vec3(json_vec[0].asFloat(), json_vec[1].asFloat(), json_vec[2].asFloat());
+}
+
+static vec4 readQuaternion(const Json::Value& json_vec)
+{
+   return vec4(json_vec[1].asFloat(), json_vec[2].asFloat(), json_vec[3].asFloat(), json_vec[0].asFloat());
+}
+
 static void readNodeSlots(const Json::Value& json_slots, std::map<std::string, ShadeTreeNodeSlot>& slots)
 {
     for (const auto& json_slot : json_slots)
@@ -112,7 +138,7 @@ static void readNodeSlots(const Json::Value& json_slots, std::map<std::string, S
                  slot.default_value[i] = json_slot["DefaultValue"][i].asFloat();
 
               if (slot.name == "Normal")
-                 slot.type = ShadeTreeNodeSlotType::Normal;
+                 slot.type = ShadeTreeNodeSlotType::Normal; // TODO remove slot type
               else
                  slot.type = ShadeTreeNodeSlotType::Vec3;
            }
@@ -230,15 +256,12 @@ void readEnvironment(const RenderEngine& render_engine, const Json::Value& json_
 
    Uptr<GLTexture2D> latlong_texture = TextureImporter::importTextureFromFile(texture_path.c_str(), true);
    scene->sky_cubemap = render_engine.cubemap_converter->createCubemapFromLatlong(*latlong_texture);
-   
-   //scene->sky_cubemap = TextureImporter::importCubemapFromFile(texture_path.c_str(), *render_engine.cubemap_converter);
    scene->sky_diffuse_cubemap = render_engine.cubemap_converter->createDiffuseCubemap(*scene->sky_cubemap, DiffuseFilteringMethod::BruteForce);
    scene->sky_diffuse_cubemap_sh = render_engine.cubemap_converter->createDiffuseCubemap(*scene->sky_cubemap, DiffuseFilteringMethod::SphericalHarmonics);
    auto lights_from_env = render_engine.cubemap_converter->extractDirectionalLightSourcesFromLatlong(*latlong_texture);
    scene->sky_latlong = std::move(latlong_texture);
    for (const auto& env_light : lights_from_env)
    {
-
       Light light; 
       light.color = env_light.color;
       light.type = LightType::Sun;
@@ -293,6 +316,32 @@ static void readLights(const Json::Value& json_lights, Scene* scene)
    }
 }
 
+void readSkeletons(const Json::Value& json_skeletons, Scene* scene)
+{
+   for (const auto& json_skeleton : json_skeletons)
+   {
+      const auto& json_bones = json_skeleton["Bones"];      
+      auto skeleton = std::make_shared<Skeleton>(json_bones.size());
+      skeleton->name = json_skeleton["Name"].asString();
+      skeleton->world_to_skeleton_matrix = readMatrix4x3(json_skeleton["WorldToSkeletonMatrix"]);
+      int i = 0;
+      for (const auto& json_bone : json_bones)
+      {
+         auto& bone = skeleton->bones[i];
+         bone.name = json_bone["Name"].asString();
+         bone.parent_to_bone_transform.location = readVec3(json_bone["Pose"]["Location"]);
+         bone.parent_to_bone_transform.scale = readVec3(json_bone["Pose"]["Scale"]);
+         bone.parent_to_bone_transform.quaternion = readQuaternion(json_bone["Pose"]["Quaternion"]);
+         bone.parent_to_bone_transform.pose_matrix = readMatrix4x3(json_bone["Pose"]["PoseMatrix"]);
+         // TODO bone parent
+         skeleton->skeleton_to_bone_bind_pose_matrices[i] = readMatrix4x3(json_bone["SkeletonToBoneMatrix"]);
+         ++i;
+      }
+      
+      scene->skeletons.push_back(skeleton);
+   }
+}
+
 void import3DY(const std::string& filename, const RenderEngine& render_engine, Scene* scene)
 {
 	std::ifstream data_file(filename+"\\data.bin", std::ifstream::binary);
@@ -304,8 +353,10 @@ void import3DY(const std::string& filename, const RenderEngine& render_engine, S
 
    readLights(root["Lights"], scene);
    readEnvironment(render_engine, root["Environment"], scene);
+   readSkeletons(root["Skeletons"], scene);
    auto textures = readTextures(root["Textures"]);
    auto materials = readMaterials(render_engine, root["Materials"], textures);        
+   
 
 	const auto& json_surfaces = root["Surfaces"];
 	

@@ -67,8 +67,9 @@ Uptr<GLVertexSource> createVertexSource(const RenderMesh& mesh, FieldsMask field
         auto mesh_field = (1 << i);
         if (fields_bitmask & mesh_field)
         {
-            auto field_info = mesh.fieldInfo((MeshFieldName)mesh_field);
-            vertex_source->setVertexAttribute(i, field_info.components, GL_FLOAT, 0, field_info.offset);
+            auto field_info = mesh.fieldInfo(MeshFieldName(mesh_field));
+            GLSLVecType vec_type = MeshFieldName(mesh_field) == MeshFieldName::BoneIndices ? GLSLVecType::uvec: GLSLVecType::vec;
+            vertex_source->setVertexAttribute(i, field_info.components, field_info.component_type, vec_type, 0, field_info.offset);
         }
     }
     vertex_source->setVertexCount(mesh.vertexCount());
@@ -79,9 +80,9 @@ Uptr<GLVertexSource> createVertexSource(const RenderMesh& mesh)
 {
 	auto vertex_source = std::make_unique<GLVertexSource>();
 	vertex_source->setVertexBuffer(mesh.vertexBuffer());
-	vertex_source->setVertexAttribute(0, 3, GL_FLOAT, 0, mesh.fieldInfo(MeshFieldName::Position).offset);
-    vertex_source->setVertexAttribute(1, 3, GL_FLOAT, 0, mesh.fieldInfo(MeshFieldName::Normal).offset);
-    vertex_source->setVertexAttribute(2, 2, GL_FLOAT, 0, mesh.fieldInfo(MeshFieldName::Uv0).offset);
+	vertex_source->setVertexAttribute(0, 3, GL_FLOAT, GLSLVecType::vec, 0, mesh.fieldInfo(MeshFieldName::Position).offset);
+   vertex_source->setVertexAttribute(1, 3, GL_FLOAT, GLSLVecType::vec, 0, mesh.fieldInfo(MeshFieldName::Normal).offset);
+   vertex_source->setVertexAttribute(2, 2, GL_FLOAT, GLSLVecType::vec, 0, mesh.fieldInfo(MeshFieldName::Uv0).offset);
 	vertex_source->setVertexCount(mesh.vertexCount());
 
 	return vertex_source;

@@ -14,9 +14,7 @@ class GLVertexSource;
 enum class MeshFieldName {
     Position = 1 << 0, Normal = 1 << 1,
     Uv0 = 1 << 2, Tangent0 = 1 << 3,
-    Uv1 = 1 << 4, Tangent1 = 1 << 5,
-    Uv2 = 1 << 6, Tangent2 = 1 << 7,
-    AmbiantOcclusion = 1 << 8
+    BoneIndices = 1 << 4, BoneWeights = 1 << 5
 };
 
 typedef int FieldsMask;

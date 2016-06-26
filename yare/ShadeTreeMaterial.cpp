@@ -53,6 +53,9 @@ int ShadeTreeMaterial::requiredMeshFields()
    if (_uses_normal_mapping)
       fields |= int(MeshFieldName::Tangent0);
 
+   //if (_uses_skinning)
+      fields |= int(MeshFieldName::BoneIndices) | int(MeshFieldName::BoneWeights);
+   
    return fields;   
 }
 

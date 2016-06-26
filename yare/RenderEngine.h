@@ -47,7 +47,6 @@ private:
    Uptr<GLPersistentlyMappedBuffer> _scene_uniforms;
    Uptr<GLBuffer> _lights_ssbo;
 
-   size_t _scene_uniforms_size;
    size_t _surface_dynamic_uniforms_size;
 };
 
