@@ -18,6 +18,7 @@ class RenderMesh;
 class Skeleton;
 class GLTextureCubemap;
 class GLTexture2D;
+class AnimationPlayer;
 
 struct SurfaceInstance
 {
@@ -86,7 +87,7 @@ struct RenderData
 class Scene
 {
 public:
-   Scene() {}
+   Scene();
 
    Scene(const Scene& other) = default;
    ~Scene();
@@ -99,6 +100,7 @@ public:
    Uptr<GLTexture2D> sky_latlong;
    Uptr<GLTextureCubemap> sky_diffuse_cubemap;
    Uptr<GLTextureCubemap> sky_diffuse_cubemap_sh;
+   Uptr<AnimationPlayer> animation_player;
 
    RenderData render_data[2];
 };

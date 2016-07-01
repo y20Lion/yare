@@ -7,7 +7,7 @@
 #include "GLBuffer.h"
 #include "RenderMesh.h"
 #include "GLTexture.h"
-
+#include "AnimationPlayer.h"
 
 namespace yare {
 
@@ -15,8 +15,15 @@ namespace yare {
 /*glm::vec3 quad_vertices[6] = { glm::vec3(1.0, 1.0, -1.0), glm::vec3(-1.0, 1.0, -1.0), glm::vec3(-1.0, -1.0, -1.0),
                           glm::vec3(1.0, 1.0, -1.0), glm::vec3(-1.0, -1.0, -1.0), glm::vec3( 1.0f, -1.0, -1.0) };*/
 
+Scene::Scene()
+: animation_player(new AnimationPlayer())
+{
+
+}
+
 Scene::~Scene()
-{}
+{
+}
 
 
 }  // namespace yare

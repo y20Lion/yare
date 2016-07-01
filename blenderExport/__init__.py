@@ -16,6 +16,7 @@ import bpy
 import mathutils
 import os
 import shutil
+import re
 from array import array
 from bpy_extras.io_utils import ExportHelper
 from bpy.props import *
@@ -69,9 +70,9 @@ def getBoneIndicesAndWeights(mesh_vertex_groups, vertex, bone_name_to_index):
         bones = bones[-4:]
     
     bone_indices, bone_weights = zip(*bones)
-    #weight_sum = sum(bone_weights)
-    #if weight_sum > 0:
-    #    bone_weights = [w/weight_sum for w in bone_weights]
+    weight_sum = sum(bone_weights)
+    if weight_sum > 0:
+        bone_weights = [w/weight_sum for w in bone_weights]
         
     return (bone_indices, bone_weights)
     
@@ -325,6 +326,43 @@ def writeLights():
         
     return json_lights
 
+bone_path_regex = re.compile(r'pose\.bones\["(.*)"\]\.(location|scale|rotation_quaternion)')
+    
+def writeAnimationCurves(curves):    
+    json_curves = []
+    for fcurve in curves:
+    
+        match = bone_path_regex.search(fcurve.data_path)
+        if match is None:
+            continue
+        property_path = 'bone/'+match.group(1) +'/'+match.group(2)+'/'+str(fcurve.array_index)
+        
+        json_keyframes = []
+        for keyframe in fcurve.keyframe_points:
+            json_keyframes.append({'X':keyframe.co.x, 'Y':keyframe.co.y})
+        
+        json_curve = {'TargetPropertyPath':property_path, 'Keyframes':json_keyframes }
+        json_curves.append(json_curve)
+    return json_curves
+    
+def writeAnimations():
+    json_animations = []
+    for object in bpy.context.scene.objects:
+        if object.type != 'ARMATURE':                    
+            continue
+                
+        if object.animation_data is None:
+            continue            
+            
+        if object.animation_data.action is None:
+            continue
+            
+        curves = object.animation_data.action.fcurves
+        json_curves = writeAnimationCurves(curves)
+        json_animation = {'TargetObject':object.name, 'Curves':json_curves }
+        json_animations.append(json_animation)
+    return json_animations
+    
 def getMeshArmature(object):   
     armature_name = None
     for modifier in object.modifiers:
@@ -352,7 +390,9 @@ class Export3DY(bpy.types.Operator, ExportHelper):
         json_armatures, armatures_bone_indices = writeArmatures()
         json_materials = writeMaterials(textures)
         json_environment = writeEnvironment(output_path)
-        json_textures = writeTextures(textures, output_path)        
+        json_textures = writeTextures(textures, output_path)
+        json_animations = writeAnimations()
+        
         json_surfaces = []
         bpy.ops.wm.console_toggle()
         #bpy.ops.object.make_single_user(type='ALL', object=True, obdata=True)
@@ -373,7 +413,7 @@ class Export3DY(bpy.types.Operator, ExportHelper):
                 material_name = object.data.materials[0].name
             else:
                 material_name = ""
-            json_surface = {'Name':object.name, 'Mesh':json_mesh, 'Material':material_name, 'WorldToLocalMatrix':writeMatrix(object.matrix_world), 'Skeleton':armature_name }
+            json_surface = {'Name':object.name, 'Mesh':json_mesh, 'Material':material_name, 'WorldToLocalMatrix':writeMatrix(object.matrix_world), 'Skeleton':armature_name}
             json_surfaces.append(json_surface)
             i+= 1
             updateProgress("progress", i/object_count)            
@@ -387,6 +427,7 @@ class Export3DY(bpy.types.Operator, ExportHelper):
         root['Environment'] = json_environment
         root['Lights'] = json_lights
         root['Skeletons'] = json_armatures
+        root['Animations'] = json_animations
         with open(output_path+'structure.json', 'w') as json_file:
             json.dump(root, json_file, indent=1)
         return {'FINISHED'}

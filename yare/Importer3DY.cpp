@@ -17,6 +17,7 @@
 #include "DefaultMaterial.h"
 #include "OceanMaterial.h"
 #include "Skeleton.h"
+#include "AnimationPlayer.h"
 
 namespace yare {
 
@@ -116,9 +117,9 @@ static vec3 readVec3(const Json::Value& json_vec)
    return vec3(json_vec[0].asFloat(), json_vec[1].asFloat(), json_vec[2].asFloat());
 }
 
-static vec4 readQuaternion(const Json::Value& json_vec)
+static quat readQuaternion(const Json::Value& json_vec)
 {
-   return vec4(json_vec[1].asFloat(), json_vec[2].asFloat(), json_vec[3].asFloat(), json_vec[0].asFloat());
+   return quat(json_vec[0].asFloat(), json_vec[1].asFloat(), json_vec[2].asFloat(), json_vec[3].asFloat());
 }
 
 static void readNodeSlots(const Json::Value& json_slots, std::map<std::string, ShadeTreeNodeSlot>& slots)
@@ -319,7 +320,7 @@ static void readLights(const Json::Value& json_lights, Scene* scene)
    }
 }
 
-SkeletonMap readSkeletons(const Json::Value& json_skeletons, Scene* scene)
+static SkeletonMap readSkeletons(const Json::Value& json_skeletons, Scene* scene)
 {
    SkeletonMap skeletons;
    for (const auto& json_skeleton : json_skeletons)
@@ -328,6 +329,7 @@ SkeletonMap readSkeletons(const Json::Value& json_skeletons, Scene* scene)
       auto skeleton = std::make_shared<Skeleton>(json_bones.size());
       skeleton->name = json_skeleton["Name"].asString();
       skeleton->world_to_skeleton_matrix = readMatrix4x3(json_skeleton["WorldToSkeletonMatrix"]);
+      
       int i = 0;
       for (const auto& json_bone : json_bones)
       {
@@ -335,16 +337,46 @@ SkeletonMap readSkeletons(const Json::Value& json_skeletons, Scene* scene)
          bone.name = json_bone["Name"].asString();
          bone.parent_to_bone_transform.location = readVec3(json_bone["Pose"]["Location"]);
          bone.parent_to_bone_transform.scale = readVec3(json_bone["Pose"]["Scale"]);
-         bone.parent_to_bone_transform.quaternion = readQuaternion(json_bone["Pose"]["Quaternion"]);
-         bone.parent_to_bone_transform.pose_matrix = readMatrix4x3(json_bone["Pose"]["PoseMatrix"]);
+         bone.parent_to_bone_transform.quaternion = readQuaternion(json_bone["Pose"]["Quaternion"]); // TODO fix quaternion order
+         bone.parent_to_bone_transform.pose_matrix = readMatrix4x3(json_bone["Pose"]["PoseMatrix"]);         
          // TODO bone parent
-         skeleton->skeleton_to_bone_bind_pose_matrices[i] = readMatrix4x3(json_bone["SkeletonToBoneMatrix"]);
+         skeleton->skeleton_to_bone_bind_pose_matrices[i] = readMatrix4x3(json_bone["SkeletonToBoneMatrix"]);//TODO remove this        
+         skeleton->bone_name_to_index[bone.name] = i;
          ++i;
       }
+
+      /*for (auto& bone : skeleton->bones)
+      {
+         bone.parent = 
+      }*/
+
+
+
       skeletons[skeleton->name] = skeleton;
       scene->skeletons.push_back(skeleton);
    }
    return skeletons;
+}
+
+static void readAnimations(const Json::Value& json_animations, Scene* scene)
+{
+   for (const auto& json_animation : json_animations)
+   {
+      for (const auto& json_curve : json_animation["Curves"])
+      {
+         scene->animation_player->curves.push_back(AnimationCurve());
+         AnimationCurve& curve = scene->animation_player->curves.back();
+
+         curve.target_path = json_curve["TargetPropertyPath"].asString();
+         for (const auto& json_keyframe : json_curve["Keyframes"])
+         {
+            Keyframe keyframe;
+            keyframe.x = json_keyframe["X"].asFloat();
+            keyframe.y = json_keyframe["Y"].asFloat();
+            curve.keyframes.push_back(keyframe);
+         }
+      }
+   }
 }
 
 void import3DY(const std::string& filename, const RenderEngine& render_engine, Scene* scene)
@@ -358,6 +390,7 @@ void import3DY(const std::string& filename, const RenderEngine& render_engine, S
 
    readLights(root["Lights"], scene);
    readEnvironment(render_engine, root["Environment"], scene);
+   readAnimations(root["Animations"], scene);
    auto skeletons = readSkeletons(root["Skeletons"], scene);
    auto textures = readTextures(root["Textures"]);
    auto materials = readMaterials(render_engine, root["Materials"], textures);        

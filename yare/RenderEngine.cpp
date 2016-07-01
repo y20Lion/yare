@@ -23,6 +23,7 @@
 #include "Skeleton.h"
 #include "matrix_math.h"
 #include "GLFormats.h"
+#include "AnimationPlayer.h"
 
 namespace yare {
 
@@ -101,10 +102,10 @@ RenderEngine::~RenderEngine()
 {   
 }
 
-
-
 void RenderEngine::offlinePrepareScene()
 {
+   bindAnimationCurvesToTargets(_scene, *_scene.animation_player);
+   
    int uniform_buffer_align_size;
    glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &uniform_buffer_align_size);
    _surface_dynamic_uniforms_size = GLFormats::alignSize(sizeof(SurfaceDynamicUniforms), uniform_buffer_align_size);
@@ -131,6 +132,13 @@ void RenderEngine::offlinePrepareScene()
 
 void RenderEngine::updateScene(RenderData& render_data)
 {
+   static float last_update_time = 0.0;
+   static auto start = std::chrono::steady_clock::now();
+   auto now = std::chrono::steady_clock::now();
+   float time_lapse = std::chrono::duration<float>(now - start).count();
+   
+   _scene.animation_player->evaluateAndApplyToTargets(24.0*time_lapse);   
+   
    const float znear = 0.05f;
    const float zfar = 1000.0f;
    
@@ -159,10 +167,7 @@ void RenderEngine::updateScene(RenderData& render_data)
    for (const auto& skeleton: _scene.skeletons)
       skeleton->update();
    
-   static float last_update_time = 0.0;
-   static auto start = std::chrono::steady_clock::now();
-   auto now = std::chrono::steady_clock::now();
-   float time_lapse = std::chrono::duration<float>(now - start).count();
+   
 
 
    SceneUniforms* scene_uniforms = (SceneUniforms*)_scene_uniforms->getCurrentWindowPtr();
