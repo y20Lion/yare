@@ -345,12 +345,20 @@ static SkeletonMap readSkeletons(const Json::Value& json_skeletons, Scene* scene
          ++i;
       }
 
-      /*for (auto& bone : skeleton->bones)
+      i = 0;
+      for (const auto& json_bone : json_bones)
       {
-         bone.parent = 
-      }*/
+         auto& bone = skeleton->bones[i];
+         if (!json_bone["Parent"].isString())
+            skeleton->root_bone_index = i;
 
-
+         bone.parent = json_bone["Parent"].isString() ? skeleton->bone_name_to_index.at(json_bone["Parent"].asString()) : -1;
+         for (const auto& json_child : json_bone["Children"])
+         {
+            bone.chilren.push_back(skeleton->bone_name_to_index.at(json_child.asString()));
+         }
+         ++i;
+      }
 
       skeletons[skeleton->name] = skeleton;
       scene->skeletons.push_back(skeleton);
