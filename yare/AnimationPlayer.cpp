@@ -11,15 +11,49 @@
 namespace yare {
 
 AnimationPlayer::AnimationPlayer()
+: _previous_evaluated_x(FLT_MAX)
 {
 
 }
 
 void AnimationPlayer::evaluateAndApplyToTargets(float x)
 {
-   for (auto& curve : curves)
-      curve.evaluateAndApplyToTarget(fmod(x, 30.0));
+   _active_keyframes.resize(curves.size());
+   
+   x = fmod(x, 200.0f);
+   bool jumped = (x < _previous_evaluated_x);
+   _previous_evaluated_x = x;
+
+   _updateCurveActiveKeyframes(x, jumped);
+   _evaluateCurves(x);
 }
+
+void AnimationPlayer::_updateCurveActiveKeyframes(float x, bool jump)
+{
+   for (int i = 0; i < int(_active_keyframes.size()); ++i)
+   {
+      if (!jump && x <= _active_keyframes[i].second.x)
+         continue;
+
+      auto& curve = curves[i];
+      int active_index = curve.getActiveKeyframeIndex(x, jump);
+
+      _active_keyframes[i] = std::make_pair(curve.keyframes[active_index-1], curve.keyframes[active_index]);
+   }
+}
+
+void AnimationPlayer::_evaluateCurves(float x)
+{
+   for (int i = 0; i < int(_active_keyframes.size()); ++i)
+   {
+      const auto& before = _active_keyframes[i].first;
+      const auto& after = _active_keyframes[i].second;
+
+      float mix_factor = (x - before.x) / (after.x - before.x);
+      *(curves[i].target) = (1.0f - mix_factor)*before.y + mix_factor*after.y;
+   }
+}
+
 
 static void _bindTarget(const Scene& scene, AnimationCurve& curve)
 {

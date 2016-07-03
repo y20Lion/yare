@@ -132,12 +132,12 @@ void RenderEngine::offlinePrepareScene()
 
 void RenderEngine::updateScene(RenderData& render_data)
 {
-   static float last_update_time = 0.0;
+   static float last_update_time = 0.0f;
    static auto start = std::chrono::steady_clock::now();
    auto now = std::chrono::steady_clock::now();
    float time_lapse = std::chrono::duration<float>(now - start).count();
    
-   _scene.animation_player->evaluateAndApplyToTargets(24.0*time_lapse);   
+   _scene.animation_player->evaluateAndApplyToTargets(24.0f*time_lapse);   
    
    const float znear = 0.05f;
    const float zfar = 1000.0f;
@@ -155,7 +155,7 @@ void RenderEngine::updateScene(RenderData& render_data)
       render_data.main_view_surface_data[i].matrix_view_local = render_data.matrix_view_world * toMat4(_scene.surfaces[i].matrix_world_local);
    }
 
-   char* buffer = (char*)_surface_dynamic_uniforms->getCurrentWindowPtr(); // yeah I don't care if that buffer is still used by OpenGL
+   char* buffer = (char*)_surface_dynamic_uniforms->getCurrentWindowPtr(); // hopefully OpenGL will be done using that range at that time (I could use a fence to enforce it but meh I don't care)
    for (int i = 0; i < render_data.main_view_surface_data.size(); ++i)
    {
       ((SurfaceDynamicUniforms*)buffer)->matrix_view_local = render_data.main_view_surface_data[i].matrix_view_local;
@@ -312,7 +312,7 @@ void RenderEngine::_createSceneLightsBuffer()
             buffer_light->sun.size = light.sun.size;
             break;
          case LightType::Spot:
-            buffer_light->color = light.color*light.strength;
+            buffer_light->color = light.color*light.strength; // light power is stored in color (Watt)
             buffer_light->spot.position = light.world_to_local_matrix[3];
             buffer_light->spot.direction = light.world_to_local_matrix[2];
             buffer_light->spot.cos_half_angle = cos(light.spot.angle/2.0f);

@@ -6,7 +6,7 @@
 namespace yare {
 
 struct Keyframe
-{
+{   
    float x;
    float y;
 };
@@ -16,7 +16,7 @@ class AnimationCurve
 public:
    AnimationCurve();
 
-   void evaluateAndApplyToTarget(float x);
+   int getActiveKeyframeIndex(float x, bool jump);
 
    std::vector<Keyframe> keyframes;
    std::string target_path;

@@ -21,9 +21,6 @@ Skeleton::Skeleton(int bone_count)
    _skinning_palette_ssbo = createPersistentBuffer(sizeof(mat4x4)* bone_count);
 }
 
-
-
-
 void Skeleton::update()
 {
    _updateBone(root_bone_index, mat4(1.0), mat4(1.0));
@@ -33,7 +30,7 @@ void Skeleton::update()
    {
       auto& bone_pose = bones[i].parent_to_bone_transform;
       mat4x4 world_to_bone_bind_pose_matrix = toMat4(world_to_skeleton_matrix)*toMat4(skeleton_to_bone_bind_pose_matrices[i]);
-      mat4x4 world_to_bone_pose_matrix = toMat4(world_to_skeleton_matrix)* _skeleton_to_bone_pose_matrices[i];// world_to_bone_bind_pose_matrix*translate(bone_pose.location)*mat4_cast(bone_pose.quaternion)*scale(bone_pose.scale);
+      mat4x4 world_to_bone_pose_matrix = toMat4(world_to_skeleton_matrix)* _skeleton_to_bone_pose_matrices[i];
 
       buffer[i] = world_to_bone_pose_matrix*inverse(world_to_bone_bind_pose_matrix);
    }
