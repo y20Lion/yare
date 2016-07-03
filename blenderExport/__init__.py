@@ -326,23 +326,29 @@ def writeLights():
 bone_path_regex = re.compile(r'pose\.bones\["(.*)"\]\.(location|scale|rotation_quaternion)')
 transform_path_regex = re.compile(r'(location|scale|rotation_quaternion|rotation_euler)')
 
-def convertDataPath(fcurve):
+def convertDataPath(fcurve, object):
     match = bone_path_regex.search(fcurve.data_path)
     if match:
         return 'bone/'+match.group(1) +'/'+match.group(2)+'/'+str(fcurve.array_index)
         
     match = transform_path_regex.search(fcurve.data_path)
-    if match:
+    if match and object.type != 'ARMATURE': #TODO animate skeleton tranform
         return 'transform/'+match.group(1) +'/'+str(fcurve.array_index)
     
     return None
 
-def writeAnimationCurves(curves):    
+def isBasicCurve(fcurve):
+    return len(fcurve.keyframe_points)==1 or (len(fcurve.keyframe_points) == 2 and fcurve.keyframe_points[0].co.y == fcurve.keyframe_points[1].co.y)
+    
+def writeAnimationCurves(curves, object):    
     json_curves = []
     for fcurve in curves:
 
-        property_path = convertDataPath(fcurve)
+        property_path = convertDataPath(fcurve, object)
         if property_path is None:
+            continue
+        
+        if isBasicCurve(fcurve):
             continue
         
         json_keyframes = []
@@ -372,7 +378,7 @@ def writeActions():
     for object in bpy.context.scene.objects:
         if isValidAnimatedObject(object): 
             curves = object.animation_data.action.fcurves
-            json_curves = writeAnimationCurves(curves)
+            json_curves = writeAnimationCurves(curves, object)
             json_action = {'TargetObject':object.name, 'Curves':json_curves }
             if len(json_curves) > 0:
                 json_actions.append(json_action)

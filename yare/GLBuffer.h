@@ -37,17 +37,17 @@ protected:
 	std::int64_t _size_bytes;
 };
 
-struct GLPersistentlyMappedBufferDesc
+struct GLDynamicBufferDesc
 {
    std::int64_t window_size_bytes;
 };
 
 // Deriving direcltly from GLBuffer is awkward, there should be a GLBufferBase
-class GLPersistentlyMappedBuffer : public GLBuffer
+class GLDynamicBuffer : public GLBuffer
 {
 public:
-   GLPersistentlyMappedBuffer(const GLPersistentlyMappedBufferDesc& desc);
-   virtual ~GLPersistentlyMappedBuffer();
+   GLDynamicBuffer(const GLDynamicBufferDesc& desc);
+   virtual ~GLDynamicBuffer();
 
    void* getCurrentWindowPtr();
    std::int64_t getCurrentWindowOffset();
@@ -60,10 +60,10 @@ private:
    std::int64_t _window_size;
    static int _window_index;
    static int _window_count;
-   DISALLOW_COPY_AND_ASSIGN(GLPersistentlyMappedBuffer)
+   DISALLOW_COPY_AND_ASSIGN(GLDynamicBuffer)
 };
 
 Uptr<GLBuffer> createBuffer(std::int64_t size_bytes, GLenum flags = 0, void* data=nullptr);
-Uptr<GLPersistentlyMappedBuffer> createPersistentBuffer(std::int64_t requested_size_bytes);
+Uptr<GLDynamicBuffer> createDynamicBuffer(std::int64_t requested_size_bytes);
 
 }

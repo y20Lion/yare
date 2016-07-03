@@ -31,14 +31,14 @@ using namespace glm;
 
 struct SurfaceDynamicUniforms
 {
-   mat4 matrix_view_local;
+   mat4 matrix_proj_local;
    mat4 normal_matrix_world_local;
    mat4 matrix_world_local;
 };
 
 struct SceneUniforms
 {
-   mat4 matrix_view_world; 
+   mat4 matrix_proj_world; 
    vec3 eye_position;
    float time;
 
@@ -111,8 +111,8 @@ void RenderEngine::offlinePrepareScene()
    _surface_dynamic_uniforms_size = GLFormats::alignSize(sizeof(SurfaceDynamicUniforms), uniform_buffer_align_size);
 
    int surface_count = int(_scene.surfaces.size());
-   _surface_dynamic_uniforms = createPersistentBuffer(_surface_dynamic_uniforms_size * surface_count);
-   _scene_uniforms = createPersistentBuffer(sizeof(SceneUniforms));
+   _surface_dynamic_uniforms = createDynamicBuffer(_surface_dynamic_uniforms_size * surface_count);
+   _scene_uniforms = createDynamicBuffer(sizeof(SceneUniforms));
    _createSceneLightsBuffer();
    
    _scene.render_data[0].main_view_surface_data.resize(_scene.surfaces.size());
@@ -123,11 +123,6 @@ void RenderEngine::offlinePrepareScene()
       if (_scene.surfaces[i].vertex_source_for_material == nullptr)
          _scene.surfaces[i].vertex_source_for_material = createVertexSource(*_scene.surfaces[i].mesh, _scene.surfaces[i].material->requiredMeshFields(_scene.surfaces[i].material_variant));
    }
-
-   /*for (int i = 0; i < _scene.surfaces.size(); ++i)
-   {    
-      _scene.surfaces[i].normal_matrix_world_local = mat3(transpose(inverse(toMat4(_scene.surfaces[i].matrix_world_local))));
-   }*/
 }
 
 
@@ -146,24 +141,25 @@ void RenderEngine::updateScene(RenderData& render_data)
    auto mat = lookAt(_scene.camera.point_of_view.from, _scene.camera.point_of_view.to, _scene.camera.point_of_view.up);
    
    auto  matrix_projection = perspective(3.14f / 2.0f, render_resources->framebuffer_size.ratio(), znear, zfar);
-   render_data.matrix_view_world = matrix_projection * mat;
+   render_data.matrix_proj_world = matrix_projection * mat;
    /** frustum(camera.frustum.left, camera.frustum.right,
    camera.frustum.bottom, camera.frustum.top,
    camera.frustum.near, camera.frustum.far);*/
    //_scene.surfaces[3].matrix_world_local = mat4x3(1.0);
    for (int i = 0; i < render_data.main_view_surface_data.size(); ++i)
    {
-      mat4 matrix_world_local = /*_scene.surfaces[i].matrix_world_local;//*/_scene.surfaces[i].world_local.toMatrix();
-      render_data.main_view_surface_data[i].matrix_world_local = matrix_world_local;
-      render_data.main_view_surface_data[i].matrix_view_local = render_data.matrix_view_world * matrix_world_local;
+      mat4 matrix_world_local = _scene.surfaces[i].world_local.toMatrix();
+      render_data.main_view_surface_data[i].matrix_world_local        = matrix_world_local;
+      render_data.main_view_surface_data[i].normal_matrix_world_local = mat3(transpose(inverse(matrix_world_local)));
+      render_data.main_view_surface_data[i].matrix_proj_local         = render_data.matrix_proj_world * matrix_world_local;      
    }
 
    char* buffer = (char*)_surface_dynamic_uniforms->getCurrentWindowPtr(); // hopefully OpenGL will be done using that range at that time (I could use a fence to enforce it but meh I don't care)
    for (int i = 0; i < render_data.main_view_surface_data.size(); ++i)
    {
-      ((SurfaceDynamicUniforms*)buffer)->matrix_view_local = render_data.main_view_surface_data[i].matrix_view_local;
-      ((SurfaceDynamicUniforms*)buffer)->normal_matrix_world_local = _scene.surfaces[i].normal_matrix_world_local;// TODO fixme
-      ((SurfaceDynamicUniforms*)buffer)->matrix_world_local = render_data.main_view_surface_data[i].matrix_world_local;
+      ((SurfaceDynamicUniforms*)buffer)->matrix_proj_local         = render_data.main_view_surface_data[i].matrix_proj_local;
+      ((SurfaceDynamicUniforms*)buffer)->normal_matrix_world_local = render_data.main_view_surface_data[i].normal_matrix_world_local;
+      ((SurfaceDynamicUniforms*)buffer)->matrix_world_local        = render_data.main_view_surface_data[i].matrix_world_local;
       buffer += _surface_dynamic_uniforms_size;
    }
 
@@ -171,11 +167,9 @@ void RenderEngine::updateScene(RenderData& render_data)
       skeleton->update();
    
    
-
-
    SceneUniforms* scene_uniforms = (SceneUniforms*)_scene_uniforms->getCurrentWindowPtr();
    scene_uniforms->eye_position = _scene.camera.point_of_view.from;
-   scene_uniforms->matrix_view_world = render_data.matrix_view_world;
+   scene_uniforms->matrix_proj_world = render_data.matrix_proj_world;
    scene_uniforms->time = time_lapse;
    scene_uniforms->delta_time = time_lapse - last_update_time;
    scene_uniforms->znear = znear;
@@ -208,7 +202,7 @@ void RenderEngine::renderScene(const RenderData& render_data)
 
    film_processor->developFilm();
  
-   GLPersistentlyMappedBuffer::moveWindow();    
+   GLDynamicBuffer::moveWindow();    
    GLGPUTimer::swapCounters();
 }
 

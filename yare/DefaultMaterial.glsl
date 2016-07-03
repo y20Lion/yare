@@ -11,7 +11,7 @@ out vec3 attr_normal;
 
 void main()
 {
-   gl_Position = matrix_view_local * vec4(position, 1.0);
+   gl_Position = matrix_proj_local * vec4(position, 1.0);
    attr_normal = mat3(normal_matrix_world_local)*normal;
    attr_position = matrix_world_local*vec4(position, 1.0);
 }

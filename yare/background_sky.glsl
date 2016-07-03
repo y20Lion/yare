@@ -10,7 +10,7 @@ out vec3 pos;
 void main()
 {
    gl_Position = vec4(position, 1.0, 1.0); 
-   vec4 pos_in_world = inverse(matrix_view_world)*gl_Position;
+   vec4 pos_in_world = inverse(matrix_proj_world)*gl_Position;
    pos = pos_in_world.xyz / pos_in_world.w;
 }
 

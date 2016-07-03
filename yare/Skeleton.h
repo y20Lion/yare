@@ -12,7 +12,7 @@
 namespace yare
 {
 using namespace glm;
-class GLPersistentlyMappedBuffer;
+class GLDynamicBuffer;
 
 //enum class RotationType { EulerXYZ, EulerYXZ, Euler  };
 
@@ -50,7 +50,7 @@ public:
    std::vector<mat4x3> skeleton_to_bone_bind_pose_matrices;
    int root_bone_index;
 
-   GLPersistentlyMappedBuffer& skinningPalette() { return *_skinning_palette_ssbo;  }
+   GLDynamicBuffer& skinningPalette() { return *_skinning_palette_ssbo;  }
 
 private:
    void _updateBone(int index, const mat4x4 parent_to_bone_matrix);
@@ -58,7 +58,7 @@ private:
    DISALLOW_COPY_AND_ASSIGN(Skeleton)
    int _bone_count;
    std::vector<mat4x4> _skeleton_to_bone_pose_matrices;
-   Uptr<GLPersistentlyMappedBuffer> _skinning_palette_ssbo;
+   Uptr<GLDynamicBuffer> _skinning_palette_ssbo;
 };
 
 }

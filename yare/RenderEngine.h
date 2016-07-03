@@ -8,7 +8,7 @@ namespace yare {
 
 class CubemapFiltering;
 struct RenderResources;
-class GLPersistentlyMappedBuffer;
+class GLDynamicBuffer;
 class GLBuffer;
 class BackgroundSky;
 struct ImageSize;
@@ -41,10 +41,10 @@ private:
    DISALLOW_COPY_AND_ASSIGN(RenderEngine)
    Scene _scene;
 
-   Uptr<GLPersistentlyMappedBuffer> _surface_constant_uniforms;
-   Uptr<GLPersistentlyMappedBuffer> _surface_dynamic_uniforms;
+   Uptr<GLDynamicBuffer> _surface_constant_uniforms;
+   Uptr<GLDynamicBuffer> _surface_dynamic_uniforms;
    char* _surface_dynamic_uniforms_ptr;
-   Uptr<GLPersistentlyMappedBuffer> _scene_uniforms;
+   Uptr<GLDynamicBuffer> _scene_uniforms;
    Uptr<GLBuffer> _lights_ssbo;
 
    size_t _surface_dynamic_uniforms_size;

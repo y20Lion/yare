@@ -18,7 +18,7 @@ Skeleton::Skeleton(int bone_count)
    skeleton_to_bone_bind_pose_matrices.resize(bone_count);
    _skeleton_to_bone_pose_matrices.resize(bone_count);
 
-   _skinning_palette_ssbo = createPersistentBuffer(sizeof(mat4x4)* bone_count);
+   _skinning_palette_ssbo = createDynamicBuffer(sizeof(mat4x4)* bone_count);
 }
 
 void Skeleton::update()

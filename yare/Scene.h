@@ -45,8 +45,7 @@ struct SurfaceInstance
    Sptr<IMaterial> material;
    MaterialVariant material_variant;
    const GLProgram* material_program;
-
-   glm::mat3 normal_matrix_world_local;    
+        
    Sptr<GLVertexSource> vertex_source_for_material;
 };
 
@@ -92,14 +91,15 @@ struct Light
 
 struct MainViewSurfaceData
 {
-    glm::mat4 matrix_view_local;
+    glm::mat4 matrix_proj_local;
     glm::mat4 matrix_world_local;
+    glm::mat3 normal_matrix_world_local;
 };
 
 struct RenderData
 {
    std::vector<MainViewSurfaceData> main_view_surface_data;
-   glm::mat4x4 matrix_view_world;
+   glm::mat4x4 matrix_proj_world;
 };
 
 class Scene

@@ -47,11 +47,11 @@ void main()
       skinned_normal += bone_weight[i] * (mat3(skinning_matrix[bone_index[i]]) * normal_world);
    }
 
-   gl_Position = matrix_view_world * vec4(skinned_position, 1.0);
+   gl_Position = matrix_proj_world * vec4(skinned_position, 1.0);
    attr_normal = skinned_normal;
    attr_position = skinned_position;
 #else 
-   gl_Position = matrix_view_local * vec4(position, 1.0);
+   gl_Position = matrix_proj_local * vec4(position, 1.0);
    attr_normal = mat3(normal_matrix_world_local)*normal;
    attr_position = matrix_world_local*vec4(position, 1.0);
 #endif

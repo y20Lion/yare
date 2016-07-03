@@ -24,7 +24,7 @@ layout(vertices = 3) out;
 
 float getPostProjectionSphereExtent(vec3 origin, float diameter)
 {
-   vec4 clip_pos = matrix_view_world* vec4(origin, 1.0);
+   vec4 clip_pos = matrix_proj_world* vec4(origin, 1.0);
    return abs(diameter * proj_coeff_11/ clip_pos.w);
 }
 
@@ -84,7 +84,7 @@ void main()
    flat_position = interpolate(gl_in[0].gl_Position.xyz, gl_in[1].gl_Position.xyz, gl_in[2].gl_Position.xyz);   
    attr_position3 = evalOceanPosition(flat_position);
 
-   gl_Position = matrix_view_world * vec4(attr_position3, 1.0);
+   gl_Position = matrix_proj_world * vec4(attr_position3, 1.0);
 }
 
 ~~~~~~~~~~~~~~~~~~ FragmentShader ~~~~~~~~~~~~~~~~~~~~~~

@@ -31,29 +31,29 @@ void GLBuffer::unmap()
     glUnmapNamedBuffer(_buffer_id);
 }
 
-int GLPersistentlyMappedBuffer::_window_count = 4;
-int GLPersistentlyMappedBuffer::_window_index = 0;
+int GLDynamicBuffer::_window_count = 4;
+int GLDynamicBuffer::_window_index = 0;
 
 static const int _persistent_map_flags = GL_MAP_WRITE_BIT | GL_MAP_COHERENT_BIT | GL_MAP_PERSISTENT_BIT;
 
-GLPersistentlyMappedBuffer::GLPersistentlyMappedBuffer(const GLPersistentlyMappedBufferDesc& desc)
+GLDynamicBuffer::GLDynamicBuffer(const GLDynamicBufferDesc& desc)
  : GLBuffer(GLBufferDesc(desc.window_size_bytes*_window_count, nullptr, _persistent_map_flags | GL_DYNAMIC_STORAGE_BIT))
 {
    _head_ptr = (char*)glMapNamedBufferRange(_buffer_id, 0, desc.window_size_bytes*_window_count, _persistent_map_flags);
    _window_size = desc.window_size_bytes;
 }
 
-GLPersistentlyMappedBuffer::~GLPersistentlyMappedBuffer()
+GLDynamicBuffer::~GLDynamicBuffer()
 {
 
 }
 
-void* GLPersistentlyMappedBuffer::getCurrentWindowPtr()
+void* GLDynamicBuffer::getCurrentWindowPtr()
 {
    return _head_ptr + (_window_index*windowSize());
 }
 
-std::int64_t GLPersistentlyMappedBuffer::getCurrentWindowOffset()
+std::int64_t GLDynamicBuffer::getCurrentWindowOffset()
 {
    return _window_index*windowSize();
 }
@@ -67,14 +67,14 @@ Uptr<GLBuffer> createBuffer(std::int64_t size_bytes, GLenum flags, void* data)
     return std::make_unique<GLBuffer>(desc);
 }
 
-Uptr<GLPersistentlyMappedBuffer> createPersistentBuffer(std::int64_t requested_size_bytes)
+Uptr<GLDynamicBuffer> createDynamicBuffer(std::int64_t requested_size_bytes)
 {
    int uniform_buffer_align_size;
    glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &uniform_buffer_align_size);
 
-   GLPersistentlyMappedBufferDesc desc;
+   GLDynamicBufferDesc desc;
    desc.window_size_bytes = GLFormats::alignSize(requested_size_bytes, uniform_buffer_align_size);
-   return std::make_unique<GLPersistentlyMappedBuffer>(desc);
+   return std::make_unique<GLDynamicBuffer>(desc);
 }
 
 }
