@@ -124,11 +124,12 @@ void RenderEngine::offlinePrepareScene()
          _scene.surfaces[i].vertex_source_for_material = createVertexSource(*_scene.surfaces[i].mesh, _scene.surfaces[i].material->requiredMeshFields(_scene.surfaces[i].material_variant));
    }
 
-   for (int i = 0; i < _scene.surfaces.size(); ++i)
+   /*for (int i = 0; i < _scene.surfaces.size(); ++i)
    {    
       _scene.surfaces[i].normal_matrix_world_local = mat3(transpose(inverse(toMat4(_scene.surfaces[i].matrix_world_local))));
-   }
+   }*/
 }
+
 
 void RenderEngine::updateScene(RenderData& render_data)
 {
@@ -152,15 +153,17 @@ void RenderEngine::updateScene(RenderData& render_data)
    //_scene.surfaces[3].matrix_world_local = mat4x3(1.0);
    for (int i = 0; i < render_data.main_view_surface_data.size(); ++i)
    {
-      render_data.main_view_surface_data[i].matrix_view_local = render_data.matrix_view_world * toMat4(_scene.surfaces[i].matrix_world_local);
+      mat4 matrix_world_local = /*_scene.surfaces[i].matrix_world_local;//*/_scene.surfaces[i].world_local.toMatrix();
+      render_data.main_view_surface_data[i].matrix_world_local = matrix_world_local;
+      render_data.main_view_surface_data[i].matrix_view_local = render_data.matrix_view_world * matrix_world_local;
    }
 
    char* buffer = (char*)_surface_dynamic_uniforms->getCurrentWindowPtr(); // hopefully OpenGL will be done using that range at that time (I could use a fence to enforce it but meh I don't care)
    for (int i = 0; i < render_data.main_view_surface_data.size(); ++i)
    {
       ((SurfaceDynamicUniforms*)buffer)->matrix_view_local = render_data.main_view_surface_data[i].matrix_view_local;
-      ((SurfaceDynamicUniforms*)buffer)->normal_matrix_world_local = _scene.surfaces[i].normal_matrix_world_local;
-      ((SurfaceDynamicUniforms*)buffer)->matrix_world_local = _scene.surfaces[i].matrix_world_local;
+      ((SurfaceDynamicUniforms*)buffer)->normal_matrix_world_local = _scene.surfaces[i].normal_matrix_world_local;// TODO fixme
+      ((SurfaceDynamicUniforms*)buffer)->matrix_world_local = render_data.main_view_surface_data[i].matrix_world_local;
       buffer += _surface_dynamic_uniforms_size;
    }
 

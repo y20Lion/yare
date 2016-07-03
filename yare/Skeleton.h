@@ -18,7 +18,7 @@ class GLPersistentlyMappedBuffer;
 
 struct BoneLocalTransform
 {
-   quat quaternion;
+   quat rotation_quaternion;
    //vec3 rotation_euler;
    vec3 location;
    vec3 scale; 

@@ -331,6 +331,7 @@ static SkeletonMap readSkeletons(const Json::Value& json_skeletons, Scene* scene
       skeleton->name = json_skeleton["Name"].asString();
       skeleton->world_to_skeleton_matrix = readMatrix4x3(json_skeleton["WorldToSkeletonMatrix"]);
       
+      
       int i = 0;
       for (const auto& json_bone : json_bones)
       {
@@ -338,7 +339,7 @@ static SkeletonMap readSkeletons(const Json::Value& json_skeletons, Scene* scene
          bone.name = json_bone["Name"].asString();
          bone.local_transform.location = readVec3(json_bone["Pose"]["Location"]);
          bone.local_transform.scale = readVec3(json_bone["Pose"]["Scale"]);
-         bone.local_transform.quaternion = readQuaternion(json_bone["Pose"]["Quaternion"]); // TODO fix quaternion order
+         bone.local_transform.rotation_quaternion = readQuaternion(json_bone["Pose"]["RotationQuaternion"]); // TODO fix quaternion order
          //bone.local_transform.pose_matrix = readMatrix4x3(json_bone["Pose"]["PoseMatrix"]);
          // TODO bone parent
          skeleton->skeleton_to_bone_bind_pose_matrices[i] = readMatrix4x3(json_bone["SkeletonToBoneMatrix"]);//TODO remove this        
@@ -368,28 +369,68 @@ static SkeletonMap readSkeletons(const Json::Value& json_skeletons, Scene* scene
       skeletons[skeleton->name] = skeleton;
       scene->skeletons.push_back(skeleton);
    }
+
+   int i = 0;
+   for (const auto& json_skeleton : json_skeletons)
+   {
+      scene->name_to_skeleton[json_skeleton["Name"].asString()] = scene->skeletons[i++].get();
+   }
+
    return skeletons;
 }
 
-static void readAnimations(const Json::Value& json_animations, Scene* scene)
+static void readAction(const Json::Value& json_action, Scene* scene)
 {
-   for (const auto& json_animation : json_animations)
+   scene->animation_player->actions.push_back(Action());
+   Action& action = scene->animation_player->actions.back();
+   action.target_object = json_action["TargetObject"].asString();
+   for (const auto& json_curve : json_action["Curves"])
    {
-      for (const auto& json_curve : json_animation["Curves"])
-      {
-         scene->animation_player->curves.push_back(AnimationCurve());
-         AnimationCurve& curve = scene->animation_player->curves.back();
+      action.curves.push_back(AnimationCurve());
+      AnimationCurve& curve = action.curves.back();
 
-         curve.target_path = json_curve["TargetPropertyPath"].asString();
-         for (const auto& json_keyframe : json_curve["Keyframes"])
-         {
-            Keyframe keyframe;
-            keyframe.x = json_keyframe["X"].asFloat();
-            keyframe.y = json_keyframe["Y"].asFloat();
-            curve.keyframes.push_back(keyframe);
-         }
+      curve.target_path = json_curve["TargetPropertyPath"].asString();
+      for (const auto& json_keyframe : json_curve["Keyframes"])
+      {
+         Keyframe keyframe;
+         keyframe.x = json_keyframe["X"].asFloat();
+         keyframe.y = json_keyframe["Y"].asFloat();
+         curve.keyframes.push_back(keyframe);
       }
    }
+
+}
+
+static void readActions(const Json::Value& json_actions, Scene* scene)
+{
+   for (const auto& json_action : json_actions)
+   {
+      readAction(json_action, scene);
+   }
+}
+
+static RotationType convertToRotationType(const std::string& rotation_type)
+{
+   if (rotation_type == "XYZ")
+      return RotationType::EulerXYZ;
+   else if (rotation_type == "XZY")
+      return RotationType::EulerXZY;
+
+   else if (rotation_type == "YXZ")
+      return RotationType::EulerYXZ;
+   else if (rotation_type == "YZX")
+      return RotationType::EulerYZX;
+
+   else if (rotation_type == "ZXY")
+      return RotationType::EulerZXY;
+   else if (rotation_type == "ZYX")
+      return RotationType::EulerZYX;
+
+   else if (rotation_type == "QUATERNION")
+      return RotationType::Quaternion;
+   else
+      assert(false);
+   return RotationType::Quaternion;
 }
 
 void import3DY(const std::string& filename, const RenderEngine& render_engine, Scene* scene)
@@ -403,7 +444,7 @@ void import3DY(const std::string& filename, const RenderEngine& render_engine, S
 
    readLights(root["Lights"], scene);
    readEnvironment(render_engine, root["Environment"], scene);
-   readAnimations(root["Animations"], scene);
+   readActions(root["Actions"], scene);
    auto skeletons = readSkeletons(root["Skeletons"], scene);
    auto textures = readTextures(root["Textures"]);
    auto materials = readMaterials(render_engine, root["Materials"], textures);        
@@ -421,7 +462,11 @@ void import3DY(const std::string& filename, const RenderEngine& render_engine, S
 		
 		SurfaceInstance surface_instance;
 		surface_instance.mesh = std::move(render_mesh);
-		surface_instance.matrix_world_local = readMatrix4x3(json_matrix);
+      surface_instance.world_local.location = readVec3(json_surface["Transform"]["Location"]);
+      surface_instance.world_local.scale = readVec3(json_surface["Transform"]["Scale"]);
+      surface_instance.world_local.rotation_quaternion = readQuaternion(json_surface["Transform"]["RotationQuaternion"]);
+      surface_instance.world_local.rotation_euler = readVec3(json_surface["Transform"]["RotationEuler"]);
+      surface_instance.world_local.rotation_type = convertToRotationType(json_surface["Transform"]["RotationType"].asString());
 
       auto mat_it = materials.find(json_surface["Material"].asString());
       if (mat_it != materials.end())
@@ -441,8 +486,14 @@ void import3DY(const std::string& filename, const RenderEngine& render_engine, S
          surface_instance.material_variant = MaterialVariant::Normal;
       }
       surface_instance.material_program = &surface_instance.material->compile(surface_instance.material_variant);
-		scene->surfaces.push_back(surface_instance);
+		scene->surfaces.push_back(surface_instance);      
 	}
+
+   int i = 0;
+   for (const auto& json_surface : json_surfaces)
+   {
+      scene->name_to_surface[json_surface["Name"].asString()] = &scene->surfaces[i++];
+   }
 }
 
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <vector>
 #include "AnimationCurve.h"
 #include "tools.h"
@@ -12,7 +13,7 @@ struct Action
 {
    std::string target_object;
    std::vector<AnimationCurve> curves;
-   
+   std::vector<std::pair<Keyframe, Keyframe>> active_keyframes;
 };
 
 class AnimationPlayer
@@ -22,15 +23,15 @@ public:
 
    void evaluateAndApplyToTargets(float x);
 
-   std::vector<AnimationCurve> curves;
+   std::vector<Action> actions;
 
 private:
-   void _updateCurveActiveKeyframes(float x, bool jump);
-   void _evaluateCurves(float x);
+   void _updateCurveActiveKeyframes(float x, Action& action, bool jump);
+   void _evaluateCurves(float x, const Action& action);
    
 private:   
    DISALLOW_COPY_AND_ASSIGN(AnimationPlayer)
-   std::vector<std::pair<Keyframe, Keyframe>> _active_keyframes;
+   
    float _previous_evaluated_x;
 };
 

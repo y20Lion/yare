@@ -18,47 +18,48 @@ AnimationPlayer::AnimationPlayer()
 
 void AnimationPlayer::evaluateAndApplyToTargets(float x)
 {
-   _active_keyframes.resize(curves.size());
-   
-   x = fmod(x, 200.0f);
+   x = fmod(x, 20.0f);
    bool jumped = (x < _previous_evaluated_x);
    _previous_evaluated_x = x;
 
-   _updateCurveActiveKeyframes(x, jumped);
-   _evaluateCurves(x);
+   for (auto& action : actions)
+   {
+      action.active_keyframes.resize(action.curves.size());
+      _updateCurveActiveKeyframes(x, action, jumped);
+      _evaluateCurves(x, action);
+   }
 }
 
-void AnimationPlayer::_updateCurveActiveKeyframes(float x, bool jump)
+void AnimationPlayer::_updateCurveActiveKeyframes(float x, Action& action, bool jump)
 {
-   for (int i = 0; i < int(_active_keyframes.size()); ++i)
+   for (int i = 0; i < int(action.active_keyframes.size()); ++i)
    {
-      if (!jump && x <= _active_keyframes[i].second.x)
+      if (!jump && x <= action.active_keyframes[i].second.x)
          continue;
 
-      auto& curve = curves[i];
+      auto& curve = action.curves[i];
       int active_index = curve.getActiveKeyframeIndex(x, jump);
 
-      _active_keyframes[i] = std::make_pair(curve.keyframes[active_index-1], curve.keyframes[active_index]);
+      action.active_keyframes[i] = std::make_pair(curve.keyframes[active_index-1], curve.keyframes[active_index]);
    }
 }
 
-void AnimationPlayer::_evaluateCurves(float x)
+void AnimationPlayer::_evaluateCurves(float x, const Action& action)
 {
-   for (int i = 0; i < int(_active_keyframes.size()); ++i)
+   for (int i = 0; i < int(action.active_keyframes.size()); ++i)
    {
-      const auto& before = _active_keyframes[i].first;
-      const auto& after = _active_keyframes[i].second;
+      const auto& before = action.active_keyframes[i].first;
+      const auto& after = action.active_keyframes[i].second;
 
       float mix_factor = (x - before.x) / (after.x - before.x);
-      *(curves[i].target) = (1.0f - mix_factor)*before.y + mix_factor*after.y;
+      *(action.curves[i].target) = (1.0f - mix_factor)*before.y + mix_factor*after.y;
    }
 }
 
-
-static void _bindTarget(const Scene& scene, AnimationCurve& curve)
+static void _bindTarget(const Scene& scene, const std::string& object_name, AnimationCurve& curve)
 {
    static std::regex bone_path_regex("bone/(.*)/(.*)/([0-3])");
-   
+   static std::regex surface_path_regex("transform/(.*)/([0-3])");   
 
    std::smatch regex_result;
    if (std::regex_search(curve.target_path, regex_result, bone_path_regex))
@@ -67,7 +68,7 @@ static void _bindTarget(const Scene& scene, AnimationCurve& curve)
       const std::string& transformation_component = regex_result[2];
       int component_index = std::stoi(regex_result[3]);
 
-      Skeleton& skeleton = *scene.skeletons[0];
+      Skeleton& skeleton = *scene.name_to_skeleton.at(object_name);
       Bone& bone = skeleton.bone(bone_name);
 
       if (transformation_component == "location")
@@ -75,27 +76,38 @@ static void _bindTarget(const Scene& scene, AnimationCurve& curve)
       else if (transformation_component == "scale")
          curve.target = &bone.local_transform.scale[component_index];
       else if (transformation_component == "rotation_quaternion")
-         curve.target = &bone.local_transform.quaternion[component_index==0 ? 3 : component_index-1];
+         curve.target = &bone.local_transform.rotation_quaternion[component_index==0 ? 3 : component_index-1];
       /*else
          assert(false);*/ // TODO fix silent ignore
    }
+   else if (std::regex_search(curve.target_path, regex_result, surface_path_regex))
+   {
+      Transform& transform = scene.name_to_surface.at(object_name)->world_local;
+      
+      const std::string& transformation_component = regex_result[1];
+      int component_index = std::stoi(regex_result[2]);
+      
+      if (transformation_component == "location")
+         curve.target = &transform.location[component_index];
+      else if (transformation_component == "scale")
+         curve.target = &transform.scale[component_index];
+      else if (transformation_component == "rotation_quaternion")
+         curve.target = &transform.rotation_quaternion[component_index == 0 ? 3 : component_index - 1];
+      else if (transformation_component == "rotation_euler")
+         curve.target = &transform.rotation_euler[component_index];
+   }
    else
       assert(false);
-   /* // TODO handle objects
-   else if (std::regex_search(curve.target_path, regex_result, transform_regex))
-   {
-      "location"
-         "scale"
-         "rotation_euler"
-   }*///static std::regex transform_regex("(.*)/(.*)/)");
-
 }
 
 void bindAnimationCurvesToTargets(const Scene& scene, AnimationPlayer& player)
 {
-   for (auto& curve : player.curves)
+   for (auto& action : player.actions)
    {
-      _bindTarget(scene, curve);
+      for (auto& curve : action.curves)
+      {
+         _bindTarget(scene, action.target_object, curve);
+      }
    }
 }
 
