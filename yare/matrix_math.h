@@ -2,6 +2,7 @@
 
 #include <glm/mat4x3.hpp>
 #include <glm/mat4x4.hpp>
+#include <glm/gtc/matrix_inverse.hpp>
 
 namespace yare {
    using namespace glm;
@@ -25,4 +26,23 @@ inline mat4x3 toMat4x3(const mat4& matrix)
    result[3] = matrix[3].xyz;
    return result;
 }
+
+inline mat4x3 inverseAS(const mat4x3& affine_space)
+{
+   mat3 rotation = inverse(mat3(affine_space));
+   mat4x3 result = rotation;
+   result[3] = -rotation*affine_space[3];
+   return result;
+}
+
+inline mat4x3 composeAS(const mat4x3& affine_space1, const mat4x3& affine_space2)
+{
+   mat3 rotation1 = mat3(affine_space1);
+   mat3 rotation2 = mat3(affine_space2);
+
+   mat4x3 result = rotation1 * rotation2;
+   result[3] = rotation1*affine_space2[3] + affine_space1[3];
+   return result;
+}
+
 }

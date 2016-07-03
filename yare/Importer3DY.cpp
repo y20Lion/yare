@@ -18,6 +18,7 @@
 #include "OceanMaterial.h"
 #include "Skeleton.h"
 #include "AnimationPlayer.h"
+#include "matrix_math.h"
 
 namespace yare {
 
@@ -335,10 +336,10 @@ static SkeletonMap readSkeletons(const Json::Value& json_skeletons, Scene* scene
       {
          auto& bone = skeleton->bones[i];
          bone.name = json_bone["Name"].asString();
-         bone.parent_to_bone_transform.location = readVec3(json_bone["Pose"]["Location"]);
-         bone.parent_to_bone_transform.scale = readVec3(json_bone["Pose"]["Scale"]);
-         bone.parent_to_bone_transform.quaternion = readQuaternion(json_bone["Pose"]["Quaternion"]); // TODO fix quaternion order
-         bone.parent_to_bone_transform.pose_matrix = readMatrix4x3(json_bone["Pose"]["PoseMatrix"]);         
+         bone.local_transform.location = readVec3(json_bone["Pose"]["Location"]);
+         bone.local_transform.scale = readVec3(json_bone["Pose"]["Scale"]);
+         bone.local_transform.quaternion = readQuaternion(json_bone["Pose"]["Quaternion"]); // TODO fix quaternion order
+         //bone.local_transform.pose_matrix = readMatrix4x3(json_bone["Pose"]["PoseMatrix"]);
          // TODO bone parent
          skeleton->skeleton_to_bone_bind_pose_matrices[i] = readMatrix4x3(json_bone["SkeletonToBoneMatrix"]);//TODO remove this        
          skeleton->bone_name_to_index[bone.name] = i;
@@ -357,6 +358,10 @@ static SkeletonMap readSkeletons(const Json::Value& json_skeletons, Scene* scene
          {
             bone.chilren.push_back(skeleton->bone_name_to_index.at(json_child.asString()));
          }
+
+         mat4x3 skeleton_to_parent_in_bind_pose_matrix = bone.parent == -1 ? mat4x3(1.0) : skeleton->skeleton_to_bone_bind_pose_matrices[bone.parent];
+         bone.parent_to_bone_matrix = composeAS(inverseAS(skeleton_to_parent_in_bind_pose_matrix), skeleton->skeleton_to_bone_bind_pose_matrices[i]);
+
          ++i;
       }
 

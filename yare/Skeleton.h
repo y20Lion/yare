@@ -22,13 +22,14 @@ struct BoneLocalTransform
    //vec3 rotation_euler;
    vec3 location;
    vec3 scale; 
-   mat4x3 pose_matrix;
+   //mat4x3 pose_matrix;
 };
 
 struct Bone
 {
    std::string name;
-   BoneLocalTransform parent_to_bone_transform;
+   BoneLocalTransform local_transform;
+   mat4x3 parent_to_bone_matrix;
    int parent;
    std::vector<int> chilren;
 };
@@ -52,7 +53,7 @@ public:
    GLPersistentlyMappedBuffer& skinningPalette() { return *_skinning_palette_ssbo;  }
 
 private:
-   void _updateBone(int index, const mat4x4 parent_to_bone_matrix, const mat4x4 world_to_parent_in_bind_pose_matrix);
+   void _updateBone(int index, const mat4x4 parent_to_bone_matrix);
 private:   
    DISALLOW_COPY_AND_ASSIGN(Skeleton)
    int _bone_count;

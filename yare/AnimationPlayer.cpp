@@ -71,11 +71,11 @@ static void _bindTarget(const Scene& scene, AnimationCurve& curve)
       Bone& bone = skeleton.bone(bone_name);
 
       if (transformation_component == "location")
-         curve.target = &bone.parent_to_bone_transform.location[component_index];
+         curve.target = &bone.local_transform.location[component_index];
       else if (transformation_component == "scale")
-         curve.target = &bone.parent_to_bone_transform.scale[component_index];
+         curve.target = &bone.local_transform.scale[component_index];
       else if (transformation_component == "rotation_quaternion")
-         curve.target = &bone.parent_to_bone_transform.quaternion[component_index==0 ? 3 : component_index-1];
+         curve.target = &bone.local_transform.quaternion[component_index==0 ? 3 : component_index-1];
       /*else
          assert(false);*/ // TODO fix silent ignore
    }
