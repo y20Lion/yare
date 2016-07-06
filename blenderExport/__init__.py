@@ -337,7 +337,7 @@ def convertDataPath(fcurve, object):
     
     return None
 
-def isBasicCurve(fcurve):
+def isConstantCurve(fcurve):
     return len(fcurve.keyframe_points)==1 or (len(fcurve.keyframe_points) == 2 and fcurve.keyframe_points[0].co.y == fcurve.keyframe_points[1].co.y)
     
 def writeAnimationCurves(curves, object):    
@@ -348,7 +348,7 @@ def writeAnimationCurves(curves, object):
         if property_path is None:
             continue
         
-        if isBasicCurve(fcurve):
+        if isConstantCurve(fcurve):
             continue
         
         json_keyframes = []
@@ -392,9 +392,65 @@ def getMeshArmature(object):
             break
     return armature_name
 
+def getTopParent(object):
+    while object.parent != None:
+        object = object.parent
+    return object
+ 
 def writeObjectTransform(object):    
     json_transform = {'Location':object.location[:], 'RotationType':object.rotation_mode, 'RotationEuler':object.rotation_euler[:], 'RotationQuaternion':object.rotation_quaternion[:], 'Scale':object.scale[:] }
     return json_transform
+
+def writeTransformHierarchyNodes(object_names, json_nodes):
+    created_nodes = []
+    for object_name in object_names:
+        object = bpy.data.objects[object_name]
+        children_names = [child.name for child in object.children]
+        parent_name = object.parent.name if (object.parent is not None) else None
+        json_node = {'ObjectName':object.name, 'ParentToNodeMatrix':writeMatrix(object.matrix_parent_inverse), 'Transform':writeObjectTransform(object), 'Parent':parent_name, 'Children':children_names }
+        json_nodes.append(json_node)
+        created_nodes.append(json_node)
+        
+    for json_node in created_nodes:
+        writeTransformHierarchyNodes(json_node['Children'], json_nodes)
+    
+def writeTransformHierarchy():
+    root_children = set()
+    for object in bpy.context.scene.objects:
+        if object.is_visible(bpy.context.scene) and (object.type == 'ARMATURE' or object.type == 'MESH'):                    
+            root_children.add(getTopParent(object).name)
+            
+    json_nodes = []
+    json_root_transform = {'Location':[0,0,0], 'RotationType':'XYZ', 'RotationEuler':[0,0,0], 'RotationQuaternion':[1,0,0,0], 'Scale':[1,1,1] }
+    json_nodes.append({'ObjectName':'Root', 'ParentToNodeMatrix':writeMatrix(mathutils.Matrix.Identity(4)), 'Transform':json_root_transform, 'Parent':None, 'Children':list(root_children) })
+    writeTransformHierarchyNodes(root_children, json_nodes)
+    json_hierarchy = {'Nodes':json_nodes}
+    return json_hierarchy
+
+def writeSurfaces(armatures_bone_indices, binary_file):
+    json_surfaces = []
+    #bpy.ops.object.make_single_user(type='ALL', object=True, obdata=True)
+    object_count = sum(map(hasMesh, bpy.context.scene.objects))
+    i=0
+    for object in bpy.context.scene.objects:
+        if not isValidMeshObject(object):
+            continue
+        
+        armature_name = getMeshArmature(object)
+        bone_name_to_index = armatures_bone_indices[armature_name] if (armature_name is not None) else None
+        
+        mesh = object.data ##to_mesh(bpy.context.scene, True, "PREVIEW")#
+        json_mesh = writeMesh(binary_file, mesh, object.vertex_groups, bone_name_to_index)
+        if len(object.data.materials) != 0:
+            material_name = object.data.materials[0].name
+        else:
+            material_name = ""
+        json_surface = {'Name':object.name, 'Mesh':json_mesh, 'Material':material_name, 'WorldToLocalMatrix':writeMatrix(object.matrix_world), 'Skeleton':armature_name}
+        json_surfaces.append(json_surface)
+        i+= 1
+        updateProgress("progress", i/object_count)
+    return json_surfaces
+
     
 class Export3DY(bpy.types.Operator, ExportHelper):
     bl_idname = "export.3dy"
@@ -409,50 +465,25 @@ class Export3DY(bpy.types.Operator, ExportHelper):
             os.makedirs(self.filepath)
         
         binary_file = open(output_path+'data.bin', "wb")
-        
-        textures = set()        
-        json_lights = writeLights()
-        json_armatures, armatures_bone_indices = writeArmatures()
-        json_materials = writeMaterials(textures)
-        json_environment = writeEnvironment(output_path)
-        json_textures = writeTextures(textures, output_path)
-        json_actions = writeActions()
-        
-        json_surfaces = []
         bpy.ops.wm.console_toggle()
-        #bpy.ops.object.make_single_user(type='ALL', object=True, obdata=True)
-        object_count = sum(map(hasMesh, bpy.context.scene.objects))
-        i=0
-        for object in bpy.context.scene.objects:
-            if not isValidMeshObject(object):
-                continue
-            
-            armature_name = getMeshArmature(object)
-            bone_name_to_index = armatures_bone_indices[armature_name] if (armature_name is not None) else None
-            
-            mesh = object.data ##to_mesh(bpy.context.scene, True, "PREVIEW")#
-            json_mesh = writeMesh(binary_file, mesh, object.vertex_groups, bone_name_to_index)
-            if len(object.data.materials) != 0:
-                material_name = object.data.materials[0].name
-            else:
-                material_name = ""
-            json_surface = {'Name':object.name, 'Mesh':json_mesh, 'Material':material_name, 'Transform':writeObjectTransform(object), 'WorldToLocalMatrix':writeMatrix(object.matrix_world), 'Skeleton':armature_name}
-            json_surfaces.append(json_surface)
-            i+= 1
-            updateProgress("progress", i/object_count)            
-            
+        
+        json_root = {} 
+        textures = set()        
+        json_skeletons, armatures_bone_indices = writeArmatures()
+        json_root['Skeletons'] = json_skeletons
+        json_root['Lights'] = writeLights()        
+        json_root['Materials'] = writeMaterials(textures)
+        json_root['Environment'] = writeEnvironment(output_path)
+        json_root['Textures'] = writeTextures(textures, output_path)
+        json_root['Actions'] = writeActions()
+        json_root['TransformHierarchy'] = writeTransformHierarchy()        
+        json_root['Surfaces'] = writeSurfaces(armatures_bone_indices, binary_file)
+
         binary_file_size = binary_file.tell()
         binary_file.close()
         
-        root = {'Surfaces':json_surfaces} 
-        root['Textures'] = json_textures
-        root['Materials'] = json_materials
-        root['Environment'] = json_environment
-        root['Lights'] = json_lights
-        root['Skeletons'] = json_armatures
-        root['Actions'] = json_actions
         with open(output_path+'structure.json', 'w') as json_file:
-            json.dump(root, json_file, indent=1)
+            json.dump(json_root, json_file, indent=1)
         return {'FINISHED'}
     
 def menu_func_export(self, context):

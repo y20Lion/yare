@@ -18,6 +18,7 @@
 #include "OceanMaterial.h"
 #include "Skeleton.h"
 #include "AnimationPlayer.h"
+#include "TransformHierarchy.h"
 #include "matrix_math.h"
 
 namespace yare {
@@ -341,8 +342,8 @@ static SkeletonMap readSkeletons(const Json::Value& json_skeletons, Scene* scene
          bone.local_transform.scale = readVec3(json_bone["Pose"]["Scale"]);
          bone.local_transform.rotation_quaternion = readQuaternion(json_bone["Pose"]["RotationQuaternion"]); // TODO fix quaternion order
          //bone.local_transform.pose_matrix = readMatrix4x3(json_bone["Pose"]["PoseMatrix"]);
-         // TODO bone parent
-         skeleton->skeleton_to_bone_bind_pose_matrices[i] = readMatrix4x3(json_bone["SkeletonToBoneMatrix"]);//TODO remove this        
+
+         skeleton->skeleton_to_bone_bind_pose_matrices[i] = readMatrix4x3(json_bone["SkeletonToBoneMatrix"]);
          skeleton->bone_name_to_index[bone.name] = i;
          ++i;
       }
@@ -433,6 +434,41 @@ static RotationType convertToRotationType(const std::string& rotation_type)
    return RotationType::Quaternion;
 }
 
+Transform readTransform(const Json::Value& json_transform)
+{
+   Transform transform;
+   transform.location = readVec3(json_transform["Location"]);
+   transform.scale = readVec3(json_transform["Scale"]);
+   transform.rotation_quaternion = readQuaternion(json_transform["RotationQuaternion"]);
+   transform.rotation_euler = readVec3(json_transform["RotationEuler"]);
+   transform.rotation_type = convertToRotationType(json_transform["RotationType"].asString());
+
+   return transform;
+}
+
+void readTransformHierarchy(const Json::Value& json_hierarchy, Scene* scene)
+{   
+   std::vector<TransformHierarchyNode> nodes(json_hierarchy["Nodes"].size());
+
+   int i = 0;
+   int child_counter = 1;
+   for (const auto& json_node : json_hierarchy["Nodes"])
+   {
+      auto& node = nodes[i];
+      node.local_transform = readTransform(json_node["Transform"]);
+      node.parent_to_node_matrix = readMatrix4x3(json_node["ParentToNodeMatrix"]);
+      node.children_count = json_node["Children"].size();
+      node.first_child = node.children_count ? child_counter : -1;
+      child_counter += node.children_count;
+      node.object_name = json_node["ObjectName"].asString();
+      scene->object_name_to_transform_node_index[json_node["ObjectName"].asString()] = i; // TODO put in transform hierarchy
+      
+      i++;
+   }
+
+   scene->transform_hierarchy = std::make_unique<TransformHierarchy>(std::move(nodes));
+}
+
 void import3DY(const std::string& filename, const RenderEngine& render_engine, Scene* scene)
 {
 	std::ifstream data_file(filename+"\\data.bin", std::ifstream::binary);
@@ -442,6 +478,7 @@ void import3DY(const std::string& filename, const RenderEngine& render_engine, S
 	json_file >> root;
 	json_file.close();
 
+   readTransformHierarchy(root["TransformHierarchy"], scene);
    readLights(root["Lights"], scene);
    readEnvironment(render_engine, root["Environment"], scene);
    readActions(root["Actions"], scene);
@@ -458,15 +495,11 @@ void import3DY(const std::string& filename, const RenderEngine& render_engine, S
 		auto render_mesh = readMesh(json_surface["Mesh"], data_file);
 		if (!render_mesh)
 			continue;
-		const auto& json_matrix = json_surface["WorldToLocalMatrix"];
+		//const auto& json_matrix = json_surface["WorldToLocalMatrix"];
 		
 		SurfaceInstance surface_instance;
 		surface_instance.mesh = std::move(render_mesh);
-      surface_instance.world_local.location = readVec3(json_surface["Transform"]["Location"]);
-      surface_instance.world_local.scale = readVec3(json_surface["Transform"]["Scale"]);
-      surface_instance.world_local.rotation_quaternion = readQuaternion(json_surface["Transform"]["RotationQuaternion"]);
-      surface_instance.world_local.rotation_euler = readVec3(json_surface["Transform"]["RotationEuler"]);
-      surface_instance.world_local.rotation_type = convertToRotationType(json_surface["Transform"]["RotationType"].asString());
+      surface_instance.transform_node_index = scene->object_name_to_transform_node_index.at(json_surface["Name"].asString());
 
       auto mat_it = materials.find(json_surface["Material"].asString());
       if (mat_it != materials.end())

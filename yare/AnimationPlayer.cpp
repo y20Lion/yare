@@ -7,6 +7,7 @@
 #include "Scene.h"
 #include "Skeleton.h"
 #include "GLTexture.h"
+#include "TransformHierarchy.h"
 
 namespace yare {
 
@@ -82,7 +83,8 @@ static void _bindTarget(const Scene& scene, const std::string& object_name, Anim
    }
    else if (std::regex_search(curve.target_path, regex_result, surface_path_regex))
    {
-      Transform& transform = scene.name_to_surface.at(object_name)->world_local;
+      int node_index = scene.object_name_to_transform_node_index.at(object_name);
+      Transform& transform = scene.transform_hierarchy->nodeParentToLocalTransform(node_index);
       
       const std::string& transformation_component = regex_result[1];
       int component_index = std::stoi(regex_result[2]);

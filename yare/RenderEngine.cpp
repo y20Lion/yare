@@ -24,6 +24,7 @@
 #include "matrix_math.h"
 #include "GLFormats.h"
 #include "AnimationPlayer.h"
+#include "TransformHierarchy.h"
 
 namespace yare {
 
@@ -132,9 +133,12 @@ void RenderEngine::updateScene(RenderData& render_data)
    static auto start = std::chrono::steady_clock::now();
    auto now = std::chrono::steady_clock::now();
    float time_lapse = std::chrono::duration<float>(now - start).count();
-   
-   _scene.animation_player->evaluateAndApplyToTargets(24.0f*time_lapse);   
-   
+      
+   _scene.animation_player->evaluateAndApplyToTargets(24.0f*time_lapse);
+   _scene.transform_hierarchy->updateNodesWorldToLocalMatrix();
+   for (const auto& skeleton : _scene.skeletons)
+      skeleton->update();
+
    const float znear = 0.05f;
    const float zfar = 1000.0f;
    
@@ -148,7 +152,7 @@ void RenderEngine::updateScene(RenderData& render_data)
    //_scene.surfaces[3].matrix_world_local = mat4x3(1.0);
    for (int i = 0; i < render_data.main_view_surface_data.size(); ++i)
    {
-      mat4 matrix_world_local = _scene.surfaces[i].world_local.toMatrix();
+      mat4 matrix_world_local = _scene.transform_hierarchy->nodeWorldToLocalMatrix(_scene.surfaces[i].transform_node_index);//.world_local.toMatrix();
       render_data.main_view_surface_data[i].matrix_world_local        = matrix_world_local;
       render_data.main_view_surface_data[i].normal_matrix_world_local = mat3(transpose(inverse(matrix_world_local)));
       render_data.main_view_surface_data[i].matrix_proj_local         = render_data.matrix_proj_world * matrix_world_local;      
@@ -162,10 +166,7 @@ void RenderEngine::updateScene(RenderData& render_data)
       ((SurfaceDynamicUniforms*)buffer)->matrix_world_local        = render_data.main_view_surface_data[i].matrix_world_local;
       buffer += _surface_dynamic_uniforms_size;
    }
-
-   for (const auto& skeleton: _scene.skeletons)
-      skeleton->update();
-   
+      
    
    SceneUniforms* scene_uniforms = (SceneUniforms*)_scene_uniforms->getCurrentWindowPtr();
    scene_uniforms->eye_position = _scene.camera.point_of_view.from;

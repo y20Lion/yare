@@ -11,6 +11,7 @@
 #include "Camera.h"
 #include "GLVertexSource.h"
 #include "IMaterial.h"
+#include "Transform.h"
 
 namespace yare {
 
@@ -22,24 +23,13 @@ class Skeleton;
 class GLTextureCubemap;
 class GLTexture2D;
 class AnimationPlayer;
+class TransformHierarchy;
 
-enum class RotationType { Quaternion, EulerXYZ, EulerXZY, EulerYXZ, EulerYZX, EulerZXY, EulerZYX };
-
-struct Transform
-{
-   vec3 location;
-   quat rotation_quaternion;
-   vec3 rotation_euler;  
-   RotationType rotation_type;   
-   vec3 scale;
-
-   mat4x4 toMatrix();
-};
 
 struct SurfaceInstance
 {
-   Transform world_local;
- 
+   //Transform world_local;
+   int transform_node_index;
    Sptr<RenderMesh> mesh;
    Sptr<Skeleton> skeleton;
    Sptr<IMaterial> material;
@@ -112,16 +102,20 @@ public:
    
    std::map<std::string, SurfaceInstance*> name_to_surface;
    std::map<std::string, Skeleton*> name_to_skeleton;
+   std::map<std::string, int> object_name_to_transform_node_index;
 
    Camera camera;
    std::vector<Sptr<Skeleton>> skeletons;
    std::vector<SurfaceInstance> surfaces;
    std::vector<Light> lights;
+
    Uptr<GLTextureCubemap> sky_cubemap;
    Uptr<GLTexture2D> sky_latlong;
    Uptr<GLTextureCubemap> sky_diffuse_cubemap;
    Uptr<GLTextureCubemap> sky_diffuse_cubemap_sh;
+
    Uptr<AnimationPlayer> animation_player;
+   Uptr<TransformHierarchy> transform_hierarchy;
 
    RenderData render_data[2];
 };
