@@ -25,7 +25,7 @@ void Skeleton::update()
 {
    _updateBone(root_bone_index, mat4(1.0));
    
-   mat4x4* buffer = (mat4x4*)_skinning_palette_ssbo->getCurrentWindowPtr();
+   mat4x4* buffer = (mat4x4*)_skinning_palette_ssbo->getUpdateSegmentPtr();
    for (int i = 0; i < _bone_count; ++i)
    {
       mat4x3 world_to_bone_bind_pose_matrix = composeAS(world_to_skeleton_matrix,skeleton_to_bone_bind_pose_matrices[i]);

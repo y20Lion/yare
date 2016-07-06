@@ -521,12 +521,6 @@ void import3DY(const std::string& filename, const RenderEngine& render_engine, S
       surface_instance.material_program = &surface_instance.material->compile(surface_instance.material_variant);
 		scene->surfaces.push_back(surface_instance);      
 	}
-
-   int i = 0;
-   for (const auto& json_surface : json_surfaces)
-   {
-      scene->name_to_surface[json_surface["Name"].asString()] = &scene->surfaces[i++];
-   }
 }
 
 }

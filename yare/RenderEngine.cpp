@@ -109,10 +109,10 @@ void RenderEngine::offlinePrepareScene()
    
    int uniform_buffer_align_size;
    glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &uniform_buffer_align_size);
-   _surface_dynamic_uniforms_size = GLFormats::alignSize(sizeof(SurfaceDynamicUniforms), uniform_buffer_align_size);
+   _surface_uniforms_size = GLFormats::alignSize(sizeof(SurfaceDynamicUniforms), uniform_buffer_align_size);
 
    int surface_count = int(_scene.surfaces.size());
-   _surface_dynamic_uniforms = createDynamicBuffer(_surface_dynamic_uniforms_size * surface_count);
+   _surface_uniforms = createDynamicBuffer(_surface_uniforms_size * surface_count);
    _scene_uniforms = createDynamicBuffer(sizeof(SceneUniforms));
    _createSceneLightsBuffer();
    
@@ -158,17 +158,17 @@ void RenderEngine::updateScene(RenderData& render_data)
       render_data.main_view_surface_data[i].matrix_proj_local         = render_data.matrix_proj_world * matrix_world_local;      
    }
 
-   char* buffer = (char*)_surface_dynamic_uniforms->getCurrentWindowPtr(); // hopefully OpenGL will be done using that range at that time (I could use a fence to enforce it but meh I don't care)
+   char* buffer = (char*)_surface_uniforms->getUpdateSegmentPtr(); // hopefully OpenGL will be done using that range at that time (I could use a fence to enforce it but meh I don't care)
    for (int i = 0; i < render_data.main_view_surface_data.size(); ++i)
    {
       ((SurfaceDynamicUniforms*)buffer)->matrix_proj_local         = render_data.main_view_surface_data[i].matrix_proj_local;
       ((SurfaceDynamicUniforms*)buffer)->normal_matrix_world_local = render_data.main_view_surface_data[i].normal_matrix_world_local;
       ((SurfaceDynamicUniforms*)buffer)->matrix_world_local        = render_data.main_view_surface_data[i].matrix_world_local;
-      buffer += _surface_dynamic_uniforms_size;
+      buffer += _surface_uniforms_size;
    }
       
    
-   SceneUniforms* scene_uniforms = (SceneUniforms*)_scene_uniforms->getCurrentWindowPtr();
+   SceneUniforms* scene_uniforms = (SceneUniforms*)_scene_uniforms->getUpdateSegmentPtr();
    scene_uniforms->eye_position = _scene.camera.point_of_view.from;
    scene_uniforms->matrix_proj_world = render_data.matrix_proj_world;
    scene_uniforms->time = time_lapse;
@@ -184,7 +184,7 @@ void RenderEngine::updateScene(RenderData& render_data)
 }
 
 void RenderEngine::renderScene(const RenderData& render_data)
-{
+{   
    GLDevice::bindDefaultDepthStencilState();   
    GLDevice::bindDefaultColorBlendState();
    GLDevice::bindDefaultRasterizationState();
@@ -203,7 +203,7 @@ void RenderEngine::renderScene(const RenderData& render_data)
 
    film_processor->developFilm();
  
-   GLDynamicBuffer::moveWindow();    
+       
    GLGPUTimer::swapCounters();
 }
 
@@ -253,7 +253,7 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
    if (counter == 240)
       counter = 0;
    glBindBufferRange(GL_UNIFORM_BUFFER, BI_SCENE_UNIFORMS, _scene_uniforms->id(),
-      _scene_uniforms->getCurrentWindowOffset(), _scene_uniforms->windowSize());
+      _scene_uniforms->getRenderSegmentOffset(), _scene_uniforms->segmentSize());
 
    
 
@@ -265,13 +265,13 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
       if (surface.skeleton)
       {
          glBindBufferRange(GL_SHADER_STORAGE_BUFFER, BI_SKINNING_PALETTE_SSBO, surface.skeleton->skinningPalette().id(),
-                           surface.skeleton->skinningPalette().getCurrentWindowOffset(), surface.skeleton->skinningPalette().windowSize());
+                           surface.skeleton->skinningPalette().getRenderSegmentOffset(), surface.skeleton->skinningPalette().segmentSize());
       }
 
       glBindBufferRange(GL_UNIFORM_BUFFER, BI_SURFACE_DYNAMIC_UNIFORMS,
-         _surface_dynamic_uniforms->id(),
-         _surface_dynamic_uniforms->getCurrentWindowOffset() + _surface_dynamic_uniforms_size*i,
-         _surface_dynamic_uniforms_size);
+         _surface_uniforms->id(),
+         _surface_uniforms->getRenderSegmentOffset() + _surface_uniforms_size*i,
+         _surface_uniforms_size);
 
       
 

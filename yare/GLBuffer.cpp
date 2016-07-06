@@ -31,16 +31,17 @@ void GLBuffer::unmap()
     glUnmapNamedBuffer(_buffer_id);
 }
 
-int GLDynamicBuffer::_window_count = 4;
-int GLDynamicBuffer::_window_index = 0;
+static const int _segment_count = 4;
+int GLDynamicBuffer::_update_segment_index = 1;
+int GLDynamicBuffer::_render_segment_index = 0;
 
 static const int _persistent_map_flags = GL_MAP_WRITE_BIT | GL_MAP_COHERENT_BIT | GL_MAP_PERSISTENT_BIT;
 
 GLDynamicBuffer::GLDynamicBuffer(const GLDynamicBufferDesc& desc)
- : GLBuffer(GLBufferDesc(desc.window_size_bytes*_window_count, nullptr, _persistent_map_flags | GL_DYNAMIC_STORAGE_BIT))
+ : GLBuffer(GLBufferDesc(desc.segment_size_bytes*_segment_count, nullptr, _persistent_map_flags | GL_DYNAMIC_STORAGE_BIT))
 {
-   _head_ptr = (char*)glMapNamedBufferRange(_buffer_id, 0, desc.window_size_bytes*_window_count, _persistent_map_flags);
-   _window_size = desc.window_size_bytes;
+   _head_ptr = (char*)glMapNamedBufferRange(_buffer_id, 0, desc.segment_size_bytes*_segment_count, _persistent_map_flags);
+   _segment_size = desc.segment_size_bytes;
 }
 
 GLDynamicBuffer::~GLDynamicBuffer()
@@ -48,15 +49,33 @@ GLDynamicBuffer::~GLDynamicBuffer()
 
 }
 
-void* GLDynamicBuffer::getCurrentWindowPtr()
+void* GLDynamicBuffer::getUpdateSegmentPtr()
 {
-   return _head_ptr + (_window_index*windowSize());
+   return _head_ptr + (_update_segment_index*segmentSize());
 }
 
-std::int64_t GLDynamicBuffer::getCurrentWindowOffset()
+void* GLDynamicBuffer::getRenderSegmentPtr()
 {
-   return _window_index*windowSize();
+   return _head_ptr + (_render_segment_index*segmentSize());
 }
+
+std::int64_t GLDynamicBuffer::getUpdateSegmentOffset()
+{
+   return _update_segment_index*segmentSize();
+}
+
+std::int64_t GLDynamicBuffer::getRenderSegmentOffset()
+{
+   return _render_segment_index*segmentSize();
+}
+
+void GLDynamicBuffer::moveActiveSegments()
+{ 
+   _render_segment_index = (_render_segment_index + 1) % _segment_count;
+   _update_segment_index = (_render_segment_index + 1) % _segment_count;
+   
+}
+
 
 Uptr<GLBuffer> createBuffer(std::int64_t size_bytes, GLenum flags, void* data)
 {
@@ -73,7 +92,7 @@ Uptr<GLDynamicBuffer> createDynamicBuffer(std::int64_t requested_size_bytes)
    glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &uniform_buffer_align_size);
 
    GLDynamicBufferDesc desc;
-   desc.window_size_bytes = GLFormats::alignSize(requested_size_bytes, uniform_buffer_align_size);
+   desc.segment_size_bytes = GLFormats::alignSize(requested_size_bytes, uniform_buffer_align_size);
    return std::make_unique<GLDynamicBuffer>(desc);
 }
 

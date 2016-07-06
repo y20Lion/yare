@@ -28,7 +28,6 @@ class TransformHierarchy;
 
 struct SurfaceInstance
 {
-   //Transform world_local;
    int transform_node_index;
    Sptr<RenderMesh> mesh;
    Sptr<Skeleton> skeleton;
@@ -99,8 +98,7 @@ public:
 
    Scene(const Scene& other) = default;
    ~Scene();
-   
-   std::map<std::string, SurfaceInstance*> name_to_surface;
+
    std::map<std::string, Skeleton*> name_to_skeleton;
    std::map<std::string, int> object_name_to_transform_node_index;
 

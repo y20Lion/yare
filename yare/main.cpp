@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <iostream>
 #include <atomic>
+#include <future>
 
 #include "GLBuffer.h"
 #include "RenderEngine.h"
@@ -71,9 +72,8 @@ void handleInputs(GLFWwindow* window, CameraManipulator* camera_manipulator)
    previous_state = state;
 }
 
-static Barrier barrier(2);
-std::atomic<bool> exit_program = false;
-void engineUpdateThread(RenderEngine* render_engine);
+void updateScene(RenderEngine* render_engine, int data_index);
+void renderScene(RenderEngine* render_engine, int data_index);
 
 int main()
 {
@@ -115,49 +115,49 @@ int main()
 
    RenderEngine render_engine(ImageSize(1500, 1000));
    //char* file = "D:\\BlenderTests\\Sintel_Lite_Cycles_V2.3dy";
-   char* file = "D:\\BlenderTests\\test_hierarchy.3dy";
+   char* file = "D:\\BlenderTests\\test_anim.3dy";
    //char* file = "D:\\BlenderTests\\town.3dy";
    import3DY(file, render_engine, render_engine.scene());
    render_engine.offlinePrepareScene();
-
    CameraManipulator camera_manipulator(&render_engine.scene()->camera.point_of_view);
-   
-   //render_engine.updateScene(render_engine.scene()->render_data[1]);   
-   //std::thread engine_update_thread(engineUpdateThread, &render_engine);
 
    glfwShowWindow(window);
+
    int update_index = 0;
    int render_index = 1;
-   while (!exit_program)
+   updateScene(&render_engine, render_index); // bootstrap the update/render multithreaded cycle
+      
+   while (!glfwWindowShouldClose(window))
    {
       glfwPollEvents();
-      handleInputs(window, &camera_manipulator);   
-      
-      render_engine.updateScene(render_engine.scene()->render_data[render_index]);
-      render_engine.renderScene(render_engine.scene()->render_data[render_index]);
-      //render_engine.presentDebugTexture();
-      
-      exit_program = bool(glfwWindowShouldClose(window));
-      //barrier.wait();
-      std::swap(update_index, render_index);
+      handleInputs(window, &camera_manipulator);
 
-      glfwSwapBuffers(window);      
+      GLDynamicBuffer::moveActiveSegments();
+      // we run at the same time the render of the current frame and the update of the next one
+      auto next_frame_scene_update_fence = std::async(updateScene, &render_engine, update_index);
+
+      renderScene(&render_engine, render_index);
+      //render_engine.presentDebugTexture();      
+      glfwSwapBuffers(window);       
+
+      next_frame_scene_update_fence.wait();  
+      // end of multithreaded section
+
+      std::swap(update_index, render_index);
    }
 
    glfwTerminate();
-   //engine_update_thread.join();
    return 0;
 }
 
-void engineUpdateThread(RenderEngine* render_engine)
+void updateScene(RenderEngine* render_engine, int data_index)
 {
-   int update_index = 0;
-   int render_index = 1;
-   while (!exit_program)
-   {
-      render_engine->updateScene(render_engine->scene()->render_data[update_index]);
-      barrier.wait();
-      std::swap(update_index, render_index);
-   }
+   render_engine->updateScene(render_engine->scene()->render_data[data_index]);
 }
+
+void renderScene(RenderEngine* render_engine, int data_index)
+{
+   render_engine->renderScene(render_engine->scene()->render_data[data_index]);
+}
+
 

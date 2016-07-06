@@ -39,27 +39,29 @@ protected:
 
 struct GLDynamicBufferDesc
 {
-   std::int64_t window_size_bytes;
+   std::int64_t segment_size_bytes;
 };
 
-// Deriving direcltly from GLBuffer is awkward, there should be a GLBufferBase
+// Deriving directly from GLBuffer is awkward, there should be a GLBufferBase
 class GLDynamicBuffer : public GLBuffer
 {
 public:
    GLDynamicBuffer(const GLDynamicBufferDesc& desc);
    virtual ~GLDynamicBuffer();
 
-   void* getCurrentWindowPtr();
-   std::int64_t getCurrentWindowOffset();
+   void* getUpdateSegmentPtr(); 
+   void* getRenderSegmentPtr();
+   std::int64_t getUpdateSegmentOffset();
+   std::int64_t getRenderSegmentOffset();
 
-   std::int64_t windowSize() const { return _window_size; }
-   static void moveWindow() { _window_index = (_window_index + 1) % _window_count; }
+   std::int64_t segmentSize() const { return _segment_size; }
+   static void moveActiveSegments();
 
 private:
    char* _head_ptr;
-   std::int64_t _window_size;
-   static int _window_index;
-   static int _window_count;
+   std::int64_t _segment_size;
+   static int _update_segment_index;
+   static int _render_segment_index;
    DISALLOW_COPY_AND_ASSIGN(GLDynamicBuffer)
 };
 

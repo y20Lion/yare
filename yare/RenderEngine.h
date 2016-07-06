@@ -26,8 +26,6 @@ public:
    void presentDebugTexture();
    Scene* scene() { return &_scene; }
 
-   glm::vec3 pickPosition(int x, int y);
-
    Uptr<RenderResources> render_resources;
    Uptr<CubemapFiltering> cubemap_converter;
    Uptr<BackgroundSky> background_sky;
@@ -40,14 +38,12 @@ private:
 private:
    DISALLOW_COPY_AND_ASSIGN(RenderEngine)
    Scene _scene;
-
-   Uptr<GLDynamicBuffer> _surface_constant_uniforms;
-   Uptr<GLDynamicBuffer> _surface_dynamic_uniforms;
-   char* _surface_dynamic_uniforms_ptr;
+   
+   Uptr<GLDynamicBuffer> _surface_uniforms;
    Uptr<GLDynamicBuffer> _scene_uniforms;
    Uptr<GLBuffer> _lights_ssbo;
 
-   size_t _surface_dynamic_uniforms_size;
+   size_t _surface_uniforms_size;
 };
 
 }
