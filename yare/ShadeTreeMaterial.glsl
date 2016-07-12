@@ -69,6 +69,7 @@ void main()
 %s
 #include "scene_uniforms.glsl"
 #include "common.glsl"
+#include "common_node_mix.glsl"
 
 layout(std430, binding = BI_HAMMERSLEY_SAMPLES_SSBO) buffer HammersleySamples
 {   
@@ -88,7 +89,7 @@ layout(location = 0, index = 0) out vec4 shading_result;
 layout(location = 0, index = 1) out vec4 shading_result_transp_factor;
 %s
 
-vec3 normal = normalize(attr_normal);
+vec3 normal = gl_FrontFacing ? normalize(attr_normal) : -normalize(attr_normal);
 #ifdef USE_NORMAL_MAPPING
 vec3 tangent = normalize(attr_tangent);
 #endif
@@ -222,7 +223,7 @@ vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
       }
    }
    vec3 env_irradiance = texture(sky_diffuse_cubemap, normal).rgb;
-   return (irradiance + env_irradiance) * color/PI; // color/PI is the diffuse brdf constant value
+   return  (irradiance + env_irradiance) * color / PI; // color/PI is the diffuse brdf constant value
 }
 
 float DFactor(float alpha, float NoH)
@@ -386,9 +387,8 @@ vec3 importanceSampleSkyCubemap2(
    return accLight / g_sampleCount;
 }
 
-vec3 evalGlossyBSDF(vec3 color, vec3 normal)
+vec3 evalGlossyBSDF(vec3 color, vec3 normal, float roughness)
 {
-   float roughness = 0.5;
    vec3 exit_radiance = vec3(0.0);
    vec3 view_vector = normalize(eye_position - attr_position);
 
@@ -477,8 +477,8 @@ void sampleTexture(sampler2D tex, vec3 uvw, mat3x2 transform, out vec3 color, ou
 {
    vec2 uv = transform*vec3(uvw.xy, 1.0);
 	vec4 tex_sample = texture(tex, uv);
-	color=tex_sample.rgb;
-   alpha = tex_sample.a;
+	color=srgbToLinear(tex_sample.rgb);//TODO not for bump and normal
+   alpha=tex_sample.a;
 }
 
 void sampleTextureDifferentials(sampler2D tex,                                
@@ -515,8 +515,20 @@ void sampleTextureDifferentials(sampler2D tex,
    alpha_at_dy = tex_sample.a;
 }
 
+float evalFresnel(float ior, vec3 normal)
+{
+   vec3 view_vector = normalize(eye_position - attr_position); //TODO compute at beginning
+   return fresnel(ior, dot(normal, view_vector));
+}
+
  void main()
  {    
     %s
-    //shading_result.rgb = bone_color;
+       //shading_result.rgb = vec3(fresnel(1.45, dot(normal, normalize(eye_position - attr_position))));
+       //shading_result.rgb = vec3(GroupFresnel_Node_Fac- fresnel(1.45, dot(normal, normalize(eye_position - attr_position))));
+       //shading_result.rgb = vec3(0.2);
+    //shading_result_transp_factor.xyzw = vec4(0.0);
+
+    if (all(greaterThan(shading_result_transp_factor.xyz,vec3(0.99))))
+       discard;
  }

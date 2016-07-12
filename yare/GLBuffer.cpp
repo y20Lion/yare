@@ -54,7 +54,7 @@ void* GLDynamicBuffer::getUpdateSegmentPtr()
    return _head_ptr + (_update_segment_index*segmentSize());
 }
 
-void* GLDynamicBuffer::getRenderSegmentPtr()
+const void* GLDynamicBuffer::getRenderSegmentPtr() const
 {
    return _head_ptr + (_render_segment_index*segmentSize());
 }
@@ -64,7 +64,7 @@ std::int64_t GLDynamicBuffer::getUpdateSegmentOffset()
    return _update_segment_index*segmentSize();
 }
 
-std::int64_t GLDynamicBuffer::getRenderSegmentOffset()
+std::int64_t GLDynamicBuffer::getRenderSegmentOffset() const
 {
    return _render_segment_index*segmentSize();
 }

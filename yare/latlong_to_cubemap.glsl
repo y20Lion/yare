@@ -26,5 +26,5 @@ void main()
 {
    vec3 dir = normalize(faceToDirection(face, uv));
    vec2 latlong_coord = vec2(atan(dir.y, dir.x), acos(dir.z)) / vec2(2.0*PI, PI);
-   out_face_color.rgb = min(texture(latlong_texture, vec2(0.5 - latlong_coord.x, latlong_coord.y)).rgb, vec3(100.0));
+   out_face_color.rgb = min(texture(latlong_texture, vec2(0.5 - latlong_coord.x, 1.0-latlong_coord.y)).rgb, vec3(DIR_LIGHT_THRESHOLD));
 }

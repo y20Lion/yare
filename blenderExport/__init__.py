@@ -211,27 +211,63 @@ def writeTexImageNodeProperties(node, json_node, collected_textures):
 def writeMathNodeProperties(node, json_node):
     json_node["Clamp"] = node.use_clamp
     json_node["Operation"] = node.operation
+    
+def writeMixRgbNodeProperties(node, json_node):
+    json_node["Clamp"] = node.use_clamp
+    json_node["Operation"] = node.blend_type
 
 def writeVectMathNodeProperties(node, json_node):
     json_node["Operation"] = node.operation    
     
-def writeNode(node, collected_textures):
-    json_node = {}
+    
+def forwardGroupOutputLink(group_name, node_link):
+    group_node = node_link.from_node
+    #print(group_node.name)
+    group_output_node = group_node.node_tree.nodes['Group Output']
+    group_output_node_input = next(input for input in group_output_node.inputs if input.identifier==node_link.from_socket.identifier)
+    link = group_output_node_input.links[0]
+    return [{'Node':group_name+group_node.name+link.from_node.name, 'Slot':link.from_socket.identifier }]
+    
+def forwardGroupInputLink(group_node, group_name, node_link):
+    group_input_node = node_link.from_node
+    group_node_input = next(input for input in group_node.inputs if input.identifier==node_link.from_socket.identifier)
+    print(group_node_input.name)
+    if len(group_node_input.links)==0:
+        return [],group_node_input
+    link = group_node_input.links[0]
+    group_name_outside_of_group = group_name[:-len(group_node.name)]
+    return [{'Node':group_name_outside_of_group+link.from_node.name, 'Slot':link.from_socket.identifier }],group_node_input
+    
+def writeNode(node, group, group_name, json_nodes, collected_textures):
+    if node.type == 'GROUP_INPUT' or node.type == 'GROUP_OUTPUT':
+        return    
+    
+    if node.type == 'GROUP':
+        for child_node in node.node_tree.nodes:
+            writeNode(child_node, node, group_name+node.name, json_nodes, collected_textures)
+        return
     
     json_inputs = []
     for input in node.inputs:
-        json_links = [{'Node':link.from_node.name, 'Slot':link.from_socket.identifier } for link in input.links]
+        group_input = input
+        if len(input.links)==1 and input.links[0].from_node.type == 'GROUP':
+            json_links = forwardGroupOutputLink(group_name, input.links[0])
+        elif len(input.links)==1 and input.links[0].from_node.type == 'GROUP_INPUT':
+            json_links,group_input = forwardGroupInputLink(group, group_name, input.links[0])
+        else:
+            json_links = [{'Node':group_name+link.from_node.name, 'Slot':link.from_socket.identifier } for link in input.links]
         if hasattr(input, 'default_value'):                            
-            json_inputs.append({'Name':input.identifier, 'Links':json_links, 'DefaultValue':writeInputValue(input) })
+            json_inputs.append({'Name':input.identifier, 'Links':json_links, 'DefaultValue':writeInputValue(group_input) })
         else:
             json_inputs.append({'Name':input.identifier, 'Links':json_links })
         
-    json_outputs = []    
-    for output in node.outputs:
-        json_links = [{'Node':link.from_node.name, 'Slot':link.from_socket.identifier } for link in output.links]
-        json_outputs.append({'Name':output.identifier, 'Links':json_links })
+    #json_outputs = []    
+    #for output in node.outputs:
+    #    json_links = [{'Node':link.from_node.name, 'Slot':link.from_socket.identifier } for link in output.links]
+    #    json_outputs.append({'Name':output.identifier, 'Links':json_links })
         
-    json_node = {'Name': node.name, 'Type': node.type, 'InputSlots':json_inputs, 'OutputSlots':json_outputs}
+    #json_node = {'Name': group_name+node.name, 'Type': node.type, 'InputSlots':json_inputs, 'OutputSlots':json_outputs}
+    json_node = {'Name': group_name+node.name, 'Type': node.type, 'InputSlots':json_inputs, 'OutputSlots':[]}
     
     if node.type == 'TEX_IMAGE':
         writeTexImageNodeProperties(node, json_node, collected_textures)
@@ -239,9 +275,11 @@ def writeNode(node, collected_textures):
         writeVectMathNodeProperties(node, json_node)
     elif node.type == 'MATH':
         writeMathNodeProperties(node, json_node)
+    elif node.type == 'MIX_RGB':
+        writeMixRgbNodeProperties(node, json_node)
         
-    return json_node
-    
+    json_nodes.append(json_node)
+        
 def writeMaterials(collected_textures):
     json_materials = []
     already_written_materials = set()
@@ -260,7 +298,7 @@ def writeMaterials(collected_textures):
         
         json_nodes = []        
         for node in material.node_tree.nodes:
-            json_nodes.append(writeNode(node, collected_textures))
+            writeNode(node, None, '', json_nodes, collected_textures)
         json_materials.append({'Name':material.name, 'Nodes':json_nodes})
         already_written_materials.add(material.name)
     return json_materials
@@ -270,6 +308,8 @@ def writeTexture(texture_name, output_folder_path):
     image = bpy.data.images[texture_name]
     scene=bpy.context.scene
     scene.render.image_settings.file_format=image.file_format
+    if image.file_format=='PNG':
+        scene.render.image_settings.color_mode='RGBA'
     texture_path = output_folder_path+texture_name    
     image.save_render(texture_path,scene)    
     return {'Name':texture_name, 'Path':texture_path}
@@ -297,7 +337,7 @@ def writeEnvironment(output_folder_path):
 def writeLights():
     json_lights = []
     for object in bpy.context.scene.objects:
-        if object.type != 'LAMP':                    
+        if object.type != 'LAMP' or not object.is_visible(bpy.context.scene):                    
             continue   
                 
         light_data = object.data

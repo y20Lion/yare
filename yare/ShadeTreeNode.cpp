@@ -153,7 +153,7 @@ void ShadeTreeNode::_evaluateInputSlot(const ShadeTreeParams& params,
 
 void ShadeTreeNode::_evaluateShading(const Shading& shading0, const Shading& shading1, const std::string& expression, Shading* result, std::string* node_glsl_code)
 {
-    const std::string& output_slot = output_slots.begin()->first;
+   const std::string& output_slot = "Shader";
     
     if (shading0.has_additive || shading1.has_additive)
     {
@@ -195,6 +195,10 @@ Uptr<ShadeTreeNode> createShadeTreeNode(const std::string& node_type)
        return std::make_unique<MathNode>();
     else if (node_type == "VECT_MATH")
        return std::make_unique<VectorMathNode>();
+    else if (node_type == "FRESNEL")
+       return std::make_unique<FresnelNode>();
+    else if (node_type == "MIX_RGB")
+       return std::make_unique<MixRGBNode>();
     else
     {
         //assert(false);
@@ -241,8 +245,9 @@ const NodeEvaluatedOutputs& GlossyBSDFNode::evaluate(const ShadeTreeParams& para
 
    std::string color = _evaluateInputSlot<Color>(params, "Color", evaluation).expression;
    std::string normal = _evaluateInputSlot<Normal>(params, "Normal", evaluation).expression;
+   std::string roughness = _evaluateInputSlot<Float>(params, "Roughness", evaluation).expression;
    std::string glsl_output_name = _toGLSLVarName(name, "BSDF");
-   std::string node_glsl_code = "vec3 " + glsl_output_name + " = evalGlossyBSDF(" + color + ", " + normal + ");\n";
+   std::string node_glsl_code = "vec3 " + glsl_output_name + " = evalGlossyBSDF(" + color + ", " + normal + ", "+ roughness  +");\n";
 
    NodeEvaluatedOutputs& result = evaluation.addNodeCode(name, node_glsl_code);
    result["BSDF"] = std::make_unique<Shading>(glsl_output_name);
@@ -326,7 +331,7 @@ const NodeEvaluatedOutputs& TexImageNode::evaluate(const ShadeTreeParams& params
     {
        node_glsl_code = "vec3 " + glsl_color + ";\n";
        node_glsl_code += "float " + glsl_alpha + ";\n";
-       node_glsl_code += string_format("sampleTexture(%s, vec3(attr_uv, 1.0), %s, %s, %s)\n",
+       node_glsl_code += string_format("sampleTexture(%s, vec3(attr_uv, 1.0), %s, %s, %s);\n",
           glsl_texture, glsl_matrix, glsl_color, glsl_alpha);
     }
     else
@@ -480,6 +485,75 @@ const NodeEvaluatedOutputs& VectorMathNode::evaluate(const ShadeTreeParams& para
    std::string node_glsl_code;
    NodeEvaluatedOutputs& result = evaluation.addNodeCode(name, node_glsl_code);
    result["Value"] = std::make_unique<Vector>(output);
+   return result;
+}
+
+const NodeEvaluatedOutputs& FresnelNode::evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation)
+{
+   RETURN_IF_ALREADY_EVALUATED
+
+   std::string ior = _evaluateInputSlot<Float>(params, "IOR", evaluation).expression;
+   std::string value2 = _evaluateInputSlot<Normal>(params, "Normal", evaluation).expression;
+   std::string output = _toGLSLVarName(name, "Fac");
+
+   std::string node_glsl_code = string_format("float %s = evalFresnel(%s, %s);\n", output, ior, value2);
+   NodeEvaluatedOutputs& result = evaluation.addNodeCode(name, node_glsl_code);
+   result["Fac"] = std::make_unique<Float>(output);
+   return result;
+}
+
+const NodeEvaluatedOutputs& MixRGBNode::evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation)
+{
+   RETURN_IF_ALREADY_EVALUATED
+
+   std::string fac = _evaluateInputSlot<Float>(params, "Fac", evaluation).expression;
+   std::string color1 = _evaluateInputSlot<Color>(params, "Color1", evaluation).expression;
+   std::string color2 = _evaluateInputSlot<Color>(params, "Color2", evaluation).expression;
+   std::string output = _toGLSLVarName(name, "Color");
+
+   std::string node_glsl_code;
+   if (operation == "MIX")
+      node_glsl_code += string_format("vec3 %s = node_mix_blend(clamp(%s, 0.0, 1.0), %s, %s);\n", output, fac, color1, color2);
+   else if (operation == "ADD")
+      node_glsl_code += string_format("vec3 %s = node_mix_add(clamp(%s, 0.0, 1.0), %s, %s);\n", output, fac, color1, color2);
+   else if (operation == "MULTIPLY")
+      node_glsl_code += string_format("vec3 %s = node_mix_mul(clamp(%s, 0.0, 1.0), %s, %s);\n", output, fac, color1, color2);
+   else if (operation == "SCREEN")
+      node_glsl_code += string_format("vec3 %s = node_mix_screen(clamp(%s, 0.0, 1.0), %s, %s);\n", output, fac, color1, color2);
+   else if (operation == "OVERLAY")
+      node_glsl_code += string_format("vec3 %s = node_mix_overlay(clamp(%s, 0.0, 1.0), %s, %s);\n", output, fac, color1, color2);
+   else if (operation == "SUBTRACT")
+      node_glsl_code += string_format("vec3 %s = node_mix_sub(clamp(%s, 0.0, 1.0), %s, %s);\n", output, fac, color1, color2);
+   else if (operation == "DIVIDE")
+      node_glsl_code += string_format("vec3 %s = node_mix_div(clamp(%s, 0.0, 1.0), %s, %s);\n", output, fac, color1, color2);
+   else if (operation == "DIFFERENCE")
+      node_glsl_code += string_format("vec3 %s = node_mix_diff(clamp(%s, 0.0, 1.0), %s, %s);\n", output, fac, color1, color2);
+   else if (operation == "DARKEN")
+      node_glsl_code += string_format("vec3 %s = node_mix_dark(clamp(%s, 0.0, 1.0), %s, %s);\n", output, fac, color1, color2);
+   else if (operation == "LIGHTEN")
+      node_glsl_code += string_format("vec3 %s = node_mix_light(clamp(%s, 0.0, 1.0), %s, %s);\n", output, fac, color1, color2);
+   else if (operation == "DODGE")
+      node_glsl_code += string_format("vec3 %s = node_mix_dodge(clamp(%s, 0.0, 1.0), %s, %s);\n", output, fac, color1, color2);
+   else if (operation == "BURN")
+      node_glsl_code += string_format("vec3 %s = node_mix_burn(clamp(%s, 0.0, 1.0), %s, %s);\n", output, fac, color1, color2);
+   else if (operation == "HUE")
+      node_glsl_code += string_format("vec3 %s = node_mix_hue(clamp(%s, 0.0, 1.0), %s, %s);\n", output, fac, color1, color2);
+   else if (operation == "SATURATION")
+      node_glsl_code += string_format("vec3 %s = node_mix_sat(clamp(%s, 0.0, 1.0), %s, %s);\n", output, fac, color1, color2);
+   else if (operation == "VALUE")
+      node_glsl_code += string_format("vec3 %s = node_mix_val(clamp(%s, 0.0, 1.0), %s, %s);\n", output, fac, color1, color2);
+   else if (operation == "COLOR")
+      node_glsl_code += string_format("vec3 %s = node_mix_color(clamp(%s, 0.0, 1.0), %s, %s);\n", output, fac, color1, color2);
+   else if (operation == "SOFT_LIGHT")
+      node_glsl_code += string_format("vec3 %s = node_mix_soft(clamp(%s, 0.0, 1.0), %s, %s);\n", output, fac, color1, color2);
+   else if (operation == "LINEAR_LIGHT")
+      node_glsl_code += string_format("vec3 %s = node_mix_linear(clamp(%s, 0.0, 1.0), %s, %s);\n", output, fac, color1, color2);
+
+   if (clamp)
+      node_glsl_code += string_format("%s = clamp(%s, vec3(0.0), vec3(1.0));\n", output);
+
+   NodeEvaluatedOutputs& result = evaluation.addNodeCode(name, node_glsl_code);
+   result["Color"] = std::make_unique<Color>(output);
    return result;
 }
 

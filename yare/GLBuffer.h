@@ -50,9 +50,9 @@ public:
    virtual ~GLDynamicBuffer();
 
    void* getUpdateSegmentPtr(); 
-   void* getRenderSegmentPtr();
+   const void* getRenderSegmentPtr() const;
    std::int64_t getUpdateSegmentOffset();
-   std::int64_t getRenderSegmentOffset();
+   std::int64_t getRenderSegmentOffset() const;
 
    std::int64_t segmentSize() const { return _segment_size; }
    static void moveActiveSegments();

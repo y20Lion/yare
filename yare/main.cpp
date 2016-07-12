@@ -115,7 +115,7 @@ int main()
 
    RenderEngine render_engine(ImageSize(1500, 1000));
    //char* file = "D:\\BlenderTests\\Sintel_Lite_Cycles_V2.3dy";
-   char* file = "D:\\BlenderTests\\test_anim.3dy";
+   char* file = "D:\\BlenderTests\\bamboo.3dy";
    //char* file = "D:\\BlenderTests\\town.3dy";
    import3DY(file, render_engine, render_engine.scene());
    render_engine.offlinePrepareScene();

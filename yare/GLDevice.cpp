@@ -69,7 +69,7 @@ void bindColorBlendState(const GLColorBlendState& state)
    if (state.blending_mode == GLBlendingMode::ModulateAdd)
    {
       glEnable(GL_BLEND);
-      glBlendFunc(GL_SRC_COLOR, GL_SRC1_COLOR);
+      glBlendFunc(GL_ONE, GL_SRC1_COLOR);
       glBlendEquation(GL_FUNC_ADD);
    }
    else

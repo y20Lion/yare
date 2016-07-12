@@ -175,10 +175,19 @@ typedef std::map<std::string, Sptr<Skeleton>> SkeletonMap;
 static void readTexImageNodeProperties(const Json::Value& json_node, const TextureMap& textures, TexImageNode& node)
 {
     node.texture = textures.at(json_node["Image"].asString());
-    node.texture_transform = readMatrix4x3(json_node["TransformMatrix"]);
+    auto mat4x3 = readMatrix4x3(json_node["TransformMatrix"]);
+    node.texture_transform[0] = mat4x3[0];
+    node.texture_transform[1] = mat4x3[1];
+    node.texture_transform[2] = mat4x3[3];
 }
 
 static void readMathNodeProperties(const Json::Value& json_node, MathNode& node)
+{
+   node.clamp = json_node["Clamp"].asBool();
+   node.operation = json_node["Operation"].asString();
+}
+
+static void readMixRgbNodeProperties(const Json::Value& json_node, MixRGBNode& node)
 {
    node.clamp = json_node["Clamp"].asBool();
    node.operation = json_node["Operation"].asString();
@@ -206,6 +215,8 @@ static Uptr<ShadeTreeMaterial> readMaterial(const RenderEngine& render_engine, c
            readTexImageNodeProperties(json_node, textures, (TexImageNode&)*node);
         else if (node->type == "MATH")
            readMathNodeProperties(json_node, (MathNode&)*node);
+        else if (node->type == "MIX_RGB")
+           readMixRgbNodeProperties(json_node, (MixRGBNode&)*node);
         else if (node->type == "VECT_MATH")
            readVectMathNodeProperties(json_node, (VectorMathNode&)*node);
 

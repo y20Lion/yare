@@ -40,7 +40,7 @@ void main()
 {
    float exposure = exposures.current_exposure;
 
-   //exposure = 1.0;
+   //exposure = 0.05;
    vec3 scene_color = texelFetch(scene_texture, ivec2(gl_FragCoord.xy), 0).rgb;
    vec3 bloom_color = texture(bloom_texture, gl_FragCoord.xy / textureSize(scene_texture, 0)).rgb;
    vec3 color = (scene_color*exposure /*+ bloom_color*/);

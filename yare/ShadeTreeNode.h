@@ -227,6 +227,22 @@ public:
    virtual const NodeEvaluatedOutputs& evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation) override;
 };
 
+class FresnelNode : public ShadeTreeNode
+{
+public:
+   FresnelNode() : ShadeTreeNode("FRESNEL") {}
+   virtual const NodeEvaluatedOutputs& evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation) override;
+};
+
+class MixRGBNode : public ShadeTreeNode
+{
+public:
+   MixRGBNode() : ShadeTreeNode("MIX_RGB") {}
+   std::string operation;
+   bool clamp;
+   virtual const NodeEvaluatedOutputs& evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation) override;
+};
+
 
 /*class UvSourceNode : public ShadeTreeNode
 {

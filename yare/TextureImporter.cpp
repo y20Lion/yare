@@ -26,8 +26,6 @@ Uptr<GLTexture2D> importTextureFromFile(const char* filename, bool float_pixels)
       prepared_image = FreeImage_ConvertTo32Bits(image);
    FreeImage_Unload(image);
 
-   FreeImage_FlipVertical(prepared_image);
-
    int width = FreeImage_GetWidth(prepared_image);
    int height = FreeImage_GetHeight(prepared_image);
 

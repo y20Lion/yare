@@ -196,8 +196,9 @@ void RenderEngine::renderScene(const RenderData& render_data)
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
       glViewport(0, 0, render_resources->main_framebuffer->width(), render_resources->main_framebuffer->height());
       //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-      _renderSurfaces(render_data);
       background_sky->render();
+      _renderSurfaces(render_data);
+      
       //glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
    }
 
@@ -264,8 +265,9 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
       
       if (surface.skeleton)
       {
-         glBindBufferRange(GL_SHADER_STORAGE_BUFFER, BI_SKINNING_PALETTE_SSBO, surface.skeleton->skinningPalette().id(),
-                           surface.skeleton->skinningPalette().getRenderSegmentOffset(), surface.skeleton->skinningPalette().segmentSize());
+         const GLDynamicBuffer& skinning_ssbo = surface.skeleton->skinningPalette();
+         glBindBufferRange(GL_SHADER_STORAGE_BUFFER, BI_SKINNING_PALETTE_SSBO, skinning_ssbo.id(),
+                           skinning_ssbo.getRenderSegmentOffset(), skinning_ssbo.segmentSize());
       }
 
       glBindBufferRange(GL_UNIFORM_BUFFER, BI_SURFACE_DYNAMIC_UNIFORMS,
