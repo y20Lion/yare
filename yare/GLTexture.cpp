@@ -53,6 +53,34 @@ void GLTexture::buildMipmaps()
    glGenerateTextureMipmap(_texture_id);
 }
 
+GLTexture1D::GLTexture1D(const GLTexture1DDesc& desc)
+   : _width(desc.width)
+   , _internal_format(desc.internal_format)
+{
+   _level_count = desc.mipmapped ? GLFormats::mipmapLevelCount(desc.width, desc.width) : 1;
+
+   glCreateTextures(GL_TEXTURE_1D, 1, &_texture_id);
+   glTextureStorage1D(_texture_id, _level_count, desc.internal_format, desc.width);
+
+   if (desc.texture_pixels != nullptr)
+   {
+      auto format = _getExternalFormatAndType(desc.internal_format, desc.texture_pixels_in_bgr);
+      glTextureSubImage1D(_texture_id, 0, 0, _width, format.first, format.second, desc.texture_pixels);
+
+      if (desc.mipmapped)
+      {
+         glGenerateTextureMipmap(_texture_id);
+      }
+   }
+
+   glTextureParameteri(_texture_id, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+   glTextureParameteri(_texture_id, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+}
+
+GLTexture1D::~GLTexture1D()
+{
+}
+
 GLTexture2D::GLTexture2D(const GLTexture2DDesc& desc)
    : _height(desc.height)
    , _width(desc.width)
@@ -74,17 +102,8 @@ GLTexture2D::GLTexture2D(const GLTexture2DDesc& desc)
         }
     }
 
-    if (desc.mipmapped)
-    {
-       glTextureParameteri(_texture_id, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-       glTextureParameteri(_texture_id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-       glTextureParameteri(_texture_id, GL_TEXTURE_MAX_ANISOTROPY_EXT, 16);
-    }
-    else
-    {
-       glTextureParameteri(_texture_id, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-       glTextureParameteri(_texture_id, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    }
+    glTextureParameteri(_texture_id, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(_texture_id, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 }
 
 GLTexture2D::~GLTexture2D()
@@ -102,7 +121,30 @@ int GLTexture2D::readbackBufferSize() const
 {
    auto format = _getExternalFormatAndType(_internal_format, false);
    return _width * _height * GLFormats::componentCount(format.first) * GLFormats::sizeOfType(format.second);
+}
 
+Uptr<GLTexture1D> createMipmappedTexture1D(int width, GLenum internal_format, void* pixels, bool pixels_in_bgr)
+{
+   GLTexture1DDesc desc;
+   desc.mipmapped = true;
+   desc.width = width;
+   desc.internal_format = internal_format;
+   desc.texture_pixels = pixels;
+   desc.texture_pixels_in_bgr = pixels_in_bgr;
+
+   return std::make_unique<GLTexture1D>(desc);
+}
+
+Uptr<GLTexture1D> createTexture1D(int width, GLenum internal_format)
+{
+   GLTexture1DDesc desc;
+   desc.mipmapped = false;
+   desc.width = width;
+   desc.internal_format = internal_format;
+   desc.texture_pixels = nullptr;
+   desc.texture_pixels_in_bgr = false;
+
+   return std::make_unique<GLTexture1D>(desc);
 }
 
 Uptr<GLTexture2D> createMipmappedTexture2D(int width, int height, GLenum internal_format, void* pixels, bool pixels_in_bgr)

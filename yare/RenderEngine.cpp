@@ -248,8 +248,8 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
    static int counter = 0; 
    
    const auto & diffuse_cubemap =  counter < 120 ? *_scene.sky_diffuse_cubemap : *_scene.sky_diffuse_cubemap_sh;
-   GLDevice::bindTexture(BI_SKY_CUBEMAP, *_scene.sky_cubemap, *render_resources->sampler_mipmap_clampToEdge);
-   GLDevice::bindTexture(BI_SKY_DIFFUSE_CUBEMAP, diffuse_cubemap, *render_resources->sampler_mipmap_clampToEdge);
+   GLDevice::bindTexture(BI_SKY_CUBEMAP, *_scene.sky_cubemap, *(render_resources->samplers.mipmap_clampToEdge));
+   GLDevice::bindTexture(BI_SKY_DIFFUSE_CUBEMAP, diffuse_cubemap, *render_resources->samplers.mipmap_clampToEdge);
    counter++;
    if (counter == 240)
       counter = 0;

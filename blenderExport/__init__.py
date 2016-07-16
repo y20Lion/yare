@@ -218,7 +218,15 @@ def writeMixRgbNodeProperties(node, json_node):
 
 def writeVectMathNodeProperties(node, json_node):
     json_node["Operation"] = node.operation    
-    
+
+def writeColorRampNodeProperties(node, json_node, binary_file):
+    colors = array('H', [])
+    channel_count = 4 if node.outputs['Alpha'].links else 3
+    for i in range(0, 256):
+        color = node.color_ramp.evaluate((float(i)+0.5)/256.0)[:]
+        color_in_ushort = [int(val*65535) for val in color]
+        colors.extend(color_in_ushort[:channel_count])
+    json_node['Colors'] = {'DataBlock': writeDataBlockToFile(colors, binary_file), 'Type':'UnsignedShort', 'Channels':channel_count}   
     
 def forwardGroupOutputLink(group_name, node_link):
     group_node = node_link.from_node
@@ -238,13 +246,13 @@ def forwardGroupInputLink(group_node, group_name, node_link):
     group_name_outside_of_group = group_name[:-len(group_node.name)]
     return [{'Node':group_name_outside_of_group+link.from_node.name, 'Slot':link.from_socket.identifier }],group_node_input
     
-def writeNode(node, group, group_name, json_nodes, collected_textures):
+def writeNode(node, group, group_name, json_nodes, collected_textures, binary_file):
     if node.type == 'GROUP_INPUT' or node.type == 'GROUP_OUTPUT':
         return    
     
     if node.type == 'GROUP':
         for child_node in node.node_tree.nodes:
-            writeNode(child_node, node, group_name+node.name, json_nodes, collected_textures)
+            writeNode(child_node, node, group_name+node.name, json_nodes, collected_textures, binary_file)
         return
     
     json_inputs = []
@@ -277,10 +285,12 @@ def writeNode(node, group, group_name, json_nodes, collected_textures):
         writeMathNodeProperties(node, json_node)
     elif node.type == 'MIX_RGB':
         writeMixRgbNodeProperties(node, json_node)
+    elif node.type == 'VALTORGB':
+        writeColorRampNodeProperties(node, json_node, binary_file)
         
     json_nodes.append(json_node)
         
-def writeMaterials(collected_textures):
+def writeMaterials(collected_textures, binary_file):
     json_materials = []
     already_written_materials = set()
     for object in bpy.context.scene.objects:
@@ -298,7 +308,7 @@ def writeMaterials(collected_textures):
         
         json_nodes = []        
         for node in material.node_tree.nodes:
-            writeNode(node, None, '', json_nodes, collected_textures)
+            writeNode(node, None, '', json_nodes, collected_textures, binary_file)
         json_materials.append({'Name':material.name, 'Nodes':json_nodes})
         already_written_materials.add(material.name)
     return json_materials
@@ -512,7 +522,7 @@ class Export3DY(bpy.types.Operator, ExportHelper):
         json_skeletons, armatures_bone_indices = writeArmatures()
         json_root['Skeletons'] = json_skeletons
         json_root['Lights'] = writeLights()        
-        json_root['Materials'] = writeMaterials(textures)
+        json_root['Materials'] = writeMaterials(textures, binary_file)
         json_root['Environment'] = writeEnvironment(output_path)
         json_root['Textures'] = writeTextures(textures, output_path)
         json_root['Actions'] = writeActions()

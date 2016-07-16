@@ -19,6 +19,47 @@ using namespace glm;
 static float quad_vertices[] = { 1.0f,1.0f,   -1.0f,1.0f,   1.0f,-1.0f,  -1.0f,1.0f,   -1.0f,-1.0f,  1.0f,-1.0f };
 static float triangle_vertices[] = { -1.0f,-1.0f,  3.0f,-1.0f,  -1.0f, 3.0f };
 
+Samplers createSamplers()
+{
+   Samplers samplers;
+
+   GLSamplerDesc sampler_desc;
+   sampler_desc.min_filter = GL_LINEAR_MIPMAP_LINEAR;
+   sampler_desc.mag_filter = GL_LINEAR;
+   sampler_desc.anisotropy = 16;
+   sampler_desc.wrap_mode_u = GL_REPEAT;
+   sampler_desc.wrap_mode_v = GL_REPEAT;
+   sampler_desc.wrap_mode_w = GL_REPEAT;
+   samplers.mipmap_repeat = createSampler(sampler_desc);
+
+   sampler_desc.min_filter = GL_LINEAR_MIPMAP_LINEAR;
+   sampler_desc.mag_filter = GL_LINEAR;
+   sampler_desc.anisotropy = 16;
+   sampler_desc.wrap_mode_u = GL_CLAMP_TO_EDGE;
+   sampler_desc.wrap_mode_v = GL_CLAMP_TO_EDGE;
+   sampler_desc.wrap_mode_w = GL_CLAMP_TO_EDGE;
+   samplers.mipmap_clampToEdge = createSampler(sampler_desc);
+
+   sampler_desc.min_filter = GL_LINEAR;
+   sampler_desc.mag_filter = GL_LINEAR;
+   sampler_desc.anisotropy = 1;
+   sampler_desc.wrap_mode_u = GL_CLAMP_TO_EDGE;
+   sampler_desc.wrap_mode_v = GL_CLAMP_TO_EDGE;
+   sampler_desc.wrap_mode_w = GL_CLAMP_TO_EDGE;
+   samplers.bilinear_clampToEdge = createSampler(sampler_desc);
+
+   sampler_desc.min_filter = GL_NEAREST;
+   sampler_desc.mag_filter = GL_NEAREST;
+   sampler_desc.anisotropy = 1;
+   sampler_desc.wrap_mode_u = GL_CLAMP_TO_EDGE;
+   sampler_desc.wrap_mode_v = GL_CLAMP_TO_EDGE;
+   sampler_desc.wrap_mode_w = GL_CLAMP_TO_EDGE;
+   samplers.nearest_clampToEdge = createSampler(sampler_desc);
+
+   return samplers;
+}
+
+
 RenderResources::RenderResources(const ImageSize& framebuffer_size_)
 {
    timer = std::make_unique<GLGPUTimer>();
@@ -27,30 +68,7 @@ RenderResources::RenderResources(const ImageSize& framebuffer_size_)
    main_framebuffer = createFramebuffer(framebuffer_size, GL_RGBA32F, 1, GL_DEPTH_COMPONENT32F);
    halfsize_postprocess_fbo = createFramebuffer(ImageSize(framebuffer_size.width/2, framebuffer_size.height/2), GL_RGBA32F, 2);
 
-   GLSamplerDesc sampler_desc;
-   sampler_desc.min_filter = GL_LINEAR_MIPMAP_LINEAR;
-   sampler_desc.mag_filter = GL_LINEAR;
-   sampler_desc.anisotropy = 16;
-   sampler_desc.wrap_mode_u = GL_CLAMP_TO_EDGE;
-   sampler_desc.wrap_mode_v = GL_CLAMP_TO_EDGE;
-   sampler_desc.wrap_mode_w = GL_CLAMP_TO_EDGE;
-   sampler_mipmap_clampToEdge = createSampler(sampler_desc);
-
-   sampler_desc.min_filter = GL_LINEAR;
-   sampler_desc.mag_filter = GL_LINEAR;
-   sampler_desc.anisotropy = 1;
-   sampler_desc.wrap_mode_u = GL_CLAMP_TO_EDGE;
-   sampler_desc.wrap_mode_v = GL_CLAMP_TO_EDGE;
-   sampler_desc.wrap_mode_w = GL_CLAMP_TO_EDGE;
-   sampler_bilinear_clampToEdge = createSampler(sampler_desc);
-
-   sampler_desc.min_filter = GL_NEAREST;
-   sampler_desc.mag_filter = GL_NEAREST;
-   sampler_desc.anisotropy = 1;
-   sampler_desc.wrap_mode_u = GL_CLAMP_TO_EDGE;
-   sampler_desc.wrap_mode_v = GL_CLAMP_TO_EDGE;
-   sampler_desc.wrap_mode_w = GL_CLAMP_TO_EDGE;
-   sampler_nearest_clampToEdge = createSampler(sampler_desc);
+   samplers = createSamplers();   
 
    fullscreen_triangle_vbo = createBuffer(sizeof(triangle_vertices), 0, triangle_vertices);
    fullscreen_triangle_source = std::make_unique<GLVertexSource>();

@@ -99,7 +99,7 @@ static vec3 _sphericalCoordinatesToDirection(float phi, float theta)
 
 std::vector<CubemapFiltering::ExtractedLight> CubemapFiltering::extractDirectionalLightSourcesFromLatlong(const GLTexture2D& latlong_texture) const
 {
-   GLDevice::bindTexture(BI_LATLONG_TEXTURE, latlong_texture, *_render_resources.sampler_nearest_clampToEdge);
+   GLDevice::bindTexture(BI_LATLONG_TEXTURE, latlong_texture, *_render_resources.samplers.nearest_clampToEdge);
    GLDevice::bindImage(BI_OUTPUT_IMAGE, *_parallel_reduce_result, GL_WRITE_ONLY);
    GLDevice::bindProgram(*_parallel_reduce_env);
    glDispatchCompute(latlong_texture.width()/TILE_WIDTH, latlong_texture.height()/TILE_WIDTH, 1);
@@ -138,7 +138,7 @@ void CubemapFiltering::_computeDiffuseEnvWithBruteForce(const GLTextureCubemap& 
    GLDevice::bindProgram(*_render_diffuse_cubemap_face);
    glUniform1i(BI_INPUT_CUBEMAP_LEVEL, used_input_cubemap_level);
    GLDevice::bindVertexSource(*_render_resources.fullscreen_triangle_source);
-   GLDevice::bindTexture(BI_INPUT_CUBEMAP, input_cubemap, *_render_resources.sampler_nearest_clampToEdge);
+   GLDevice::bindTexture(BI_INPUT_CUBEMAP, input_cubemap, *_render_resources.samplers.nearest_clampToEdge);
 
    // brute force: for each texel of the output cubemap we sample all texels of the input cubemap
    // That makes a total of 603 979 776 texture reads, which is done in 190ms on my GTX 770 (We can thank Mr cache)
@@ -159,7 +159,7 @@ void CubemapFiltering::_computeDiffuseEnvWithSphericalHarmonics(const GLTextureC
    _render_resources.timer->start();
    GLDevice::bindProgram(*_compute_env_spherical_harmonics);
    glUniform1i(BI_INPUT_CUBEMAP_LEVEL, used_input_cubemap_level);   
-   GLDevice::bindTexture(BI_INPUT_CUBEMAP, input_cubemap, *_render_resources.sampler_nearest_clampToEdge);
+   GLDevice::bindTexture(BI_INPUT_CUBEMAP, input_cubemap, *_render_resources.samplers.nearest_clampToEdge);
    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, BI_SPHERICAL_HARMONICS_SSBO, _spherical_harmonics_ssbo->id());
 
    glDispatchCompute(9, 1, 1);

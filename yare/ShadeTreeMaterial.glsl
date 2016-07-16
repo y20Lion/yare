@@ -526,9 +526,9 @@ float evalFresnel(float ior, vec3 normal)
     %s
        //shading_result.rgb = vec3(fresnel(1.45, dot(normal, normalize(eye_position - attr_position))));
        //shading_result.rgb = vec3(GroupFresnel_Node_Fac- fresnel(1.45, dot(normal, normalize(eye_position - attr_position))));
-       //shading_result.rgb = vec3(0.2);
+       //shading_result.rgb = vec3(Fresnel_Node_Fac);
     //shading_result_transp_factor.xyzw = vec4(0.0);
 
-    if (all(greaterThan(shading_result_transp_factor.xyz,vec3(0.99))))
-       discard;
+    /*if (all(greaterThan(shading_result_transp_factor.xyz,vec3(0.99))))
+       discard;*/ // TODO add
  }

@@ -44,6 +44,7 @@ private:
    std::map<MaterialVariant, Uptr<GLProgram>> _program_variants;
    
    std::vector<GLuint> _used_textures;
+   std::vector<GLuint> _used_samplers;
    int _first_texture_binding;
    bool _is_transparent;
    bool _uses_uv;

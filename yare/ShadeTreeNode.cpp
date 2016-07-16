@@ -4,6 +4,9 @@
 #include <sstream>
 #include <assert.h>
 #include "stl_helpers.h"
+#include "GLTexture.h"
+#include "GLSampler.h"
+#include "RenderResources.h"
 
 namespace yare {
 
@@ -24,6 +27,13 @@ static std::string _toGLSLVarName(std::string node_name, std::string slot_name, 
         return node_name + "_NodeTransFact_" + slot_name;
     else
         return node_name + "_Node_" + slot_name;
+}
+
+void ShadeTreeEvaluation::addTexture(int binding_slot_start, const std::string& texture_type, const std::string& texture_name, const GLTexture* texture, const GLSampler* sampler)
+{
+   int bind_slot = int(glsl_textures.size()) + binding_slot_start;
+   std::string sampler_definition = "layout(binding=" + std::to_string(bind_slot) + ")uniform "+ texture_type+ " " + texture_name + ";\n";
+   glsl_textures.push_back(std::make_tuple(texture, sampler, sampler_definition));
 }
 
 NodeEvaluatedOutputs& ShadeTreeEvaluation::addNodeCode(const std::string& node_name, const std::string& node_code)
@@ -199,6 +209,8 @@ Uptr<ShadeTreeNode> createShadeTreeNode(const std::string& node_type)
        return std::make_unique<FresnelNode>();
     else if (node_type == "MIX_RGB")
        return std::make_unique<MixRGBNode>();
+    else if (node_type == "VALTORGB")
+       return std::make_unique<ColorRampNode>();
     else
     {
         //assert(false);
@@ -345,10 +357,8 @@ const NodeEvaluatedOutputs& TexImageNode::evaluate(const ShadeTreeParams& params
        node_glsl_code += string_format("sampleTextureDifferentials(%s, vec3(attr_uv, 1.0), %s, %s, %s, %s, %s, %s, %s);\n",
                            glsl_texture, glsl_matrix, glsl_color, glsl_color+_dx, glsl_color + _dy, glsl_alpha, glsl_alpha+ _dx, glsl_alpha+_dy);
     }
-    
-    int bind_slot = int(evaluation.glsl_textures.size()) + params.texture_binding_slot_start;
-    std::string sampler_definition = "layout(binding="+ std::to_string(bind_slot) +")uniform sampler2D " + _toGLSLVarName(name, "Texture") +";\n";
-    evaluation.glsl_textures.push_back(std::make_pair(texture, sampler_definition));
+
+    evaluation.addTexture(params.texture_binding_slot_start, "sampler2D", glsl_texture, texture.get(), params.samplers->mipmap_repeat.get());
         
     NodeEvaluatedOutputs& result = evaluation.addNodeCode(name, node_glsl_code);
     result["Color"] = std::make_unique<Color>(glsl_color);
@@ -556,5 +566,22 @@ const NodeEvaluatedOutputs& MixRGBNode::evaluate(const ShadeTreeParams& params, 
    result["Color"] = std::make_unique<Color>(output);
    return result;
 }
+
+const NodeEvaluatedOutputs& ColorRampNode::evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation)
+{
+   std::string glsl_fac = _evaluateInputSlot<Float>(params, "Fac", evaluation).expression;
+   std::string glsl_ramp = _toGLSLVarName(name, "RampTexture");
+   std::string glsl_color = _toGLSLVarName(name, "Color");
+   std::string glsl_alpha = _toGLSLVarName(name, "Alpha");
+   
+   evaluation.addTexture(params.texture_binding_slot_start, "sampler1D", glsl_ramp, ramp_texture.get(), params.samplers->mipmap_clampToEdge.get());
+   std::string node_glsl_code = string_format("vec3 %s = texture(%s, %s).rgb;\n", glsl_color, glsl_ramp, glsl_fac);
+
+   NodeEvaluatedOutputs& result = evaluation.addNodeCode(name, node_glsl_code);
+   result["Color"] = std::make_unique<Color>(glsl_color);
+   result["Alpha"] = std::make_unique<Float>(glsl_alpha);
+   return result;
+}
+
 
 }

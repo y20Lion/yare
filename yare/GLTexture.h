@@ -13,8 +13,9 @@ public:
     GLTexture();
     virtual ~GLTexture();
     GLuint id() const { return _texture_id; }
-    virtual int width() const = 0;
-    virtual int height() const = 0;
+    virtual int width() const { return 1; };
+    virtual int height() const { return 1; };
+    virtual int depth() const { return 1; };
     int levelCount() const { return _level_count;  }
 
     void buildMipmaps();
@@ -23,6 +24,30 @@ protected:
     DISALLOW_COPY_AND_ASSIGN(GLTexture)
     GLuint _texture_id;
     GLuint _level_count;
+};
+
+struct GLTexture1DDesc
+{
+   int width;
+   bool mipmapped;
+   void* texture_pixels;
+   bool texture_pixels_in_bgr;
+   GLenum internal_format;
+};
+
+class GLTexture1D : public GLTexture
+{
+public:
+   GLTexture1D(const GLTexture1DDesc& desc);
+   virtual ~GLTexture1D();
+
+   int width() const override { return _width; }
+   GLenum internalFormat() const { return _internal_format; }
+
+private:
+   GLenum _internal_format;
+   int _width;
+   DISALLOW_COPY_AND_ASSIGN(GLTexture1D)
 };
 
 struct GLTexture2DDesc
@@ -74,8 +99,13 @@ private:
    DISALLOW_COPY_AND_ASSIGN(GLTextureCubemap)
 };
 
+Uptr<GLTexture1D> createMipmappedTexture1D(int width, GLenum internal_format, void* pixels, bool pixels_in_bgr = false);
+Uptr<GLTexture1D> createTexture1D(int width, GLenum internal_format);
+
 Uptr<GLTexture2D> createMipmappedTexture2D(int width, int height, GLenum internal_format, void* pixels, bool pixels_in_bgr=false);
 Uptr<GLTexture2D> createTexture2D(int width, int height, GLenum internal_format);
+
+
 Uptr<GLTextureCubemap> createMipmappedTextureCubemap(int width, GLenum internal_format);
 
 }

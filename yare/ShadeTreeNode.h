@@ -13,6 +13,9 @@
 namespace yare {
 
 class GLTexture;
+class GLTexture1D;
+class GLSampler;
+struct Samplers;
 
 enum class ShadeTreeNodeSlotType { Float, Vec3, Normal};
 
@@ -99,11 +102,12 @@ struct ShadeTreeEvaluation
     
     std::map<std::string, NodeEvaluatedOutputs> evaluted_nodes;
     std::vector<std::string> glsl_code;    
-    std::vector<std::pair<Sptr<GLTexture>, std::string>> glsl_textures;
+    std::vector<std::tuple<const GLTexture*, const GLSampler*, std::string>> glsl_textures;
     bool uv_needed;
     bool normal_mapping_needed;
     bool is_transparent;
 
+    void addTexture(int binding_slot_start, const std::string& texture_type, const std::string& texture_name, const GLTexture* texture, const GLSampler* sampler);
     NodeEvaluatedOutputs& addNodeCode(const std::string& node_name, const std::string& node_code);
 };
 
@@ -113,6 +117,7 @@ struct ShadeTreeParams
 {
     ShadeTreeNodes* tree_nodes;
     int texture_binding_slot_start;
+    const Samplers* samplers;
 };
 
 class ShadeTreeNode
@@ -240,6 +245,14 @@ public:
    MixRGBNode() : ShadeTreeNode("MIX_RGB") {}
    std::string operation;
    bool clamp;
+   virtual const NodeEvaluatedOutputs& evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation) override;
+};
+
+class ColorRampNode : public ShadeTreeNode
+{
+public:
+   ColorRampNode() : ShadeTreeNode("VALTORGB") {}
+   Uptr<GLTexture1D> ramp_texture;
    virtual const NodeEvaluatedOutputs& evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation) override;
 };
 

@@ -14,6 +14,15 @@ class GLFramebuffer;
 class GLGPUTimer;
 class GLProgram;
 
+struct Samplers
+{
+   Uptr<GLSampler> mipmap_repeat;
+   Uptr<GLSampler> mipmap_clampToEdge;   
+   Uptr<GLSampler> bilinear_clampToEdge;
+   Uptr<GLSampler> nearest_clampToEdge;
+};
+
+
 struct RenderResources
 {
    RenderResources(const ImageSize& framebuffer_size);
@@ -23,9 +32,7 @@ struct RenderResources
    Uptr<GLFramebuffer> main_framebuffer;
    Uptr<GLFramebuffer> halfsize_postprocess_fbo;
 
-   Uptr<GLSampler> sampler_mipmap_clampToEdge;
-   Uptr<GLSampler> sampler_bilinear_clampToEdge;
-   Uptr<GLSampler> sampler_nearest_clampToEdge;
+   Samplers samplers;
 
    Uptr<GLBuffer> fullscreen_triangle_vbo;
    Uptr<GLVertexSource> fullscreen_triangle_source;

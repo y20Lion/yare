@@ -198,7 +198,20 @@ static void readVectMathNodeProperties(const Json::Value& json_node, VectorMathN
    node.operation = json_node["Operation"].asString();
 }
 
-static Uptr<ShadeTreeMaterial> readMaterial(const RenderEngine& render_engine, const Json::Value& json_material, const TextureMap& textures)
+static void readColorRampNodeProperties(const Json::Value& json_node, ColorRampNode& node, std::ifstream& data_file)
+{
+   uint64_t address, size;
+   const auto& json_colors = json_node["Colors"];
+
+   readDataBlock(json_colors, &address, &size);
+   auto temp_buf_ptr = std::make_unique<char[]>(size);
+   data_file.seekg(address, std::ios::beg);
+   data_file.read(temp_buf_ptr.get(), size);
+
+   node.ramp_texture = createMipmappedTexture1D(256, GL_RGB16, temp_buf_ptr.get());
+}
+
+static Uptr<ShadeTreeMaterial> readMaterial(const RenderEngine& render_engine, const Json::Value& json_material, const TextureMap& textures, std::ifstream& data_file)
 {   
    Uptr<ShadeTreeMaterial> material = std::make_unique<ShadeTreeMaterial>(*render_engine.render_resources);
     material->name = json_material["Name"].asString();
@@ -219,17 +232,17 @@ static Uptr<ShadeTreeMaterial> readMaterial(const RenderEngine& render_engine, c
            readMixRgbNodeProperties(json_node, (MixRGBNode&)*node);
         else if (node->type == "VECT_MATH")
            readVectMathNodeProperties(json_node, (VectorMathNode&)*node);
+        else if (node->type == "VALTORGB")
+           readColorRampNodeProperties(json_node, (ColorRampNode&) *node, data_file);
 
         material->tree_nodes[json_node["Name"].asString()] = std::move(node);
     }
 
-    //material->compile(*render_engine.render_resources);
-    
     return material;
 }
 
 
-static MaterialMap readMaterials(const RenderEngine& render_engine, const Json::Value& json_materials, const TextureMap& textures)
+static MaterialMap readMaterials(const RenderEngine& render_engine, const Json::Value& json_materials, const TextureMap& textures, std::ifstream& data_file)
 {
    MaterialMap materials;
    for (const auto& json_material : json_materials)
@@ -238,7 +251,7 @@ static MaterialMap readMaterials(const RenderEngine& render_engine, const Json::
       if (json_material["Name"].asString() == "Ocean")
          material = std::make_unique<OceanMaterial>();
       else       
-         material = readMaterial(render_engine, json_material, textures);
+         material = readMaterial(render_engine, json_material, textures, data_file);
 
       if (material)
       {
@@ -495,7 +508,7 @@ void import3DY(const std::string& filename, const RenderEngine& render_engine, S
    readActions(root["Actions"], scene);
    auto skeletons = readSkeletons(root["Skeletons"], scene);
    auto textures = readTextures(root["Textures"]);
-   auto materials = readMaterials(render_engine, root["Materials"], textures);        
+   auto materials = readMaterials(render_engine, root["Materials"], textures, data_file);        
    
 
 	const auto& json_surfaces = root["Surfaces"];

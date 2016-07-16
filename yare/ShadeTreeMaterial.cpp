@@ -10,6 +10,7 @@
 #include "RenderMesh.h"
 #include "GLDevice.h"
 #include "GLVertexSource.h"
+#include "GLSampler.h"
 
 namespace yare {
 
@@ -76,7 +77,7 @@ const GLProgram& ShadeTreeMaterial::compile(MaterialVariant material_variant)
    ShadeTreeParams eval_params;
    eval_params.tree_nodes = &tree_nodes;
    eval_params.texture_binding_slot_start = _first_texture_binding;
-
+   eval_params.samplers = &_render_resources.samplers;
    _markNodesThatNeedPixelDifferentials(*output_node, false);
 
    ShadeTreeEvaluation evaluation;
@@ -95,17 +96,20 @@ const GLProgram& ShadeTreeMaterial::compile(MaterialVariant material_variant)
 
 void ShadeTreeMaterial::bindTextures()
 {
-   glBindTextures(_first_texture_binding, (GLuint)_used_textures.size(), _used_textures.data());   
+   glBindTextures(_first_texture_binding, (GLuint)_used_textures.size(), _used_textures.data()); 
+   glBindSamplers(_first_texture_binding, (GLuint)_used_samplers.size(), _used_samplers.data());
 }
 
 std::string ShadeTreeMaterial::_createFragmentShaderCode(const ShadeTreeEvaluation& evaluation, const std::string& fragment_template, const std::string& defines)
 {
    std::string texture_bindings;
    _used_textures.clear();
+   _used_samplers.clear();
    for (const auto& glsl_texture : evaluation.glsl_textures)
    {
-      _used_textures.push_back(glsl_texture.first->id());
-      texture_bindings.append(glsl_texture.second);
+      _used_textures.push_back(std::get<0>(glsl_texture)->id());
+      _used_samplers.push_back(std::get<1>(glsl_texture)->id());
+      texture_bindings.append(std::get<2>(glsl_texture));
    }
 
    std::string nodes_shading;
