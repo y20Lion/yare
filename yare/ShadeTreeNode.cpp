@@ -211,6 +211,8 @@ Uptr<ShadeTreeNode> createShadeTreeNode(const std::string& node_type)
        return std::make_unique<MixRGBNode>();
     else if (node_type == "VALTORGB")
        return std::make_unique<ColorRampNode>();
+    else if (node_type == "CURVE_RGB")
+       return std::make_unique<CurveRgbNode>();
     else
     {
         //assert(false);
@@ -569,6 +571,8 @@ const NodeEvaluatedOutputs& MixRGBNode::evaluate(const ShadeTreeParams& params, 
 
 const NodeEvaluatedOutputs& ColorRampNode::evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation)
 {
+   RETURN_IF_ALREADY_EVALUATED
+
    std::string glsl_fac = _evaluateInputSlot<Float>(params, "Fac", evaluation).expression;
    std::string glsl_ramp = _toGLSLVarName(name, "RampTexture");
    std::string glsl_color = _toGLSLVarName(name, "Color");
@@ -580,6 +584,28 @@ const NodeEvaluatedOutputs& ColorRampNode::evaluate(const ShadeTreeParams& param
    NodeEvaluatedOutputs& result = evaluation.addNodeCode(name, node_glsl_code);
    result["Color"] = std::make_unique<Color>(glsl_color);
    result["Alpha"] = std::make_unique<Float>(glsl_alpha);
+   return result;
+}
+
+const NodeEvaluatedOutputs& CurveRgbNode::evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation)
+{
+   RETURN_IF_ALREADY_EVALUATED
+
+   std::string glsl_fac = _evaluateInputSlot<Float>(params, "Fac", evaluation).expression;
+   std::string glsl_color = _evaluateInputSlot<Color>(params, "Color", evaluation).expression;
+   std::string glsl_out_color = _toGLSLVarName(name, "Color");
+   std::string glsl_red_curve = _toGLSLVarName(name, "RedCurve");
+   std::string glsl_green_curve = _toGLSLVarName(name, "GreenCurve");
+   std::string glsl_blue_curve = _toGLSLVarName(name, "BlueCurve");
+
+   evaluation.addTexture(params.texture_binding_slot_start, "sampler1D", glsl_red_curve, red_curve.get(), params.samplers->bilinear_clampToEdge.get());
+   evaluation.addTexture(params.texture_binding_slot_start, "sampler1D", glsl_green_curve, green_curve.get(), params.samplers->bilinear_clampToEdge.get());
+   evaluation.addTexture(params.texture_binding_slot_start, "sampler1D", glsl_blue_curve, blue_curve.get(), params.samplers->bilinear_clampToEdge.get());
+   std::string node_glsl_code = string_format("vec3 %s = evalCurveRgb(%s, %s, %s, %s, %s);\n",
+                                              glsl_out_color, glsl_color, glsl_fac, glsl_red_curve, glsl_green_curve, glsl_blue_curve);
+
+   NodeEvaluatedOutputs& result = evaluation.addNodeCode(name, node_glsl_code);
+   result["Color"] = std::make_unique<Color>(glsl_out_color);
    return result;
 }
 

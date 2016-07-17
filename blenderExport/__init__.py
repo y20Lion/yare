@@ -35,6 +35,9 @@ def writeDataBlockToFile(array, binary_file):
     #print(end_offset - start_offset)
     return {'Address':start_offset, 'Size':end_offset - start_offset}    
 
+def clamp(x, a, b):
+    return max(min(x,b), a)
+    
 def writeMeshField(json_mesh_fields, field_name, components, field_array, binary_file):    
     json_blob = writeDataBlockToFile(field_array, binary_file)
     
@@ -223,10 +226,30 @@ def writeColorRampNodeProperties(node, json_node, binary_file):
     colors = array('H', [])
     channel_count = 4 if node.outputs['Alpha'].links else 3
     for i in range(0, 256):
-        color = node.color_ramp.evaluate((float(i)+0.5)/256.0)[:]
+        color = node.color_ramp.evaluate(float(i)/255.0)[:]
         color_in_ushort = [int(val*65535) for val in color]
         colors.extend(color_in_ushort[:channel_count])
     json_node['Colors'] = {'DataBlock': writeDataBlockToFile(colors, binary_file), 'Type':'UnsignedShort', 'Channels':channel_count}   
+ 
+def writeCurveRgbNodeProperties(node, json_node, binary_file):
+    red_curve = array('H', [])
+    green_curve = array('H', [])
+    blue_curve = array('H', [])
+    curves = node.mapping.curves
+    
+    for i in range(0, 256):
+        t = float(i)/255.0
+        red = curves[0].evaluate(curves[3].evaluate(t))
+        green = curves[1].evaluate(curves[3].evaluate(t))
+        blue = curves[2].evaluate(curves[3].evaluate(t))
+        
+        red_curve.extend([clamp(int(red*65535), 0, 65535)])
+        green_curve.extend([clamp(int(green*65535), 0, 65535)])
+        blue_curve.extend([clamp(int(blue*65535), 0, 65535)])
+
+    json_node['RedCurve'] = {'DataBlock': writeDataBlockToFile(red_curve, binary_file), 'Type':'UnsignedShort'}
+    json_node['GreenCurve'] = {'DataBlock': writeDataBlockToFile(green_curve, binary_file), 'Type':'UnsignedShort'}  
+    json_node['BlueCurve'] = {'DataBlock': writeDataBlockToFile(blue_curve, binary_file), 'Type':'UnsignedShort'}
     
 def forwardGroupOutputLink(group_name, node_link):
     group_node = node_link.from_node
@@ -287,6 +310,8 @@ def writeNode(node, group, group_name, json_nodes, collected_textures, binary_fi
         writeMixRgbNodeProperties(node, json_node)
     elif node.type == 'VALTORGB':
         writeColorRampNodeProperties(node, json_node, binary_file)
+    elif node.type == 'CURVE_RGB':
+        writeCurveRgbNodeProperties(node, json_node, binary_file)
         
     json_nodes.append(json_node)
         

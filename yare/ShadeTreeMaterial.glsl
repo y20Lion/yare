@@ -521,6 +521,19 @@ float evalFresnel(float ior, vec3 normal)
    return fresnel(ior, dot(normal, view_vector));
 }
 
+vec3 evalCurveRgb(vec3 color, float fac, sampler1D red_curve, sampler1D green_curve, sampler1D blue_curve)
+{
+   float min_x = 0.0;
+   float max_x = 1.0;
+   color = (color - vec3(min_x)) / (max_x - min_x);
+   
+   vec3 result;
+   result.r = texture(red_curve, color.r).x;
+   result.g = texture(green_curve, color.g).x;
+   result.b = texture(blue_curve, color.b).x;
+   return mix(color, result, fac);
+}
+
  void main()
  {    
     %s

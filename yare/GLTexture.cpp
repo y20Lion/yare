@@ -135,13 +135,13 @@ Uptr<GLTexture1D> createMipmappedTexture1D(int width, GLenum internal_format, vo
    return std::make_unique<GLTexture1D>(desc);
 }
 
-Uptr<GLTexture1D> createTexture1D(int width, GLenum internal_format)
+Uptr<GLTexture1D> createTexture1D(int width, GLenum internal_format, void* pixels)
 {
    GLTexture1DDesc desc;
    desc.mipmapped = false;
    desc.width = width;
    desc.internal_format = internal_format;
-   desc.texture_pixels = nullptr;
+   desc.texture_pixels = pixels;
    desc.texture_pixels_in_bgr = false;
 
    return std::make_unique<GLTexture1D>(desc);

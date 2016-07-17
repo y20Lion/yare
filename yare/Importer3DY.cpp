@@ -211,6 +211,24 @@ static void readColorRampNodeProperties(const Json::Value& json_node, ColorRampN
    node.ramp_texture = createMipmappedTexture1D(256, GL_RGB16, temp_buf_ptr.get());
 }
 
+static auto readCurve(const Json::Value& json_curve_node, std::ifstream& data_file)
+{
+   uint64_t address, size;
+   readDataBlock(json_curve_node, &address, &size);
+   auto temp_buf_ptr = std::make_unique<char[]>(size);
+   data_file.seekg(address, std::ios::beg);
+   data_file.read(temp_buf_ptr.get(), size);
+
+   return createTexture1D(256, GL_R16, temp_buf_ptr.get());
+}
+
+static void readCurveRgbNodeProperties(const Json::Value& json_node, CurveRgbNode& node, std::ifstream& data_file)
+{
+   node.red_curve = readCurve(json_node["RedCurve"], data_file);
+   node.green_curve = readCurve(json_node["GreenCurve"], data_file);
+   node.blue_curve = readCurve(json_node["BlueCurve"], data_file);
+}
+
 static Uptr<ShadeTreeMaterial> readMaterial(const RenderEngine& render_engine, const Json::Value& json_material, const TextureMap& textures, std::ifstream& data_file)
 {   
    Uptr<ShadeTreeMaterial> material = std::make_unique<ShadeTreeMaterial>(*render_engine.render_resources);
@@ -234,6 +252,8 @@ static Uptr<ShadeTreeMaterial> readMaterial(const RenderEngine& render_engine, c
            readVectMathNodeProperties(json_node, (VectorMathNode&)*node);
         else if (node->type == "VALTORGB")
            readColorRampNodeProperties(json_node, (ColorRampNode&) *node, data_file);
+        else if (node->type == "CURVE_RGB")
+           readCurveRgbNodeProperties(json_node, (CurveRgbNode&)*node, data_file);
 
         material->tree_nodes[json_node["Name"].asString()] = std::move(node);
     }

@@ -256,6 +256,16 @@ public:
    virtual const NodeEvaluatedOutputs& evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation) override;
 };
 
+class CurveRgbNode : public ShadeTreeNode
+{
+public:
+   CurveRgbNode() : ShadeTreeNode("CURVE_RGB") {}
+   Uptr<GLTexture1D> red_curve;
+   Uptr<GLTexture1D> green_curve;
+   Uptr<GLTexture1D> blue_curve;
+   virtual const NodeEvaluatedOutputs& evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation) override;
+};
+
 
 /*class UvSourceNode : public ShadeTreeNode
 {
