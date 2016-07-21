@@ -36,6 +36,7 @@ struct SurfaceInstance
    const GLProgram* material_program;
         
    Sptr<GLVertexSource> vertex_source_for_material;
+   Sptr<GLVertexSource> vertex_source_position_only;
 };
 
 enum class LightType { Sphere = 0, Rectangle = 1, Sun = 2, Spot = 3 };

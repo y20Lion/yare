@@ -189,6 +189,8 @@ Uptr<ShadeTreeNode> createShadeTreeNode(const std::string& node_type)
         return std::make_unique<DiffuseBSDFNode>();
     else if (node_type == "BSDF_GLOSSY")
        return std::make_unique<GlossyBSDFNode>();
+    else if (node_type == "EMISSION")
+       return std::make_unique<EmissionBSDFNode>();
     else if (node_type == "BSDF_TRANSPARENT")
         return std::make_unique<TransparentBSDFNode>();
     else if (node_type == "MIX_SHADER")
@@ -213,6 +215,10 @@ Uptr<ShadeTreeNode> createShadeTreeNode(const std::string& node_type)
        return std::make_unique<ColorRampNode>();
     else if (node_type == "CURVE_RGB")
        return std::make_unique<CurveRgbNode>();
+    else if (node_type == "RGBTOBW")
+       return std::make_unique<RgbToBWNode>();
+    else if (node_type == "LAYER_WEIGHT")
+       return std::make_unique<LayerWeightNode>();
     else
     {
         //assert(false);
@@ -265,6 +271,20 @@ const NodeEvaluatedOutputs& GlossyBSDFNode::evaluate(const ShadeTreeParams& para
 
    NodeEvaluatedOutputs& result = evaluation.addNodeCode(name, node_glsl_code);
    result["BSDF"] = std::make_unique<Shading>(glsl_output_name);
+   return result;
+}
+
+const NodeEvaluatedOutputs& EmissionBSDFNode::evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation)
+{
+   RETURN_IF_ALREADY_EVALUATED
+
+   std::string color = _evaluateInputSlot<Color>(params, "Color", evaluation).expression;
+   std::string strength = _evaluateInputSlot<Float>(params, "Strength", evaluation).expression;
+   std::string glsl_output_name = _toGLSLVarName(name, "Emission");
+   std::string node_glsl_code = "vec3 " + glsl_output_name + " = evalEmissionBSDF(" + color + ", " + strength + ");\n";
+
+   NodeEvaluatedOutputs& result = evaluation.addNodeCode(name, node_glsl_code);
+   result["Emission"] = std::make_unique<Shading>(glsl_output_name);
    return result;
 }
 
@@ -492,8 +512,8 @@ const NodeEvaluatedOutputs& VectorMathNode::evaluate(const ShadeTreeParams& para
    std::string value1 = _evaluateInputSlot<Vector>(params, "Value", evaluation).expression;
    std::string value2 = _evaluateInputSlot<Vector>(params, "Value_001", evaluation).expression;
    std::string output = _toGLSLVarName(name, "Value");
-
-   //std::string node_glsl_code = _createMathNodeCode(operation, clamp, "vec3", output, value1, value2);
+   
+   //TODO add math node code
    std::string node_glsl_code;
    NodeEvaluatedOutputs& result = evaluation.addNodeCode(name, node_glsl_code);
    result["Value"] = std::make_unique<Vector>(output);
@@ -609,5 +629,37 @@ const NodeEvaluatedOutputs& CurveRgbNode::evaluate(const ShadeTreeParams& params
    return result;
 }
 
+const NodeEvaluatedOutputs& RgbToBWNode::evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation)
+{
+   RETURN_IF_ALREADY_EVALUATED
+
+   std::string glsl_color = _evaluateInputSlot<Color>(params, "Color", evaluation).expression;
+   std::string glsl_out_val = _toGLSLVarName(name, "Val");
+
+   std::string node_glsl_code = string_format("float %s = linearRgbToGray(%s);\n", glsl_out_val, glsl_color);
+
+   NodeEvaluatedOutputs& result = evaluation.addNodeCode(name, node_glsl_code);
+   result["Val"] = std::make_unique<Float>(glsl_out_val);
+   return result;
+}
+
+const NodeEvaluatedOutputs& LayerWeightNode::evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation)
+{
+   RETURN_IF_ALREADY_EVALUATED
+
+   std::string glsl_normal = _evaluateInputSlot<Normal>(params, "Normal", evaluation).expression;
+   std::string glsl_blend = _evaluateInputSlot<Float>(params, "Blend", evaluation).expression;
+   std::string glsl_out_fresnel = _toGLSLVarName(name, "Fresnel");
+   std::string glsl_out_facing = _toGLSLVarName(name, "Facing");   
+
+   std::string node_glsl_code;
+   node_glsl_code += "float " + glsl_out_fresnel + ", "+ glsl_out_facing + ";\n";
+   node_glsl_code += string_format("evalLayerWeight(%s, %s, %s, %s);\n", glsl_blend, glsl_normal, glsl_out_fresnel, glsl_out_facing);
+
+   NodeEvaluatedOutputs& result = evaluation.addNodeCode(name, node_glsl_code);
+   result["Fresnel"] = std::make_unique<Float>(glsl_out_fresnel);
+   result["Facing"] = std::make_unique<Float>(glsl_out_facing);
+   return result;
+}
 
 }

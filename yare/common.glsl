@@ -6,6 +6,11 @@ float luminance(vec3 color)
    return dot(vec3(0.3f, 0.59f, 0.11f), color);
 }
 
+float linearRgbToGray(vec3 color)
+{
+   return dot(vec3(0.2126, 0.7152, 0.0722), color);
+}
+
 #define saturate(v) clamp(v, 0.0, 1.0)
 #define SQR(x) ((x)*(x))
 

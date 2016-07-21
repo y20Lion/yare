@@ -77,7 +77,7 @@ RenderResources::RenderResources(const ImageSize& framebuffer_size_)
    fullscreen_triangle_source->setVertexCount(3);
 
    const int num_samples = 1000;
-   hammersley_samples = createBuffer(sizeof(vec2)*num_samples);
+   hammersley_samples = createBuffer(sizeof(vec2)*num_samples, GL_MAP_WRITE_BIT);
    vec2* samples = (vec2*) hammersley_samples->map(GL_MAP_WRITE_BIT);
    auto real_rand = std::bind(std::uniform_real_distribution<float>(0.0, 1.0), std::mt19937());
    

@@ -25,7 +25,7 @@ float averageLogLuminanceFromHistogram()
    {
       float percentage = imageLoad(histograms_image, ivec2(i, 0)).x;
       accumulated_percentage += percentage;
-      if (accumulated_percentage >= 0.15 && accumulated_percentage <= 0.98)
+      if (accumulated_percentage >= 0.4 && accumulated_percentage <= 0.95)
          average += percentage*(float(i+0.5) / HISTOGRAM_SIZE*float(HISTOGRAM_MAX - HISTOGRAM_MIN) + HISTOGRAM_MIN);
    }
    return average/accumulated_percentage;

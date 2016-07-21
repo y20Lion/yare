@@ -36,7 +36,7 @@ namespace yare {
    _compute_env_spherical_harmonics = createProgramFromFile("compute_env_spherical_harmonics.glsl");
    _spherical_harmonics_to_env = createProgramFromFile("spherical_harmonics_to_env.glsl");
 
-   _spherical_harmonics_ssbo = createBuffer(9 * sizeof(glm::vec3), GL_MAP_READ_BIT);
+   _spherical_harmonics_ssbo = createBuffer(9 * sizeof(glm::vec3), GL_MAP_WRITE_BIT);
 
    _parallel_reduce_env = createProgramFromFile("parallel_reduce_env.glsl");
    _parallel_reduce_result = createTexture2D(PARALLEL_REDUCE_RESULT_WIDTH, PARALLEL_REDUCE_RESULT_WIDTH/2, GL_RGBA32F);

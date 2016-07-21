@@ -80,7 +80,7 @@ void GLDynamicBuffer::moveActiveSegments()
 Uptr<GLBuffer> createBuffer(std::int64_t size_bytes, GLenum flags, void* data)
 {
     GLBufferDesc desc;
-    desc.flags = GL_MAP_WRITE_BIT | flags;
+    desc.flags = flags;
     desc.size_bytes = size_bytes;
     desc.data = data;
     return std::make_unique<GLBuffer>(desc);

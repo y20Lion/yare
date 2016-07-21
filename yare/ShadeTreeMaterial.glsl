@@ -93,7 +93,7 @@ vec3 normal = gl_FrontFacing ? normalize(attr_normal) : -normalize(attr_normal);
 #ifdef USE_NORMAL_MAPPING
 vec3 tangent = normalize(attr_tangent);
 #endif
-
+vec3 view_vector = normalize(eye_position - attr_position);
 
 float vec3ToFloat(vec3 v)
 {
@@ -119,13 +119,6 @@ float rectangleSolidAngle(vec3 p0, vec3 p1, vec3 p2, vec3 p3)
 
    return gamma0 + gamma1 + gamma2 + gamma3 - 2.0 * PI;
 }
-
-/*float rectangleSolidAngle(vec3 light_pos, vec2 rec_size, vec3 plane_dir_x, vec3 plane_dir_y)
-{
-   vec3 pos_in_light_basis = mat4x3(plane_dir_x), plane_dir_y, cross(plane_dir_x, plane_dir_y), light_pos) * vec4(attr_position,1.0);
-   asin()
-   return g0 + g1 + g2 + g3 - 2.0 * PI;
-}*/
 
 float rectangleLightIrradiance(vec3 light_pos, vec2 rec_size, vec3 plane_dir_x, vec3 plane_dir_y)
 {   
@@ -307,7 +300,7 @@ vec3 importanceSampleSkyCubemap(float roughness, vec3 N, vec3 V)
          float pdf = DFactor(roughness, NoH) * NoH / (4 * VoH);
          float omegaS = 1.0 / (num_samples * pdf);
          float omegaP = 4.0 * PI / (6.0 * width * width);
-         float mip_level = clamp(0.5 * log2(omegaS / omegaP)+1, 0, mip_count);
+         float mip_level = clamp(0.5 * log2(omegaS / omegaP)/*+1*/, 0, mip_count);
                      
          vec3 sample_color = textureLod(sky_cubemap, L, mip_level).rgb;
          float G = GSmithFactor(roughness, NoV, NoL);
@@ -323,74 +316,10 @@ vec3 importanceSampleSkyCubemap(float roughness, vec3 N, vec3 V)
    return env_radiance / num_samples;
 }
 
-
-vec3 importanceSampleSkyCubemap2(
-   float roughness,
-   vec3 N,
-   vec3 V
-   )
-{
-
-   const int g_sampleCount = 1000;
-   vec3 upVector = abs(N.z) < 0.999 ? vec3(0, 0, 1) : vec3(1, 0, 0);
-   vec3 tangentX = normalize(cross(upVector, N));
-   vec3 tangentY = cross(N, tangentX);
-
-   vec3 accLight = vec3(0);
-   float w = 0.0;
-   for (int i = 0; i < g_sampleCount; ++i)
-   {
-      vec2 u = hammersley_samples[i];
-           // GGX NDF sampling
-      float cosThetaH = sqrt((1 - u.x) / (1 + (roughness * roughness - 1) * u.x));
-      float sinThetaH = sqrt(1 - min(1.0, cosThetaH * cosThetaH));
-      float phiH = u.y * PI * 2;
-      
-          // Convert sample from half angle to incident angle
-      vec3 H;
-       H = vec3(sinThetaH * cos(phiH), sinThetaH *sin(phiH), cosThetaH);
-       H = normalize(tangentX * H.y + tangentY * H.x + N * H.z);
-       vec3 L = normalize(2.0f * dot(V, H) * H - V);
-      
-       float LdotH = saturate(dot(H, L));
-       float NdotH = saturate(dot(H, N));
-       float NdotV = saturate(dot(V, N));
-       float NdotL = saturate(dot(L, N));
-     
-         // Importance sampling weight for each sample
-         //
-          // weight = fr . (N.L)
-         //
-         // with :
-         // fr = D(H) . F(H) . G(V, L) / ( 4 (N.L) (N.O) )
-         //
-         // Since we integrate in the microfacet space , we include the
-        // Jacobian of the transform
-        //
-         // pdf = D(H) . (N.H) / ( 4 (L.H) )
-       float D = DFactor(roughness, NdotH);
-      float pdfH = D * NdotH;
-      float pdf = pdfH / (4.0* LdotH);
-     
-         
-         // Implicit weight (N.L canceled out )
-        
-      float G = GSmithFactor(roughness, NdotV, NdotL);
-      float weight = G * D / (4.0 * NdotV);
-     
-         if (dot(L, N) >0 && pdf > 0)
-         {
-         accLight += textureLod(sky_cubemap, L, 2).rgb * weight / pdf;
-         w += 1.0;
-         }
-       }
-   return accLight / g_sampleCount;
-}
-
 vec3 evalGlossyBSDF(vec3 color, vec3 normal, float roughness)
 {
+   roughness = max(roughness, 0.001);
    vec3 exit_radiance = vec3(0.0);
-   vec3 view_vector = normalize(eye_position - attr_position);
 
    for (int i = 0; i < lights.length(); ++i)
    {
@@ -427,7 +356,12 @@ vec3 evalGlossyBSDF(vec3 color, vec3 normal, float roughness)
      
    vec3 sky_radiance = importanceSampleSkyCubemap(roughness, normal, view_vector);
 
-   return exit_radiance+sky_radiance;//+ textureLod(sky_cubemap, reflect(-view_vector, normal), 6).rgb;
+   return color*(exit_radiance+sky_radiance);//+ textureLod(sky_cubemap, reflect(-view_vector, normal), 6).rgb;
+}
+
+vec3 evalEmissionBSDF(vec3 color, float strength)
+{
+   return color*strength;
 }
 
 vec3 surfaceGradient(vec3 normal, vec3 dPdx, vec3 dPdy, float dHdx, float dHdy)
@@ -517,7 +451,6 @@ void sampleTextureDifferentials(sampler2D tex,
 
 float evalFresnel(float ior, vec3 normal)
 {
-   vec3 view_vector = normalize(eye_position - attr_position); //TODO compute at beginning
    return fresnel(ior, dot(normal, view_vector));
 }
 
@@ -532,6 +465,24 @@ vec3 evalCurveRgb(vec3 color, float fac, sampler1D red_curve, sampler1D green_cu
    result.g = texture(green_curve, color.g).x;
    result.b = texture(blue_curve, color.b).x;
    return mix(color, result, fac);
+}
+
+void evalLayerWeight(float blend, vec3 normal, out float out_fresnel, out float out_facing)
+{
+   float cosi = dot(view_vector, normal);
+
+   float eta = max(1.0 - blend, 1e-5);
+   eta = gl_FrontFacing ? 1.0 / eta : eta;
+   out_fresnel = fresnel(eta, cosi);
+
+   out_facing = abs(cosi);
+   if (blend != 0.5) 
+   {
+      blend = clamp(blend, 0.0, 1.0 - 1e-5);
+      blend = (blend < 0.5) ? 2.0 * blend : 0.5 / (1.0 - blend);
+      out_facing = pow(out_facing, blend);
+   }
+   out_facing = 1.0 - out_facing;
 }
 
  void main()

@@ -35,7 +35,7 @@ struct ShadeTreeNodeSlot
 	std::vector<Link> links;
 };
 
-enum class ShadeTreeNodeType {DiffuseBSDF, GlossyBSDF, OutputMaterial, MixBSDF, AddBSDF};
+////////////////// NodeOutputs /////////////////
 
 enum class NodeOutputType {Shading, Color, Normal, Vector, Float};
 
@@ -95,6 +95,8 @@ public:
     virtual ~Float() {}
 };
 
+////////////////// ShadTreeEvaluation /////////////////
+
 typedef std::map<std::string, std::shared_ptr<NodeOutputValue>> NodeEvaluatedOutputs;
 struct ShadeTreeEvaluation
 {    
@@ -119,6 +121,8 @@ struct ShadeTreeParams
     int texture_binding_slot_start;
     const Samplers* samplers;
 };
+
+////////////////// ShadTreeNode /////////////////
 
 class ShadeTreeNode
 {
@@ -167,6 +171,13 @@ class GlossyBSDFNode : public ShadeTreeNode
 {
 public:
    GlossyBSDFNode() : ShadeTreeNode("BSDF_GLOSSY") {}
+   virtual const NodeEvaluatedOutputs& evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation) override;
+};
+
+class EmissionBSDFNode : public ShadeTreeNode
+{
+public:
+   EmissionBSDFNode() : ShadeTreeNode("EMISSION") {}
    virtual const NodeEvaluatedOutputs& evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation) override;
 };
 
@@ -266,12 +277,19 @@ public:
    virtual const NodeEvaluatedOutputs& evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation) override;
 };
 
-
-/*class UvSourceNode : public ShadeTreeNode
+class RgbToBWNode : public ShadeTreeNode
 {
 public:
-    UvSourceNode() : ShadeTreeNode("UV_MAP") {}
-    virtual ShadingResult evaluate(const ShadeTreeNodes& tree_nodes, const std::string& output_slot, ShadeTreeEvaluation& evaluation) override;
-};*/
+   RgbToBWNode() : ShadeTreeNode("RGBTOBW") {}
+   virtual const NodeEvaluatedOutputs& evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation) override;
+};
+
+class LayerWeightNode : public ShadeTreeNode
+{
+public:
+   LayerWeightNode() : ShadeTreeNode("LAYER_WEIGHT") {}
+   virtual const NodeEvaluatedOutputs& evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation) override;
+};
+
 
 }

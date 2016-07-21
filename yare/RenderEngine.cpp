@@ -121,8 +121,9 @@ void RenderEngine::offlinePrepareScene()
 
    for (int i = 0; i < _scene.surfaces.size(); ++i)
    {
-      if (_scene.surfaces[i].vertex_source_for_material == nullptr)
-         _scene.surfaces[i].vertex_source_for_material = createVertexSource(*_scene.surfaces[i].mesh, _scene.surfaces[i].material->requiredMeshFields(_scene.surfaces[i].material_variant));
+      auto& surface = _scene.surfaces[i];
+      surface.vertex_source_for_material = createVertexSource(*surface.mesh, surface.material->requiredMeshFields(_scene.surfaces[i].material_variant));
+      surface.vertex_source_position_only = createVertexSource(*surface.mesh, int(MeshFieldName::Position));
    }
 }
 
@@ -283,7 +284,7 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
 
 void RenderEngine::_createSceneLightsBuffer()
 {  
-   _lights_ssbo = createBuffer(sizeof(LightSSBO)*_scene.lights.size()+sizeof(glm::vec4));
+   _lights_ssbo = createBuffer(sizeof(LightSSBO)*_scene.lights.size()+sizeof(glm::vec4), GL_MAP_WRITE_BIT);
 
    char* data = (char*)_lights_ssbo->map(GL_MAP_WRITE_BIT);
    data += sizeof(glm::vec4);

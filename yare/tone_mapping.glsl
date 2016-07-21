@@ -46,5 +46,5 @@ void main()
    vec3 color = (scene_color*exposure /*+ bloom_color*/);
 
    //color = color / (1.0 + color);
-   out_color.rgb = linearToSrgb(scene_color);
+   out_color.rgb = linearToSrgb(scene_color*exposure);
 }
