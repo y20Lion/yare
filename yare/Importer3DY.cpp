@@ -121,6 +121,11 @@ static vec3 readVec3(const Json::Value& json_vec)
    return vec3(json_vec[0].asFloat(), json_vec[1].asFloat(), json_vec[2].asFloat());
 }
 
+static vec4 readVec4(const Json::Value& json_vec)
+{
+   return vec4(json_vec[0].asFloat(), json_vec[1].asFloat(), json_vec[2].asFloat(), json_vec[3].asFloat());
+}
+
 static quat readQuaternion(const Json::Value& json_vec)
 {
    return quat(json_vec[0].asFloat(), json_vec[1].asFloat(), json_vec[2].asFloat(), json_vec[3].asFloat());
@@ -370,6 +375,45 @@ static void readLights(const Json::Value& json_lights, Scene* scene)
    }
 }
 
+static RotationType convertToRotationType(const std::string& rotation_type)
+{
+   if (rotation_type == "XYZ")
+      return RotationType::EulerXYZ;
+   else if (rotation_type == "XZY")
+      return RotationType::EulerXZY;
+
+   else if (rotation_type == "YXZ")
+      return RotationType::EulerYXZ;
+   else if (rotation_type == "YZX")
+      return RotationType::EulerYZX;
+
+   else if (rotation_type == "ZXY")
+      return RotationType::EulerZXY;
+   else if (rotation_type == "ZYX")
+      return RotationType::EulerZYX;
+
+   else if (rotation_type == "QUATERNION")
+      return RotationType::Quaternion;
+
+   else if (rotation_type == "AXIS_ANGLE")
+      return RotationType::AxisAngle;
+
+   else
+      assert(false);
+   return RotationType::Quaternion;
+}
+
+static Transform readTransform(const Json::Value& json_transform)
+{
+   Transform transform;
+   transform.location = readVec3(json_transform["Location"]);
+   transform.scale = readVec3(json_transform["Scale"]);
+   transform.rotation = readVec4(json_transform["Rotation"]);
+   transform.rotation_type = convertToRotationType(json_transform["RotationType"].asString());
+
+   return transform;
+}
+
 static SkeletonMap readSkeletons(const Json::Value& json_skeletons, Scene* scene)
 {
    SkeletonMap skeletons;
@@ -386,9 +430,7 @@ static SkeletonMap readSkeletons(const Json::Value& json_skeletons, Scene* scene
       {
          auto& bone = skeleton->bones[i];
          bone.name = json_bone["Name"].asString();
-         bone.local_transform.location = readVec3(json_bone["Pose"]["Location"]);
-         bone.local_transform.scale = readVec3(json_bone["Pose"]["Scale"]);
-         bone.local_transform.rotation_quaternion = readQuaternion(json_bone["Pose"]["RotationQuaternion"]); // TODO fix quaternion order
+         bone.local_transform = readTransform(json_bone["Pose"]);
          //bone.local_transform.pose_matrix = readMatrix4x3(json_bone["Pose"]["PoseMatrix"]);
 
          skeleton->skeleton_to_bone_bind_pose_matrices[i] = readMatrix4x3(json_bone["SkeletonToBoneMatrix"]);
@@ -456,42 +498,6 @@ static void readActions(const Json::Value& json_actions, Scene* scene)
    {
       readAction(json_action, scene);
    }
-}
-
-static RotationType convertToRotationType(const std::string& rotation_type)
-{
-   if (rotation_type == "XYZ")
-      return RotationType::EulerXYZ;
-   else if (rotation_type == "XZY")
-      return RotationType::EulerXZY;
-
-   else if (rotation_type == "YXZ")
-      return RotationType::EulerYXZ;
-   else if (rotation_type == "YZX")
-      return RotationType::EulerYZX;
-
-   else if (rotation_type == "ZXY")
-      return RotationType::EulerZXY;
-   else if (rotation_type == "ZYX")
-      return RotationType::EulerZYX;
-
-   else if (rotation_type == "QUATERNION")
-      return RotationType::Quaternion;
-   else
-      assert(false);
-   return RotationType::Quaternion;
-}
-
-Transform readTransform(const Json::Value& json_transform)
-{
-   Transform transform;
-   transform.location = readVec3(json_transform["Location"]);
-   transform.scale = readVec3(json_transform["Scale"]);
-   transform.rotation_quaternion = readQuaternion(json_transform["RotationQuaternion"]);
-   transform.rotation_euler = readVec3(json_transform["RotationEuler"]);
-   transform.rotation_type = convertToRotationType(json_transform["RotationType"].asString());
-
-   return transform;
 }
 
 void readTransformHierarchy(const Json::Value& json_hierarchy, Scene* scene)

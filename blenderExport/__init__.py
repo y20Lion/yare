@@ -168,8 +168,8 @@ def writeArmature(armature_object, armature_data):
         json_parent = bone.parent.name if (bone.parent is not None) else None
         json_children = [child.name for child in bone.children]
         pose = armature_object.pose.bones[bone.name]
-        json_bone_pose = {'Location':pose.location[:], 'RotationQuaternion':pose.rotation_quaternion[:], 'Scale':pose.scale[:], 'PoseMatrix':writeMatrix(pose.matrix)}
-        json_bone = {'Name':bone.name, 'Index':i, 'SkeletonToBoneMatrix':writeMatrix(bone.matrix_local), 'Pose':json_bone_pose, 'Parent':json_parent, 'Children':json_children}
+        #writeMatrix(pose.matrix)
+        json_bone = {'Name':bone.name, 'Index':i, 'SkeletonToBoneMatrix':writeMatrix(bone.matrix_local), 'Pose':writeObjectTransform(pose), 'Parent':json_parent, 'Children':json_children}
         json_bones.append(json_bone)
         bone_name_to_index[bone.name] = i
         i += 1
@@ -474,6 +474,12 @@ def getTopParent(object):
  
 def writeObjectTransform(object):    
     json_transform = {'Location':object.location[:], 'RotationType':object.rotation_mode, 'RotationEuler':object.rotation_euler[:], 'RotationQuaternion':object.rotation_quaternion[:], 'Scale':object.scale[:] }
+    if object.rotation_mode == 'QUATERNION':
+        json_transform['Rotation'] = object.rotation_quaternion[:]
+    elif object.rotation_mode == 'AXIS_ANGLE':
+        json_transform['Rotation'] = object.rotation_axis_angle[:]
+    else:
+        json_transform['Rotation'] = object.rotation_euler[:] + tuple([0.0])
     return json_transform
 
 def writeTransformHierarchyNodes(object_names, json_nodes):
@@ -496,7 +502,7 @@ def writeTransformHierarchy():
             root_children.add(getTopParent(object).name)
             
     json_nodes = []
-    json_root_transform = {'Location':[0,0,0], 'RotationType':'XYZ', 'RotationEuler':[0,0,0], 'RotationQuaternion':[1,0,0,0], 'Scale':[1,1,1] }
+    json_root_transform = {'Location':[0,0,0], 'RotationType':'XYZ', 'Rotation':[0,0,0,0], 'Scale':[1,1,1] }
     json_nodes.append({'ObjectName':'Root', 'ParentToNodeMatrix':writeMatrix(mathutils.Matrix.Identity(4)), 'Transform':json_root_transform, 'Parent':None, 'Children':list(root_children) })
     writeTransformHierarchyNodes(root_children, json_nodes)
     json_hierarchy = {'Nodes':json_nodes}

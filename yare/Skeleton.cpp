@@ -41,7 +41,7 @@ void Skeleton::_updateBone(int index, const mat4x4 skeleton_to_parent_matrix)
    auto& bone_pose = bone.local_transform;
 
    mat4x3 skeleteon_to_current_bone = composeAS(skeleton_to_parent_matrix, bone.parent_to_bone_matrix); 
-   _skeleton_to_bone_pose_matrices[index] = composeAS(skeleteon_to_current_bone, toMat4x3(translate(bone_pose.location)*mat4_cast(bone_pose.rotation_quaternion)*scale(bone_pose.scale)));
+   _skeleton_to_bone_pose_matrices[index] = composeAS(skeleteon_to_current_bone, toMat4x3(bone_pose.toMatrix()));
 
    for (int child_index : bone.chilren)
       _updateBone(child_index, _skeleton_to_bone_pose_matrices[index]);

@@ -8,27 +8,17 @@
 #include <glm/gtc/quaternion.hpp>
 
 #include "tools.h"
+#include "Transform.h"
 
 namespace yare
 {
 using namespace glm;
 class GLDynamicBuffer;
 
-//enum class RotationType { EulerXYZ, EulerYXZ, Euler  };
-
-struct BoneLocalTransform
-{
-   quat rotation_quaternion;
-   //vec3 rotation_euler;
-   vec3 location;
-   vec3 scale; 
-   //mat4x3 pose_matrix;
-};
-
 struct Bone
 {
    std::string name;
-   BoneLocalTransform local_transform;
+   Transform local_transform;
    mat4x3 parent_to_bone_matrix;
    int parent;
    std::vector<int> chilren;

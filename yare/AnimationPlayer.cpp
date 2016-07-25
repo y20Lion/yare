@@ -57,6 +57,20 @@ void AnimationPlayer::_evaluateCurves(float x, const Action& action)
    }
 }
 
+static void _bindToTransform(const std::string& transformation_component, int component_index, Transform& transform, AnimationCurve& curve)
+{
+   if (transformation_component == "location")
+      curve.target = &transform.location[component_index];
+   else if (transformation_component == "scale")
+      curve.target = &transform.scale[component_index];
+   else if (transformation_component == "rotation_quaternion")
+      curve.target = &transform.rotation[component_index];
+   else if (transformation_component == "rotation_euler")
+      curve.target = &transform.rotation[component_index];
+   else if (transformation_component == "rotation_axis_angle")
+      curve.target = &transform.rotation[component_index];
+}
+
 static void _bindTarget(const Scene& scene, const std::string& object_name, AnimationCurve& curve)
 {
    static std::regex bone_path_regex("bone/(.*)/(.*)/([0-3])");
@@ -72,12 +86,8 @@ static void _bindTarget(const Scene& scene, const std::string& object_name, Anim
       Skeleton& skeleton = *scene.name_to_skeleton.at(object_name);
       Bone& bone = skeleton.bone(bone_name);
 
-      if (transformation_component == "location")
-         curve.target = &bone.local_transform.location[component_index];
-      else if (transformation_component == "scale")
-         curve.target = &bone.local_transform.scale[component_index];
-      else if (transformation_component == "rotation_quaternion")
-         curve.target = &bone.local_transform.rotation_quaternion[component_index==0 ? 3 : component_index-1];
+      _bindToTransform(transformation_component, component_index, bone.local_transform, curve);
+
       /*else
          assert(false);*/ // TODO fix silent ignore
    }
@@ -88,15 +98,8 @@ static void _bindTarget(const Scene& scene, const std::string& object_name, Anim
       
       const std::string& transformation_component = regex_result[1];
       int component_index = std::stoi(regex_result[2]);
-      
-      if (transformation_component == "location")
-         curve.target = &transform.location[component_index];
-      else if (transformation_component == "scale")
-         curve.target = &transform.scale[component_index];
-      else if (transformation_component == "rotation_quaternion")
-         curve.target = &transform.rotation_quaternion[component_index == 0 ? 3 : component_index - 1];
-      else if (transformation_component == "rotation_euler")
-         curve.target = &transform.rotation_euler[component_index];
+
+      _bindToTransform(transformation_component, component_index, transform, curve);
    }
    else
       assert(false);
