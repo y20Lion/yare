@@ -219,6 +219,8 @@ Uptr<ShadeTreeNode> createShadeTreeNode(const std::string& node_type)
        return std::make_unique<RgbToBWNode>();
     else if (node_type == "LAYER_WEIGHT")
        return std::make_unique<LayerWeightNode>();
+    else if (node_type == "TEX_COORD")
+       return std::make_unique<TextureCoordinateNode>();
     else
     {
         //assert(false);
@@ -659,6 +661,19 @@ const NodeEvaluatedOutputs& LayerWeightNode::evaluate(const ShadeTreeParams& par
    NodeEvaluatedOutputs& result = evaluation.addNodeCode(name, node_glsl_code);
    result["Fresnel"] = std::make_unique<Float>(glsl_out_fresnel);
    result["Facing"] = std::make_unique<Float>(glsl_out_facing);
+   return result;
+}
+
+const NodeEvaluatedOutputs& TextureCoordinateNode::evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation)
+{
+   RETURN_IF_ALREADY_EVALUATED
+
+   std::string glsl_uv = _toGLSLVarName(name, "UV");
+
+   std::string node_glsl_code = "vec3 " + glsl_uv + "= vec3(attr_uv, 0.0);\n";
+   
+   NodeEvaluatedOutputs& result = evaluation.addNodeCode(name, node_glsl_code);
+   result["UV"] = std::make_unique<Vector>(glsl_uv);   
    return result;
 }
 

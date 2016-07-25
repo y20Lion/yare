@@ -29,6 +29,7 @@ class TransformHierarchy;
 struct SurfaceInstance
 {
    int transform_node_index;
+   vec3 center_in_local_space;
    Sptr<RenderMesh> mesh;
    Sptr<Skeleton> skeleton;
    Sptr<IMaterial> material;
@@ -86,9 +87,17 @@ struct MainViewSurfaceData
     glm::mat3 normal_matrix_world_local;
 };
 
+struct SurfaceDistanceSortItem
+{
+   int surface_index;
+   float distance;
+};
+
 struct RenderData
 {
    std::vector<MainViewSurfaceData> main_view_surface_data;
+   
+   std::vector<SurfaceDistanceSortItem> surfaces_sorted_by_distance;
    glm::mat4x4 matrix_proj_world;
 };
 
@@ -105,6 +114,7 @@ public:
 
    Camera camera;
    std::vector<Sptr<Skeleton>> skeletons;
+   std::vector<Sptr<IMaterial>> materials;
    std::vector<SurfaceInstance> surfaces;
    std::vector<Light> lights;
 

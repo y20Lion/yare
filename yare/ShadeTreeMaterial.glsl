@@ -27,12 +27,12 @@ out vec3 attr_tangent;
 
 #include "surface_uniforms.glsl"
 #include "scene_uniforms.glsl"
-
+#ifdef USE_SKINNING
 layout(std430, binding = BI_SKINNING_PALETTE_SSBO) buffer SkinningPaletteSSBO
 {
    mat4x3 skinning_matrix[];
 };
-
+#endif
 void main()
 {
 #ifdef USE_SKINNING
@@ -495,4 +495,8 @@ void evalLayerWeight(float blend, vec3 normal, out float out_fresnel, out float 
 
     /*if (all(greaterThan(shading_result_transp_factor.xyz,vec3(0.99))))
        discard;*/ // TODO add
+
+#ifdef USE_UV
+       shading_result.rgb = vec3(abs(length(dFdx(attr_uv))/ length(dFdx(attr_position))));
+#endif
  }

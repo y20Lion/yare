@@ -1,5 +1,6 @@
 ﻿#include "RenderEngine.h"
 
+#include <algorithm>
 #include <chrono>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -25,6 +26,7 @@
 #include "GLFormats.h"
 #include "AnimationPlayer.h"
 #include "TransformHierarchy.h"
+#include "stl_helpers.h"
 
 namespace yare {
 
@@ -96,7 +98,7 @@ RenderEngine::RenderEngine(const ImageSize& framebuffer_size)
    , background_sky(new BackgroundSky(*render_resources))
    , film_processor(new FilmPostProcessor(*render_resources))
 {    
-    
+   _z_pass_render_program = createProgramFromFile("z_pass_render.glsl");
 }
 
 RenderEngine::~RenderEngine()
@@ -153,11 +155,15 @@ void RenderEngine::updateScene(RenderData& render_data)
    //_scene.surfaces[3].matrix_world_local = mat4x3(1.0);
    for (int i = 0; i < render_data.main_view_surface_data.size(); ++i)
    {
-      mat4 matrix_world_local = _scene.transform_hierarchy->nodeWorldToLocalMatrix(_scene.surfaces[i].transform_node_index);//.world_local.toMatrix();
+      mat4 matrix_world_local = _scene.transform_hierarchy->nodeWorldToLocalMatrix(_scene.surfaces[i].transform_node_index);
       render_data.main_view_surface_data[i].matrix_world_local        = matrix_world_local;
       render_data.main_view_surface_data[i].normal_matrix_world_local = mat3(transpose(inverse(matrix_world_local)));
-      render_data.main_view_surface_data[i].matrix_proj_local         = render_data.matrix_proj_world * matrix_world_local;      
+      render_data.main_view_surface_data[i].matrix_proj_local         = render_data.matrix_proj_world * matrix_world_local;
    }
+
+   _sortSurfacesByDistanceToCamera(render_data);
+
+   //_updateUniformBuffers(); TODO
 
    char* buffer = (char*)_surface_uniforms->getUpdateSegmentPtr(); // hopefully OpenGL will be done using that range at that time (I could use a fence to enforce it but meh I don't care)
    for (int i = 0; i < render_data.main_view_surface_data.size(); ++i)
@@ -166,8 +172,7 @@ void RenderEngine::updateScene(RenderData& render_data)
       ((SurfaceDynamicUniforms*)buffer)->normal_matrix_world_local = render_data.main_view_surface_data[i].normal_matrix_world_local;
       ((SurfaceDynamicUniforms*)buffer)->matrix_world_local        = render_data.main_view_surface_data[i].matrix_world_local;
       buffer += _surface_uniforms_size;
-   }
-      
+   }     
    
    SceneUniforms* scene_uniforms = (SceneUniforms*)_scene_uniforms->getUpdateSegmentPtr();
    scene_uniforms->eye_position = _scene.camera.point_of_view.from;
@@ -244,40 +249,57 @@ static void _debugSetMVP(const mat4x3& mat)
    glLoadMatrixf(glm::value_ptr(mat));//_scene.render_data[0].matrix_view_world
 }
 
-void RenderEngine::_renderSurfaces(const RenderData& render_data)
+void RenderEngine::_bindSceneUniforms()
 {
-   static int counter = 0; 
-   
-   const auto & diffuse_cubemap =  counter < 120 ? *_scene.sky_diffuse_cubemap : *_scene.sky_diffuse_cubemap_sh;
+   static int counter = 0;
+   const auto & diffuse_cubemap = counter < 120 ? *_scene.sky_diffuse_cubemap : *_scene.sky_diffuse_cubemap_sh;
    GLDevice::bindTexture(BI_SKY_CUBEMAP, *_scene.sky_cubemap, *(render_resources->samplers.mipmap_clampToEdge));
    GLDevice::bindTexture(BI_SKY_DIFFUSE_CUBEMAP, diffuse_cubemap, *render_resources->samplers.mipmap_clampToEdge);
    counter++;
    if (counter == 240)
       counter = 0;
    glBindBufferRange(GL_UNIFORM_BUFFER, BI_SCENE_UNIFORMS, _scene_uniforms->id(),
-      _scene_uniforms->getRenderSegmentOffset(), _scene_uniforms->segmentSize());
+                     _scene_uniforms->getRenderSegmentOffset(), _scene_uniforms->segmentSize());
+}
 
-   
+void RenderEngine::_bindSurfaceUniforms(int suface_index, const SurfaceInstance& surface)
+{
+   if (surface.skeleton)
+   {
+      const GLDynamicBuffer& skinning_ssbo = surface.skeleton->skinningPalette();
+      glBindBufferRange(GL_SHADER_STORAGE_BUFFER, BI_SKINNING_PALETTE_SSBO, skinning_ssbo.id(),
+                        skinning_ssbo.getRenderSegmentOffset(), skinning_ssbo.segmentSize());
+   }
 
+   glBindBufferRange(GL_UNIFORM_BUFFER, BI_SURFACE_DYNAMIC_UNIFORMS,
+                     _surface_uniforms->id(),
+                     _surface_uniforms->getRenderSegmentOffset() + _surface_uniforms_size*suface_index,
+                     _surface_uniforms_size);
+}
+
+void RenderEngine::_renderSurfaces(const RenderData& render_data)
+{   
+   _bindSceneUniforms();   
+
+   // Z Pass
+   /*glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+   GLDevice::bindProgram(*_z_pass_render_program);
+   for (auto& sorted_surface : render_data.surfaces_sorted_by_distance)
+   {
+      int surface_index = sorted_surface.surface_index;
+      const auto& surface = _scene.surfaces[surface_index];
+      _bindSurfaceUniforms(surface_index, surface);
+      
+      GLDevice::bindVertexSource(*surface.vertex_source_position_only);
+      GLDevice::draw(0, surface.vertex_source_position_only->vertexCount());
+   }
+   glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);*/
+
+   // Material Pass
    for (int i = 0; i < render_data.main_view_surface_data.size(); ++i)
    {
-      const auto& surface_data = render_data.main_view_surface_data[i];
-      const auto& surface = _scene.surfaces[i];
-      
-      if (surface.skeleton)
-      {
-         const GLDynamicBuffer& skinning_ssbo = surface.skeleton->skinningPalette();
-         glBindBufferRange(GL_SHADER_STORAGE_BUFFER, BI_SKINNING_PALETTE_SSBO, skinning_ssbo.id(),
-                           skinning_ssbo.getRenderSegmentOffset(), skinning_ssbo.segmentSize());
-      }
-
-      glBindBufferRange(GL_UNIFORM_BUFFER, BI_SURFACE_DYNAMIC_UNIFORMS,
-         _surface_uniforms->id(),
-         _surface_uniforms->getRenderSegmentOffset() + _surface_uniforms_size*i,
-         _surface_uniforms_size);
-
-      
-
+      const auto& surface = _scene.surfaces[i];      
+      _bindSurfaceUniforms(i, surface);      
       surface.material->render(*surface.vertex_source_for_material, *surface.material_program);
    }
 }
@@ -327,6 +349,25 @@ void RenderEngine::_createSceneLightsBuffer()
    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, BI_LIGHTS_SSBO, _lights_ssbo->id());
 }
 
+
+void RenderEngine::_sortSurfacesByDistanceToCamera(RenderData& render_data)
+{
+   int surface_count = int(render_data.main_view_surface_data.size());
+   auto& surfaces_sorted_by_distance = render_data.surfaces_sorted_by_distance;   
+   render_data.surfaces_sorted_by_distance.resize(surface_count);
+
+   for (int i = 0; i < surface_count; ++i)
+   {      
+      float distance_to_camera = (render_data.main_view_surface_data[i].matrix_proj_local * vec4(_scene.surfaces[i].center_in_local_space, 1.0)).w;
+      surfaces_sorted_by_distance[i] = SurfaceDistanceSortItem{ i, distance_to_camera };
+   }
+
+   auto sort_by_distance = [](SurfaceDistanceSortItem& a, SurfaceDistanceSortItem& b)
+   {
+      return a.distance < b.distance;
+   };
+   std::sort(RANGE(surfaces_sorted_by_distance), sort_by_distance);
+}
 
 
 } // namespace yare

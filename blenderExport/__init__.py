@@ -502,6 +502,14 @@ def writeTransformHierarchy():
     json_hierarchy = {'Nodes':json_nodes}
     return json_hierarchy
 
+def getSurfaceCenter(surface):
+    center = mathutils.Vector((0.0, 0.0, 0.0))    
+    for i in range(0,8):
+        bbox_corner = mathutils.Vector(surface.bound_box[i][:])
+        center += bbox_corner;       
+        
+    return (center/8.0)[:]
+    
 def writeSurfaces(armatures_bone_indices, binary_file):
     json_surfaces = []
     #bpy.ops.object.make_single_user(type='ALL', object=True, obdata=True)
@@ -520,7 +528,7 @@ def writeSurfaces(armatures_bone_indices, binary_file):
             material_name = object.data.materials[0].name
         else:
             material_name = ""
-        json_surface = {'Name':object.name, 'Mesh':json_mesh, 'Material':material_name, 'WorldToLocalMatrix':writeMatrix(object.matrix_world), 'Skeleton':armature_name}
+        json_surface = {'Name':object.name, 'CenterInLocal':getSurfaceCenter(object), 'Mesh':json_mesh, 'Material':material_name, 'WorldToLocalMatrix':writeMatrix(object.matrix_world), 'Skeleton':armature_name}
         json_surfaces.append(json_surface)
         i+= 1
         updateProgress("progress", i/object_count)

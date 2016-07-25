@@ -291,5 +291,12 @@ public:
    virtual const NodeEvaluatedOutputs& evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation) override;
 };
 
+class TextureCoordinateNode : public ShadeTreeNode
+{
+public:
+   TextureCoordinateNode() : ShadeTreeNode("TEX_COORD") {}
+   virtual const NodeEvaluatedOutputs& evaluate(const ShadeTreeParams& params, ShadeTreeEvaluation& evaluation) override;
+};
+
 
 }

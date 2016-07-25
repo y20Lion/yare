@@ -2,7 +2,7 @@
 
 #define HISTOGRAM_MAX 8.0
 #define HISTOGRAM_MIN -8.0
-#define HISTOGRAM_SIZE 16
+#define HISTOGRAM_SIZE 32
 #define THREADS_SIZE_X 8
 #define THREADS_SIZE_Y 8
 #define GATHER_SIZE_X 4

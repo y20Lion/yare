@@ -1,6 +1,7 @@
 #include "Importer3DY.h"
 
 #include <memory>
+#include <algorithm>
 #include <fstream>
 #include <json/json.h>
 #include <iostream>
@@ -20,6 +21,7 @@
 #include "AnimationPlayer.h"
 #include "TransformHierarchy.h"
 #include "matrix_math.h"
+#include "stl_helpers.h"
 
 namespace yare {
 
@@ -130,6 +132,7 @@ static void readNodeSlots(const Json::Value& json_slots, std::map<std::string, S
     {
         ShadeTreeNodeSlot slot;
         slot.name = json_slot["Name"].asString();
+        std::replace(RANGE(slot.name), '.', '_');
         slot.default_value = vec4(0.0);
         slot.type = ShadeTreeNodeSlotType::Float;
 
@@ -160,6 +163,7 @@ static void readNodeSlots(const Json::Value& json_slots, std::map<std::string, S
             Link link;
             link.node_name = json_link["Node"].asString();
             link.slot_name = json_link["Slot"].asString();
+            std::replace(RANGE(link.slot_name), '.', '_');
             slot.links.push_back(link);
         }
         
@@ -542,6 +546,7 @@ void import3DY(const std::string& filename, const RenderEngine& render_engine, S
 		//const auto& json_matrix = json_surface["WorldToLocalMatrix"];
 		
 		SurfaceInstance surface_instance;
+      surface_instance.center_in_local_space = readVec3(json_surface["CenterInLocal"]);
 		surface_instance.mesh = std::move(render_mesh);
       surface_instance.transform_node_index = scene->object_name_to_transform_node_index.at(json_surface["Name"].asString());
 
