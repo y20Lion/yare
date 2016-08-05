@@ -160,14 +160,14 @@ Uptr<GLTexture2D> createMipmappedTexture2D(int width, int height, GLenum interna
     return std::make_unique<GLTexture2D>(desc);
 }
 
-Uptr<GLTexture2D> createTexture2D(int width, int height, GLenum internal_format)
+Uptr<GLTexture2D> createTexture2D(int width, int height, GLenum internal_format, void* pixels)
 {
    GLTexture2DDesc desc;
    desc.mipmapped = false;
    desc.width = width;
    desc.height = height;
    desc.internal_format = internal_format;
-   desc.texture_pixels = nullptr;
+   desc.texture_pixels = pixels;
    desc.texture_pixels_in_bgr = false;
 
    return std::make_unique<GLTexture2D>(desc);

@@ -1,5 +1,4 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ComputeShader ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#version 450
 #include "glsl_film_postprocessing_defines.h"
 
 layout(binding = BI_INPUT_TEXTURE) uniform sampler2D input_texture;

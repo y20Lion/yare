@@ -1,5 +1,4 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ComputeShader ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#version 450
 #include "glsl_global_defines.h"
 #include "glsl_histogram_defines.h"
 #include "glsl_film_postprocessing_defines.h"

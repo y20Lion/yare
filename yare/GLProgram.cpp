@@ -220,15 +220,16 @@ static std::string _getIncludeFileContent(const std::string& include_file_name, 
    return result;
 }
 
-Uptr<GLProgram> createProgramFromFile(const std::string& filepath)
+Uptr<GLProgram> createProgramFromFile(const std::string& filepath, const std::string& defines)
 {      
-   auto program_desc = createProgramDescFromFile(filepath);
+   auto program_desc = createProgramDescFromFile(filepath, defines);
    return std::make_unique<GLProgram>(program_desc);
 }
 
-GLProgramDesc createProgramDescFromFile(const std::string& filepath)
+GLProgramDesc createProgramDescFromFile(const std::string& filepath, const std::string& defines)
 {
    std::ifstream file(filepath);
+   assert(file.is_open());
    std::string line;
    std::stringstream shader_code;
    GLProgramDesc program_desc;
@@ -242,6 +243,14 @@ GLProgramDesc createProgramDescFromFile(const std::string& filepath)
          if (shader_type != 0)
             program_desc.shaders.push_back(ShaderDesc(shader_code.str(), shader_type));
          shader_code = std::stringstream();
+         shader_code << "#version 450" << std::endl;
+
+         std::string define;
+         std::istringstream define_list(defines);
+         while (std::getline(define_list, define, ';'))
+         {
+            shader_code << "#define " << define << std::endl;
+         }
 
          shader_type = _toShaderType(line);
       }

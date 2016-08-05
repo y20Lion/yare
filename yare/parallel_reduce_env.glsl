@@ -1,5 +1,4 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ComputeShader ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#version 450
 #include "glsl_cubemap_filtering_defines.h"
 #include "common_cubemap_filtering.glsl"
 

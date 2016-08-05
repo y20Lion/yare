@@ -1,5 +1,4 @@
 ~~~~~~~~~~~~~~~~~~ VertexShader ~~~~~~~~~~~~~~~~~~~~~~~~
-#version 450
 
 layout(location=0) in vec2 position;
 
@@ -12,7 +11,6 @@ void main()
 }
 
 ~~~~~~~~~~~~~~~~~ FragmentShader ~~~~~~~~~~~~~~~~~~~~~~
-#version 450
 #include "glsl_cubemap_filtering_defines.h"
 #include "common_cubemap_filtering.glsl"
 
@@ -26,5 +24,5 @@ void main()
 {
    vec3 dir = normalize(faceToDirection(face, uv));
    vec2 latlong_coord = vec2(atan(dir.y, dir.x), acos(dir.z)) / vec2(2.0*PI, PI);
-   out_face_color.rgb = min(texture(latlong_texture, vec2(0.5 - latlong_coord.x, 1.0-latlong_coord.y)).rgb, vec3(DIR_LIGHT_THRESHOLD));
+   out_face_color.rgb = min(texture(latlong_texture, vec2(0.5 - latlong_coord.x, 1.0-latlong_coord.y)).rgb, 100.0/*vec3(DIR_LIGHT_THRESHOLD)*/);
 }

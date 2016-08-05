@@ -1,5 +1,4 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~VertexShader ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#version 450
 #include "glsl_global_defines.h"
 
 layout(location = 0) in vec2 position;
@@ -10,7 +9,6 @@ void main()
 }
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~FragmentShader ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#version 450
 #include "glsl_global_defines.h"
 #define BI_INPUT_TEXTURE 0
 

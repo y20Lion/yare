@@ -1,5 +1,4 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ VertexShader ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#version 450
 
 layout(location = 0) in vec2 position;
 
@@ -9,7 +8,6 @@ void main()
 }
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ FragmentShader ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#version 450
 #include "glsl_global_defines.h"
 #include "glsl_film_postprocessing_defines.h"
 
@@ -46,5 +44,5 @@ void main()
    vec3 color = (scene_color*exposure /*+ bloom_color*/);
 
    //color = color / (1.0 + color);
-   out_color.rgb = linearToSrgb(scene_color*exposure);
+   out_color.rgb =  linearToSrgb(scene_color/**exposure*/);
 }

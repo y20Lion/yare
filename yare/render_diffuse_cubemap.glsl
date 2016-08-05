@@ -1,5 +1,4 @@
 ~~~~~~~~~~~~~~~~~~VertexShader ~~~~~~~~~~~~~~~~~~~~~~~~
-#version 450
 
 layout(location = 0) in vec2 position;
 
@@ -12,7 +11,6 @@ void main()
 }
 
 ~~~~~~~~~~~~~~~~~FragmentShader ~~~~~~~~~~~~~~~~~~~~~~
-#version 450
 #include "glsl_cubemap_filtering_defines.h"
 #include "common_cubemap_filtering.glsl"
 

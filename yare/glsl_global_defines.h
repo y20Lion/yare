@@ -3,6 +3,7 @@
 // textures
 #define BI_SKY_CUBEMAP 10
 #define BI_SKY_DIFFUSE_CUBEMAP 11
+#define BI_SSAO_TEXTURE 12
 
 // uniforms buffers
 #define BI_SCENE_UNIFORMS 1

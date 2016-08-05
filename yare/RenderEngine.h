@@ -13,6 +13,7 @@ class GLBuffer;
 class BackgroundSky;
 struct ImageSize;
 class FilmPostProcessor;
+class SSAORenderer;
 
 class RenderEngine
 {
@@ -30,6 +31,7 @@ public:
    Uptr<CubemapFiltering> cubemap_converter;
    Uptr<BackgroundSky> background_sky;
    Uptr<FilmPostProcessor> film_processor;
+   Uptr<SSAORenderer> ssao_renderer;
    
 private:
    void _bindSceneUniforms();

@@ -1,5 +1,4 @@
 ~~~~~~~~~~~~~~~~~~VertexShader ~~~~~~~~~~~~~~~~~~~~~~~~
-#version 450
 
 layout(location = 0) in vec2 position;
 
@@ -12,7 +11,6 @@ void main()
 }
 
 ~~~~~~~~~~~~~~~~~FragmentShader ~~~~~~~~~~~~~~~~~~~~~~
-#version 450
 #include "glsl_cubemap_filtering_defines.h"
 #include "common_cubemap_filtering.glsl"
 
@@ -44,6 +42,9 @@ void main()
    vec3 color = vec3(0.0);
    for (int i = 0; i < 9; ++i)
    {    
+      if (i >=3)
+         continue;
+      
       float legendre_evaluation = 0.0;
       for (int j = 0; j < 10; ++j)
          legendre_evaluation += legendre_coeff[i][j] * legendre_input[j];

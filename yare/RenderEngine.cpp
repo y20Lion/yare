@@ -27,6 +27,7 @@
 #include "AnimationPlayer.h"
 #include "TransformHierarchy.h"
 #include "stl_helpers.h"
+#include "SSAORenderer.h"
 
 namespace yare {
 
@@ -97,6 +98,7 @@ RenderEngine::RenderEngine(const ImageSize& framebuffer_size)
    , cubemap_converter(new CubemapFiltering(*render_resources))
    , background_sky(new BackgroundSky(*render_resources))
    , film_processor(new FilmPostProcessor(*render_resources))
+   , ssao_renderer(new SSAORenderer(*render_resources))
 {    
    _z_pass_render_program = createProgramFromFile("z_pass_render.glsl");
 }
@@ -125,7 +127,7 @@ void RenderEngine::offlinePrepareScene()
    {
       auto& surface = _scene.surfaces[i];
       surface.vertex_source_for_material = createVertexSource(*surface.mesh, surface.material->requiredMeshFields(_scene.surfaces[i].material_variant));
-      surface.vertex_source_position_only = createVertexSource(*surface.mesh, int(MeshFieldName::Position));
+      surface.vertex_source_position_only = createVertexSource(*surface.mesh, int(MeshFieldName::Position)| int(MeshFieldName::Normal));// TODO rename
    }
 }
 
@@ -143,12 +145,14 @@ void RenderEngine::updateScene(RenderData& render_data)
       skeleton->update();
 
    const float znear = 0.05f;
-   const float zfar = 1000.0f;
+   const float zfar = 100.0f;//1000.0f;
    
    auto mat = lookAt(_scene.camera.point_of_view.from, _scene.camera.point_of_view.to, _scene.camera.point_of_view.up);
    
    auto  matrix_projection = perspective(3.14f / 2.0f, render_resources->framebuffer_size.ratio(), znear, zfar);
    render_data.matrix_proj_world = matrix_projection * mat;
+   render_data.matrix_proj_view = matrix_projection;
+   render_data.matrix_view_world = mat;
    /** frustum(camera.frustum.left, camera.frustum.right,
    camera.frustum.bottom, camera.frustum.top,
    camera.frustum.near, camera.frustum.far);*/
@@ -196,13 +200,12 @@ void RenderEngine::renderScene(const RenderData& render_data)
    GLDevice::bindDefaultRasterizationState();
    glPatchParameteri(GL_PATCH_VERTICES, 3);
 
-   GLDevice::bindFramebuffer(render_resources->main_framebuffer.get(), 0);  
+   //GLDevice::bindFramebuffer(render_resources->main_framebuffer.get(), 0);  
    {
-      glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+      glClearColor(0.0f, 0.0f, 0.0f, 1.0f);      
       glViewport(0, 0, render_resources->main_framebuffer->width(), render_resources->main_framebuffer->height());
       //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-      background_sky->render();
+      
       _renderSurfaces(render_data);
       
       //glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -280,9 +283,10 @@ void RenderEngine::_bindSurfaceUniforms(int suface_index, const SurfaceInstance&
 void RenderEngine::_renderSurfaces(const RenderData& render_data)
 {   
    _bindSceneUniforms();   
+   GLDevice::bindFramebuffer(render_resources->main_framebuffer.get(), 1);
+   glClear(GL_DEPTH_BUFFER_BIT);   
 
-   // Z Pass
-   /*glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+   // Z Pass   
    GLDevice::bindProgram(*_z_pass_render_program);
    for (auto& sorted_surface : render_data.surfaces_sorted_by_distance)
    {
@@ -293,8 +297,12 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
       GLDevice::bindVertexSource(*surface.vertex_source_position_only);
       GLDevice::draw(0, surface.vertex_source_position_only->vertexCount());
    }
-   glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);*/
 
+   ssao_renderer->render(render_data);
+   auto& ssao_texture = render_resources->ssao_framebuffer->attachedTexture(GL_COLOR_ATTACHMENT0);
+   GLDevice::bindTexture(BI_SSAO_TEXTURE, ssao_texture, *render_resources->samplers.nearest_clampToEdge);
+   GLDevice::bindFramebuffer(render_resources->main_framebuffer.get(), 0);
+   background_sky->render();
    // Material Pass
    for (int i = 0; i < render_data.main_view_surface_data.size(); ++i)
    {

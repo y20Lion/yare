@@ -1,5 +1,4 @@
 ~~~~~~~~~~~~~~~~~~~VertexShader ~~~~~~~~~~~~~~~~~~~~~
-#version 450
 #include "glsl_global_defines.h"
 #include "scene_uniforms.glsl"
 
@@ -15,7 +14,6 @@ void main()
 }
 
 ~~~~~~~~~~~~~~~~~~FragmentShader ~~~~~~~~~~~~~~~~~~~~~~
-#version 450
 #include "glsl_global_defines.h"
 #include "scene_uniforms.glsl"
 

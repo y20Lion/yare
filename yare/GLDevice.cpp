@@ -1,6 +1,7 @@
 #include "GLDevice.h"
 
 #include <GL/glew.h>
+#include <glm/gtc/type_ptr.hpp>
 
 #include "GLFramebuffer.h"
 #include "GLProgram.h"
@@ -9,6 +10,11 @@
 #include "GLSampler.h"
 
 namespace yare { namespace GLDevice {
+
+void bindUniformMatrix4(GLint location, const mat4& matrix)
+{
+   glUniformMatrix4fv(location, 1, false, value_ptr(matrix));
+}
 
 void bindFramebuffer(const GLFramebuffer* framebuffer, int color_attachment)
 {

@@ -13,6 +13,7 @@ class GLSampler;
 class GLFramebuffer;
 class GLGPUTimer;
 class GLProgram;
+class GLTexture1D;
 
 struct Samplers
 {
@@ -30,6 +31,7 @@ struct RenderResources
 
    ImageSize framebuffer_size;
    Uptr<GLFramebuffer> main_framebuffer;
+   Uptr<GLFramebuffer> ssao_framebuffer;
    Uptr<GLFramebuffer> halfsize_postprocess_fbo;
 
    Samplers samplers;
@@ -38,8 +40,10 @@ struct RenderResources
    Uptr<GLVertexSource> fullscreen_triangle_source;
 
    Uptr<GLGPUTimer> timer;
+   Uptr<GLGPUTimer> ssao_timer;
 
    Uptr<GLBuffer> hammersley_samples;
+   Uptr<GLTexture1D> random_texture;
 
    Uptr<GLProgram> present_texture;
 

@@ -1,5 +1,4 @@
 ~~~~~~~~~~~~~~~~~~~ VertexShader ~~~~~~~~~~~~~~~~~~~~~
-#version 450
 #include "glsl_global_defines.h"
 %s
 layout(location=0) in vec3 position;
@@ -64,7 +63,6 @@ void main()
 }
 
 ~~~~~~~~~~~~~~~~~~ FragmentShader ~~~~~~~~~~~~~~~~~~~~~~
-#version 450
 #include "glsl_global_defines.h"
 %s
 #include "scene_uniforms.glsl"
@@ -94,6 +92,7 @@ vec3 normal = gl_FrontFacing ? normalize(attr_normal) : -normalize(attr_normal);
 vec3 tangent = normalize(attr_tangent);
 #endif
 vec3 view_vector = normalize(eye_position - attr_position);
+float ssao = texelFetch(ssao_texture, ivec2(gl_FragCoord.xy), 0).r;
 
 float vec3ToFloat(vec3 v)
 {
@@ -143,9 +142,8 @@ float rectangleLightIrradiance(vec3 light_pos, vec2 rec_size, vec3 plane_dir_x, 
       irradiance += saturate(dot(normalize(p3 - attr_position), normal));
       irradiance += saturate(dot(light_dir, normal));
 
-      irradiance *= rectangleSolidAngle(p0, p1, p2, p3) * 0.2;
-
-      //irradiance = rectangleSolidAngle(p0, p1, p2, p3) * (dot(light_dir, normal));
+      //irradiance *= rectangleSolidAngle(p0, p1, p2, p3) * 0.2;
+      irradiance = rectangleSolidAngle(p0, p1, p2, p3) * (dot(light_dir, normal));
    }
    return irradiance;
 }
@@ -215,7 +213,7 @@ vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
          irradiance += max(dot(light_dir, normal), 0.0) * pointLightIncidentRadiance(light.color, light_position) * spot_attenuation;
       }
    }
-   vec3 env_irradiance = texture(sky_diffuse_cubemap, normal).rgb;
+   vec3 env_irradiance = texture(sky_diffuse_cubemap, normal).rgb*ssao;
    return  (irradiance + env_irradiance) * color / PI; // color/PI is the diffuse brdf constant value
 }
 
@@ -354,9 +352,9 @@ vec3 evalGlossyBSDF(vec3 color, vec3 normal, float roughness)
       }
    }   
      
-   vec3 sky_radiance = importanceSampleSkyCubemap(roughness, normal, view_vector);
+   vec3 sky_radiance = importanceSampleSkyCubemap(roughness, normal, view_vector)*ssao;
 
-   return color*(exit_radiance+sky_radiance);//+ textureLod(sky_cubemap, reflect(-view_vector, normal), 6).rgb;
+   return color*(exit_radiance+sky_radiance);
 }
 
 vec3 evalEmissionBSDF(vec3 color, float strength)
@@ -496,7 +494,6 @@ void evalLayerWeight(float blend, vec3 normal, out float out_fresnel, out float 
     /*if (all(greaterThan(shading_result_transp_factor.xyz,vec3(0.99))))
        discard;*/ // TODO add
 
-#ifdef USE_UV
-       shading_result.rgb = vec3(abs(length(dFdx(attr_uv))/ length(dFdx(attr_position))));
-#endif
+       //shading_result.rgb = vec3(texelFetch(ssao_texture, ivec2(gl_FragCoord.xy), 0).r/10.0);
+       //shading_result.rgb = vec3((texelFetch(ssao_texture, ivec2(gl_FragCoord.xy), 0).r));
  }

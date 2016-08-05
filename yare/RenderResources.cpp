@@ -63,9 +63,10 @@ Samplers createSamplers()
 RenderResources::RenderResources(const ImageSize& framebuffer_size_)
 {
    timer = std::make_unique<GLGPUTimer>();
-   
+   ssao_timer = std::make_unique<GLGPUTimer>();
    framebuffer_size = framebuffer_size_;
-   main_framebuffer = createFramebuffer(framebuffer_size, GL_RGBA32F, 1, GL_DEPTH_COMPONENT32F);
+   main_framebuffer = createFramebuffer(framebuffer_size, GL_RGBA32F, 2, GL_DEPTH_COMPONENT32F); // 0 color, // 1 normals
+   ssao_framebuffer = createFramebuffer(framebuffer_size, GL_R16F, 2);
    halfsize_postprocess_fbo = createFramebuffer(ImageSize(framebuffer_size.width/2, framebuffer_size.height/2), GL_RGBA32F, 2);
 
    samplers = createSamplers();   
@@ -87,6 +88,13 @@ RenderResources::RenderResources(const ImageSize& framebuffer_size_)
    }   
    hammersley_samples->unmap();
    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, BI_HAMMERSLEY_SAMPLES_SSBO, hammersley_samples->id());
+
+   float rand_samples[2048];
+   for (int i = 0; i < num_samples; ++i)
+   {
+      rand_samples[i] = real_rand();
+   }
+   random_texture = createTexture1D(2048, GL_R16F, rand_samples);
 
    auto shade_tree_prog_desc = createProgramDescFromFile("ShadeTreeMaterial.glsl");
    shade_tree_material_vertex = std::move(shade_tree_prog_desc.shaders[0].code);

@@ -103,7 +103,7 @@ Uptr<GLTexture1D> createMipmappedTexture1D(int width, GLenum internal_format, vo
 Uptr<GLTexture1D> createTexture1D(int width, GLenum internal_format, void* pixels);
 
 Uptr<GLTexture2D> createMipmappedTexture2D(int width, int height, GLenum internal_format, void* pixels, bool pixels_in_bgr=false);
-Uptr<GLTexture2D> createTexture2D(int width, int height, GLenum internal_format);
+Uptr<GLTexture2D> createTexture2D(int width, int height, GLenum internal_format, void* pixels = nullptr);
 
 
 Uptr<GLTextureCubemap> createMipmappedTextureCubemap(int width, GLenum internal_format);
