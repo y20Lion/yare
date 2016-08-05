@@ -99,7 +99,7 @@ struct RenderData
    
    std::vector<SurfaceDistanceSortItem> surfaces_sorted_by_distance;
    glm::mat4x4 matrix_proj_world;
-   glm::mat4x4 matrix_proj_view;
+   glm::mat4x4 matrix_view_proj;
    glm::mat4x4 matrix_view_world;
 };
 

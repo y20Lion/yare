@@ -16,7 +16,7 @@ void main()
 layout(binding = BI_DEPTHS_TEXTURE) uniform sampler2D depths_texture;
 layout(binding = BI_NORMALS_TEXTURE) uniform sampler2D normals_texture;
 layout(binding = BI_RANDOM_TEXTURE) uniform sampler1D random_texture;
-layout(location = BI_MATRIX_WORLD_PROJ) uniform mat4 matrix_world_proj;
+layout(location = BI_MATRIX_VIEW_PROJ) uniform mat4 matrix_view_proj;
 layout(location = BI_MATRIX_VIEW_WORLD) uniform mat4 matrix_view_world;
 
 in vec2 pixel_uv;
@@ -28,10 +28,10 @@ vec3 transform(mat4 mat, vec3 v)
    return tmp.xyz / tmp.w;
 }
 
-vec3 worldPositionFromDepthBuffer(vec2 pixel_ndc)
+vec3 positionInViewFromDepthBuffer(vec2 pixel_ndc)
 {
    float depth_ndc = texture(depths_texture, 0.5*(pixel_ndc + 1.0)).x * 2.0 - 1.0;
-   return transform(matrix_world_proj, vec3(pixel_ndc, depth_ndc));
+   return transform(matrix_view_proj, vec3(pixel_ndc, depth_ndc));
 }
 
 float rand(vec2 co)
@@ -47,7 +47,7 @@ const float ssao_radius = 0.05;
 float occlusionAngle(vec2 direction, vec3 position_cs, vec3 normal_cs)
 {  
    vec2 sample_pixel_ndc = pixel_uv + direction*ssao_radius;
-   vec3 sample_position_cs = worldPositionFromDepthBuffer(sample_pixel_ndc);
+   vec3 sample_position_cs = positionInViewFromDepthBuffer(sample_pixel_ndc);
    vec3 v = normalize(sample_position_cs - position_cs);
 
    float depth_difference = abs(position_cs.z - sample_position_cs.z);
@@ -56,7 +56,7 @@ float occlusionAngle(vec2 direction, vec3 position_cs, vec3 normal_cs)
 
 void main()
 {
-   vec3 position_cs = worldPositionFromDepthBuffer(pixel_uv);
+   vec3 position_cs = positionInViewFromDepthBuffer(pixel_uv);
    vec3 normal_cs = mat3(matrix_view_world) * normalize(texture(normals_texture, 0.5*(pixel_uv + 1.0)).xyz);
 
    int offset = clamp(int(rand(gl_FragCoord.xy) * 1024), 1, 500);

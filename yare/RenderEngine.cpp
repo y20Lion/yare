@@ -151,7 +151,7 @@ void RenderEngine::updateScene(RenderData& render_data)
    
    auto  matrix_projection = perspective(3.14f / 2.0f, render_resources->framebuffer_size.ratio(), znear, zfar);
    render_data.matrix_proj_world = matrix_projection * mat;
-   render_data.matrix_proj_view = matrix_projection;
+   render_data.matrix_view_proj = inverse(matrix_projection);
    render_data.matrix_view_world = mat;
    /** frustum(camera.frustum.left, camera.frustum.right,
    camera.frustum.bottom, camera.frustum.top,
