@@ -259,9 +259,9 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
    _renderSurfacesMaterial(_scene.opaque_surfaces);
    background_sky->render();
 
-   GLDevice::bindColorBlendState({ GLBlendingMode::ModulateAdd });
+   /*GLDevice::bindColorBlendState({ GLBlendingMode::ModulateAdd });
    _renderSurfacesMaterial(_scene.transparent_surfaces);
-   GLDevice::bindDefaultColorBlendState();
+   GLDevice::bindDefaultColorBlendState();*/
 
 }
 
