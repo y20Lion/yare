@@ -30,7 +30,8 @@ reversion_wrapper<T> make_reverse(T&& iterable) { return{ iterable }; }
 template <typename T>
 class Range
 {
-public:
+public:   
+   Range() {}
    template <typename Titerable>
    Range(Titerable&& iterable) : it_start(iterable.begin()), it_end(iterable.end()) {}
    Range(T it_start, T it_end): it_start(it_start), it_end(it_end) {}

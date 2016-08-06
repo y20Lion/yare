@@ -109,7 +109,7 @@ void draw(int vertex_start, int vertex_count)
 void draw(const GLVertexSource& vertex_source)
 {
    glBindVertexArray(vertex_source.id());
-   glDrawArrays(GL_TRIANGLES, 0, vertex_source.vertexCount());
+   glDrawArrays(vertex_source.primitiveType(), 0, vertex_source.vertexCount());
 }
 
 }}

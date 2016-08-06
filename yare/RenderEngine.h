@@ -37,9 +37,13 @@ private:
    void _bindSceneUniforms();
    void _bindSurfaceUniforms(int suface_index, const SurfaceInstance& surface);
    void _renderSurfaces(const RenderData& render_data);
+   void _renderSurfacesMaterial(SurfaceRange surfaces);
    void _createSceneLightsBuffer();
 
    void _sortSurfacesByDistanceToCamera(RenderData& render_data);
+   void _sortSurfacesByMaterial();
+   void _updateUniformBuffers(const RenderData& render_data, float time, float delta_time);
+   void _updateRenderMatrices(RenderData& render_data);
 
 private:
    DISALLOW_COPY_AND_ASSIGN(RenderEngine)

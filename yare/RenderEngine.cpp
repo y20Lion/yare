@@ -5,6 +5,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/transform.hpp>
+#include <iterator>
 
 #include "GLDevice.h"
 #include "GLBuffer.h"
@@ -33,7 +34,7 @@ namespace yare {
 
 using namespace glm;
 
-struct SurfaceDynamicUniforms
+struct SurfaceUniforms
 {
    mat4 matrix_proj_local;
    mat4 normal_matrix_world_local;
@@ -111,10 +112,12 @@ void RenderEngine::offlinePrepareScene()
 {
    bindAnimationCurvesToTargets(_scene, *_scene.animation_player);
    
+   _sortSurfacesByMaterial();   
+   
    int uniform_buffer_align_size;
    glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &uniform_buffer_align_size);
-   _surface_uniforms_size = GLFormats::alignSize(sizeof(SurfaceDynamicUniforms), uniform_buffer_align_size);
-
+   _surface_uniforms_size = GLFormats::alignSize(sizeof(SurfaceUniforms), uniform_buffer_align_size);
+      
    int surface_count = int(_scene.surfaces.size());
    _surface_uniforms = createDynamicBuffer(_surface_uniforms_size * surface_count);
    _scene_uniforms = createDynamicBuffer(sizeof(SceneUniforms));
@@ -126,11 +129,10 @@ void RenderEngine::offlinePrepareScene()
    for (int i = 0; i < _scene.surfaces.size(); ++i)
    {
       auto& surface = _scene.surfaces[i];
-      surface.vertex_source_for_material = createVertexSource(*surface.mesh, surface.material->requiredMeshFields(_scene.surfaces[i].material_variant));
-      surface.vertex_source_position_only = createVertexSource(*surface.mesh, int(MeshFieldName::Position)| int(MeshFieldName::Normal));// TODO rename
+      surface.vertex_source_for_material = createVertexSource(*surface.mesh, surface.material->requiredMeshFields(_scene.surfaces[i].material_variant), surface.material->hasTessellation());
+      surface.vertex_source_position_normal = createVertexSource(*surface.mesh, int(MeshFieldName::Position)| int(MeshFieldName::Normal), surface.material->hasTessellation());// TODO rename
    }
 }
-
 
 void RenderEngine::updateScene(RenderData& render_data)
 {
@@ -144,53 +146,11 @@ void RenderEngine::updateScene(RenderData& render_data)
    for (const auto& skeleton : _scene.skeletons)
       skeleton->update();
 
-   const float znear = 0.05f;
-   const float zfar = 100.0f;//1000.0f;
-   
-   auto mat = lookAt(_scene.camera.point_of_view.from, _scene.camera.point_of_view.to, _scene.camera.point_of_view.up);
-   
-   auto  matrix_projection = perspective(3.14f / 2.0f, render_resources->framebuffer_size.ratio(), znear, zfar);
-   render_data.matrix_proj_world = matrix_projection * mat;
-   render_data.matrix_view_proj = inverse(matrix_projection);
-   render_data.matrix_view_world = mat;
-   /** frustum(camera.frustum.left, camera.frustum.right,
-   camera.frustum.bottom, camera.frustum.top,
-   camera.frustum.near, camera.frustum.far);*/
-   //_scene.surfaces[3].matrix_world_local = mat4x3(1.0);
-   for (int i = 0; i < render_data.main_view_surface_data.size(); ++i)
-   {
-      mat4 matrix_world_local = _scene.transform_hierarchy->nodeWorldToLocalMatrix(_scene.surfaces[i].transform_node_index);
-      render_data.main_view_surface_data[i].matrix_world_local        = matrix_world_local;
-      render_data.main_view_surface_data[i].normal_matrix_world_local = mat3(transpose(inverse(matrix_world_local)));
-      render_data.main_view_surface_data[i].matrix_proj_local         = render_data.matrix_proj_world * matrix_world_local;
-   }
-
+   _updateRenderMatrices(render_data);
    _sortSurfacesByDistanceToCamera(render_data);
-
-   //_updateUniformBuffers(); TODO
-
-   char* buffer = (char*)_surface_uniforms->getUpdateSegmentPtr(); // hopefully OpenGL will be done using that range at that time (I could use a fence to enforce it but meh I don't care)
-   for (int i = 0; i < render_data.main_view_surface_data.size(); ++i)
-   {
-      ((SurfaceDynamicUniforms*)buffer)->matrix_proj_local         = render_data.main_view_surface_data[i].matrix_proj_local;
-      ((SurfaceDynamicUniforms*)buffer)->normal_matrix_world_local = render_data.main_view_surface_data[i].normal_matrix_world_local;
-      ((SurfaceDynamicUniforms*)buffer)->matrix_world_local        = render_data.main_view_surface_data[i].matrix_world_local;
-      buffer += _surface_uniforms_size;
-   }     
+   _updateUniformBuffers(render_data, time_lapse, time_lapse - last_update_time);
    
-   SceneUniforms* scene_uniforms = (SceneUniforms*)_scene_uniforms->getUpdateSegmentPtr();
-   scene_uniforms->eye_position = _scene.camera.point_of_view.from;
-   scene_uniforms->matrix_proj_world = render_data.matrix_proj_world;
-   scene_uniforms->time = time_lapse;
-   scene_uniforms->delta_time = time_lapse - last_update_time;
-   scene_uniforms->znear = znear;
-   scene_uniforms->zfar = zfar;
-   scene_uniforms->proj_coeff_11 = matrix_projection[1][1];
-   float tessellation_pixels_per_edge = 30.0;
-   scene_uniforms->tessellation_edges_per_screen_height = render_resources->framebuffer_size.height/ tessellation_pixels_per_edge;
-
    last_update_time = time_lapse;
-
 }
 
 void RenderEngine::renderScene(const RenderData& render_data)
@@ -199,21 +159,10 @@ void RenderEngine::renderScene(const RenderData& render_data)
    GLDevice::bindDefaultColorBlendState();
    GLDevice::bindDefaultRasterizationState();
    glPatchParameteri(GL_PATCH_VERTICES, 3);
-
-   //GLDevice::bindFramebuffer(render_resources->main_framebuffer.get(), 0);  
-   {
-      glClearColor(0.0f, 0.0f, 0.0f, 1.0f);      
-      glViewport(0, 0, render_resources->main_framebuffer->width(), render_resources->main_framebuffer->height());
-      //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-      
-      _renderSurfaces(render_data);
-      
-      //glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-   }
-
+   
+   _renderSurfaces(render_data);
    film_processor->developFilm();
- 
-       
+        
    GLGPUTimer::swapCounters();
 }
 
@@ -281,12 +230,15 @@ void RenderEngine::_bindSurfaceUniforms(int suface_index, const SurfaceInstance&
 }
 
 void RenderEngine::_renderSurfaces(const RenderData& render_data)
-{   
+{
+   glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+   glViewport(0, 0, render_resources->main_framebuffer->width(), render_resources->main_framebuffer->height());
+   
    _bindSceneUniforms();   
-   GLDevice::bindFramebuffer(render_resources->main_framebuffer.get(), 1);
-   glClear(GL_DEPTH_BUFFER_BIT);   
-
+   
    // Z Pass   
+   GLDevice::bindFramebuffer(render_resources->main_framebuffer.get(), 1);
+   glClear(GL_DEPTH_BUFFER_BIT);
    GLDevice::bindProgram(*_z_pass_render_program);
    for (auto& sorted_surface : render_data.surfaces_sorted_by_distance)
    {
@@ -294,21 +246,41 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
       const auto& surface = _scene.surfaces[surface_index];
       _bindSurfaceUniforms(surface_index, surface);
       
-      GLDevice::bindVertexSource(*surface.vertex_source_position_only);
-      GLDevice::draw(0, surface.vertex_source_position_only->vertexCount());
+      GLDevice::draw(*surface.vertex_source_position_normal); // TODO dont render for ocean and animated geometry
    }
 
+   // SSAO render
    ssao_renderer->render(render_data);
    auto& ssao_texture = render_resources->ssao_framebuffer->attachedTexture(GL_COLOR_ATTACHMENT0);
    GLDevice::bindTexture(BI_SSAO_TEXTURE, ssao_texture, *render_resources->samplers.nearest_clampToEdge);
-   GLDevice::bindFramebuffer(render_resources->main_framebuffer.get(), 0);
-   background_sky->render();
+        
    // Material Pass
-   for (int i = 0; i < render_data.main_view_surface_data.size(); ++i)
+   GLDevice::bindFramebuffer(render_resources->main_framebuffer.get(), 0);
+   _renderSurfacesMaterial(_scene.opaque_surfaces);
+   background_sky->render();
+
+   GLDevice::bindColorBlendState({ GLBlendingMode::ModulateAdd });
+   _renderSurfacesMaterial(_scene.transparent_surfaces);
+   GLDevice::bindDefaultColorBlendState();
+
+}
+
+void RenderEngine::_renderSurfacesMaterial(SurfaceRange surfaces)
+{
+   int surface_index = int(std::distance(surfaces.begin(), _scene.surfaces.begin()));
+   const GLProgram* current_program = nullptr;
+   for (const auto& surface : surfaces)
    {
-      const auto& surface = _scene.surfaces[i];      
-      _bindSurfaceUniforms(i, surface);      
-      surface.material->render(*surface.vertex_source_for_material, *surface.material_program);
+      _bindSurfaceUniforms(surface_index++, surface);
+
+      if (surface.material_program != current_program)
+      {
+         GLDevice::bindProgram(*surface.material_program);
+         surface.material->bindTextures();
+         current_program = surface.material_program;
+      }      
+
+      GLDevice::draw(*surface.vertex_source_for_material);
    }
 }
 
@@ -375,6 +347,97 @@ void RenderEngine::_sortSurfacesByDistanceToCamera(RenderData& render_data)
       return a.distance < b.distance;
    };
    std::sort(RANGE(surfaces_sorted_by_distance), sort_by_distance);
+}
+
+struct SurfaceMaterialSortItem
+{
+   int surface_instance_index;
+   GLuint program_id;
+   bool is_transparent;
+};
+
+void RenderEngine::_sortSurfacesByMaterial()
+{
+   auto& surfaces = _scene.surfaces;
+   std::vector<SurfaceMaterialSortItem> temp_surface_list;
+   for (int i = 0; i < int(surfaces.size()); ++i)
+   {
+      const auto& surface = surfaces[i];
+      SurfaceMaterialSortItem item;
+      item.surface_instance_index = i;
+      item.program_id = surface.material_program->id();
+      item.is_transparent = surface.material->isTransparent();
+
+      temp_surface_list.push_back(item);
+      
+   }
+
+   auto sort_by_material = [](SurfaceMaterialSortItem& a, SurfaceMaterialSortItem& b)
+   {
+      if (a.is_transparent != b.is_transparent)
+         return b.is_transparent;
+
+      return a.program_id < b.program_id;
+   };
+   std::sort(RANGE(temp_surface_list), sort_by_material);
+
+   std::vector<SurfaceInstance> sorted_surfaces;
+   for (const auto& item : temp_surface_list)
+   {
+      sorted_surfaces.push_back(surfaces[item.surface_instance_index]);
+   }
+         
+   surfaces = std::move(sorted_surfaces);
+
+   auto first_transparent_surface_it = std::find_if(RANGE(surfaces), [](SurfaceInstance& surface)
+   {
+      return surface.material->isTransparent();
+   });
+   _scene.opaque_surfaces = SurfaceRange(surfaces.begin(), first_transparent_surface_it);
+   _scene.transparent_surfaces = SurfaceRange(first_transparent_surface_it, surfaces.end());
+}
+
+void RenderEngine::_updateUniformBuffers(const RenderData& render_data, float time, float delta_time)
+{
+   char* buffer = (char*)_surface_uniforms->getUpdateSegmentPtr(); // hopefully OpenGL will be done using that range at that time (I could use a fence to enforce it but meh I don't care)
+   for (int i = 0; i < render_data.main_view_surface_data.size(); ++i)
+   {
+      ((SurfaceUniforms*)buffer)->matrix_proj_local = render_data.main_view_surface_data[i].matrix_proj_local;
+      ((SurfaceUniforms*)buffer)->normal_matrix_world_local = render_data.main_view_surface_data[i].normal_matrix_world_local;
+      ((SurfaceUniforms*)buffer)->matrix_world_local = render_data.main_view_surface_data[i].matrix_world_local;
+      buffer += _surface_uniforms_size;
+   }
+
+   SceneUniforms* scene_uniforms = (SceneUniforms*)_scene_uniforms->getUpdateSegmentPtr();
+   scene_uniforms->eye_position = _scene.camera.point_of_view.from;
+   scene_uniforms->matrix_proj_world = render_data.matrix_proj_world;
+   scene_uniforms->time = time;
+   scene_uniforms->delta_time = delta_time;
+   scene_uniforms->znear = _scene.camera.frustum.near;
+   scene_uniforms->zfar = _scene.camera.frustum.far;
+   scene_uniforms->proj_coeff_11 = render_data.matrix_proj_view[1][1];
+   float tessellation_pixels_per_edge = 30.0;
+   scene_uniforms->tessellation_edges_per_screen_height = render_resources->framebuffer_size.height / tessellation_pixels_per_edge;
+}
+
+void RenderEngine::_updateRenderMatrices(RenderData& render_data)
+{
+   const float znear = _scene.camera.frustum.near;
+   const float zfar = _scene.camera.frustum.far;
+   auto matrix_view_world = lookAt(_scene.camera.point_of_view.from, _scene.camera.point_of_view.to, _scene.camera.point_of_view.up);
+   auto matrix_projection = perspective(3.14f / 2.0f, render_resources->framebuffer_size.ratio(), znear, zfar);
+   render_data.matrix_proj_world = matrix_projection * matrix_view_world;
+   render_data.matrix_view_world = matrix_view_world;
+   render_data.matrix_view_proj = inverse(matrix_projection);
+   render_data.matrix_proj_view = matrix_projection;
+
+   for (int i = 0; i < render_data.main_view_surface_data.size(); ++i)
+   {
+      mat4 matrix_world_local = _scene.transform_hierarchy->nodeWorldToLocalMatrix(_scene.surfaces[i].transform_node_index);
+      render_data.main_view_surface_data[i].matrix_world_local = matrix_world_local;
+      render_data.main_view_surface_data[i].normal_matrix_world_local = mat3(transpose(inverse(matrix_world_local)));
+      render_data.main_view_surface_data[i].matrix_proj_local = render_data.matrix_proj_world * matrix_world_local;
+   }
 }
 
 

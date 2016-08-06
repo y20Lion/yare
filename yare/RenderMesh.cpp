@@ -58,7 +58,7 @@ void RenderMesh::unmapTriangleIndices()
 
 }
 
-Uptr<GLVertexSource> createVertexSource(const RenderMesh& mesh, FieldsMask fields_bitmask)
+Uptr<GLVertexSource> createVertexSource(const RenderMesh& mesh, FieldsMask fields_bitmask, bool tessellation)
 {
     auto vertex_source = std::make_unique<GLVertexSource>();   
     vertex_source->setVertexBuffer(mesh.vertexBuffer());
@@ -73,6 +73,7 @@ Uptr<GLVertexSource> createVertexSource(const RenderMesh& mesh, FieldsMask field
         }
     }
     vertex_source->setVertexCount(mesh.vertexCount());
+    vertex_source->setPrimitiveType(tessellation ? GL_PATCHES : GL_TRIANGLES);
     return vertex_source;
 }
 

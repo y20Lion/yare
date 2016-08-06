@@ -34,14 +34,9 @@ struct GLRasterizationState
 };
 
 namespace GLDevice 
-{
-
-    /*void blit(const GLRenderTarget& src_render_target, int attachment, GLRenderTarget& dst_render_target, int attachment);
-    void blitDepth(const GLRenderTarget& src_render_target, GLRenderTarget& dst_render_target);
-    void read(const GLRenderTarget& render_target, int attachment);*/
+{   
    void bindUniformMatrix4(GLint location, const mat4& matrix);
       
-
    // state setting
    void bindFramebuffer(const GLFramebuffer* framebuffer, int color_attachment);
    void bindProgram(const GLProgram& program);

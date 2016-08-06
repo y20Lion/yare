@@ -42,25 +42,6 @@ int ShadeTreeMaterial::requiredMeshFields(MaterialVariant material_variant)
    return fields;
 }
 
-void ShadeTreeMaterial::render(const GLVertexSource& mesh_source, const GLProgram& program)
-{   
-   bindTextures();
-   GLDevice::bindProgram(program);
-   GLDevice::bindVertexSource(mesh_source);
-
-   if (isTransparent())
-   {
-      GLDevice::bindColorBlendState({ GLBlendingMode::ModulateAdd });
-   }
-
-   GLDevice::draw(0, mesh_source.vertexCount());
-
-   if (isTransparent())
-   {
-      GLDevice::bindDefaultColorBlendState();
-   }
-}
-
 const GLProgram& ShadeTreeMaterial::compile(MaterialVariant material_variant)
 {
    auto prog_it =_program_variants.find(material_variant);

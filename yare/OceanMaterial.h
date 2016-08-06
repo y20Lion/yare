@@ -25,7 +25,9 @@ public:
 
    virtual int requiredMeshFields(MaterialVariant material_variant) override;
    virtual const GLProgram& compile(MaterialVariant material_variant) override { return *_program; }
-   virtual void render(const GLVertexSource& mesh_source, const GLProgram& program) override;
+   virtual void bindTextures() override { }
+   virtual bool isTransparent() override { return false;  }
+   virtual bool hasTessellation() override { return true; }
 
 private:
    DISALLOW_COPY_AND_ASSIGN(OceanMaterial)

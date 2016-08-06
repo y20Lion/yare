@@ -26,12 +26,12 @@ public:
 
    virtual int requiredMeshFields(MaterialVariant material_variant) override;
    virtual const GLProgram& compile(MaterialVariant material_variant) override;
-   virtual void render(const GLVertexSource& mesh_source, const GLProgram& program) override;
    
    std::map<std::string, std::unique_ptr<ShadeTreeNode>> tree_nodes;
 
-   void bindTextures();
-   bool isTransparent() const { return _is_transparent; }
+   virtual void bindTextures() override;
+   virtual bool isTransparent() override { return _is_transparent; }
+   virtual bool hasTessellation() override { return false; }
 
 private:
    std::string _createVertexShaderCode(const ShadeTreeEvaluation& evaluation, const std::string& fragment_template, const std::string& defines);

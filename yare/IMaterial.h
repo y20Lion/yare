@@ -2,7 +2,6 @@
 
 namespace yare {
 
-class GLVertexSource;
 class GLProgram;
 struct RenderResources;
 
@@ -16,7 +15,9 @@ public:
    
    virtual int requiredMeshFields(MaterialVariant material_variant) = 0;
    virtual const GLProgram& compile(MaterialVariant material_variant) = 0;
-   virtual void render(const GLVertexSource& mesh_source, const GLProgram& program) = 0;
+   virtual void bindTextures() = 0;
+   virtual bool isTransparent() = 0;
+   virtual bool hasTessellation() = 0;
    
 };
 

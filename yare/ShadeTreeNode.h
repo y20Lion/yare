@@ -30,7 +30,6 @@ struct Link
 struct ShadeTreeNodeSlot
 {
 	std::string name;
-	ShadeTreeNodeSlotType type;
 	glm::vec4 default_value;
 	std::vector<Link> links;
 };

@@ -61,7 +61,7 @@ private:
     Uptr<GLBuffer> _vertex_buffer;
 };
 
-Uptr<GLVertexSource> createVertexSource(const RenderMesh& mesh, FieldsMask fields_bitmask);
+Uptr<GLVertexSource> createVertexSource(const RenderMesh& mesh, FieldsMask fields_bitmask, bool tessellation);
 Uptr<GLVertexSource> createVertexSource(const RenderMesh& mesh);
 
 }

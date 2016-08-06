@@ -139,7 +139,6 @@ static void readNodeSlots(const Json::Value& json_slots, std::map<std::string, S
         slot.name = json_slot["Name"].asString();
         std::replace(RANGE(slot.name), '.', '_');
         slot.default_value = vec4(0.0);
-        slot.type = ShadeTreeNodeSlotType::Float;
 
         if (json_slot.isMember("DefaultValue"))
         {
@@ -149,16 +148,10 @@ static void readNodeSlots(const Json::Value& json_slots, std::map<std::string, S
               int value_components = json_slot["DefaultValue"].size();
               for (int i = 0; i < value_components; ++i)
                  slot.default_value[i] = json_slot["DefaultValue"][i].asFloat();
-
-              if (slot.name == "Normal")
-                 slot.type = ShadeTreeNodeSlotType::Normal; // TODO remove slot type
-              else
-                 slot.type = ShadeTreeNodeSlotType::Vec3;
            }
            else
            {
               slot.default_value.x = json_slot["DefaultValue"].asFloat();
-              slot.type = ShadeTreeNodeSlotType::Float;
            }
         }
      
@@ -515,7 +508,7 @@ void readTransformHierarchy(const Json::Value& json_hierarchy, Scene* scene)
       node.first_child = node.children_count ? child_counter : -1;
       child_counter += node.children_count;
       node.object_name = json_node["ObjectName"].asString();
-      scene->object_name_to_transform_node_index[json_node["ObjectName"].asString()] = i; // TODO put in transform hierarchy
+      scene->object_name_to_transform_node_index[json_node["ObjectName"].asString()] = i;
       
       i++;
    }

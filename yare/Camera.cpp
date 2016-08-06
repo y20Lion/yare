@@ -29,7 +29,7 @@ Frustum::Frustum()
     , right(1.0)
     , bottom(-1.0)
     , top(1.0)
-    , near(1.0)
+    , near(0.05)
     , far(100.0)
 {
 }

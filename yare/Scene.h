@@ -12,6 +12,7 @@
 #include "GLVertexSource.h"
 #include "IMaterial.h"
 #include "Transform.h"
+#include "SurfaceRange.h"
 
 namespace yare {
 
@@ -37,7 +38,7 @@ struct SurfaceInstance
    const GLProgram* material_program;
         
    Sptr<GLVertexSource> vertex_source_for_material;
-   Sptr<GLVertexSource> vertex_source_position_only;
+   Sptr<GLVertexSource> vertex_source_position_normal;
 };
 
 enum class LightType { Sphere = 0, Rectangle = 1, Sun = 2, Spot = 3 };
@@ -100,6 +101,7 @@ struct RenderData
    std::vector<SurfaceDistanceSortItem> surfaces_sorted_by_distance;
    glm::mat4x4 matrix_proj_world;
    glm::mat4x4 matrix_view_proj;
+   glm::mat4x4 matrix_proj_view;
    glm::mat4x4 matrix_view_world;
 };
 
@@ -116,9 +118,11 @@ public:
 
    Camera camera;
    std::vector<Sptr<Skeleton>> skeletons;
-   std::vector<Sptr<IMaterial>> materials;
-   std::vector<SurfaceInstance> surfaces;
+   std::vector<Sptr<IMaterial>> materials;   
    std::vector<Light> lights;
+   std::vector<SurfaceInstance> surfaces;
+   SurfaceRange opaque_surfaces;
+   SurfaceRange transparent_surfaces;
 
    Uptr<GLTextureCubemap> sky_cubemap;
    Uptr<GLTexture2D> sky_latlong;
