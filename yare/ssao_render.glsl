@@ -39,7 +39,7 @@ float rand(vec2 co)
    return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
 }
 
-const int sample_count = 10;
+const int sample_count = 5;
 const float ssao_darken = 5.0;
 const float ssao_reject_distance = 1.0;
 const float ssao_radius = 0.05;
@@ -57,7 +57,8 @@ float occlusionAngle(vec2 direction, vec3 position_cs, vec3 normal_cs)
 void main()
 {
    vec3 position_cs = positionInViewFromDepthBuffer(pixel_uv);
-   vec3 normal_cs = mat3(matrix_view_world) * normalize(texture(normals_texture, 0.5*(pixel_uv + 1.0)).xyz);
+   vec3 normal_cs = normalize(cross(dFdx(position_cs.xyz), dFdy(position_cs.xyz)));
+   //vec3 normal_cs = mat3(matrix_view_world) * normalize(texture(normals_texture, 0.5*(pixel_uv + 1.0)).xyz);
 
    int offset = clamp(int(rand(gl_FragCoord.xy) * 1024), 1, 500);
    out_ambient_occlusion = 0.0;

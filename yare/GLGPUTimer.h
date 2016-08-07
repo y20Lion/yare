@@ -18,7 +18,7 @@ public:
       
    void start();
    void stop();
-   double elapsedTimeInMs(TimerResult timer_result) const;
+   double elapsedTimeInMs(TimerResult timer_result = TimerResult::PreviousFrame) const;
 
    void printElapsedTimeInMs(TimerResult timer_result = TimerResult::PreviousFrame) const;
 

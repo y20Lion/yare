@@ -63,9 +63,14 @@ Samplers createSamplers()
 RenderResources::RenderResources(const ImageSize& framebuffer_size_)
 {
    timer = std::make_unique<GLGPUTimer>();
-   ssao_timer = std::make_unique<GLGPUTimer>();
+   ssao_timer = std::make_unique<GLGPUTimer>(); 
+   z_pass_timer = std::make_unique<GLGPUTimer>();
+   material_pass_timer = std::make_unique<GLGPUTimer>();
+   background_timer = std::make_unique<GLGPUTimer>();
+
+
    framebuffer_size = framebuffer_size_;
-   main_framebuffer = createFramebuffer(framebuffer_size, GL_RGBA32F, 2, GL_DEPTH_COMPONENT32F); // 0 color, // 1 normals
+   main_framebuffer = createFramebuffer(framebuffer_size, GL_RGBA16F, 2, GL_DEPTH_COMPONENT32F); // 0 color, // 1 normals
    ssao_framebuffer = createFramebuffer(framebuffer_size, GL_R16F, 2);
    halfsize_postprocess_fbo = createFramebuffer(ImageSize(framebuffer_size.width/2, framebuffer_size.height/2), GL_RGBA32F, 2);
 

@@ -41,6 +41,9 @@ struct RenderResources
 
    Uptr<GLGPUTimer> timer;
    Uptr<GLGPUTimer> ssao_timer;
+   Uptr<GLGPUTimer> z_pass_timer;
+   Uptr<GLGPUTimer> material_pass_timer;
+   Uptr<GLGPUTimer> background_timer;
 
    Uptr<GLBuffer> hammersley_samples;
    Uptr<GLTexture1D> random_texture;

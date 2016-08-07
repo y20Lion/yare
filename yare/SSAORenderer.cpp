@@ -23,7 +23,7 @@ SSAORenderer::SSAORenderer(const RenderResources& render_resources)
 void SSAORenderer::render(const RenderData& render_data)
 {
    GLDevice::bindTexture(BI_DEPTHS_TEXTURE, _rr.main_framebuffer->attachedTexture(GL_DEPTH_ATTACHMENT), *_rr.samplers.nearest_clampToEdge);   
-   //_rr.ssao_timer->start();
+   _rr.ssao_timer->start();
    GLDevice::bindFramebuffer(_rr.ssao_framebuffer.get(), 0);
 
    GLDevice::bindProgram(*_ssao_render);
@@ -32,7 +32,7 @@ void SSAORenderer::render(const RenderData& render_data)
    GLDevice::bindTexture(BI_NORMALS_TEXTURE, _rr.main_framebuffer->attachedTexture(GL_COLOR_ATTACHMENT1), *_rr.samplers.nearest_clampToEdge);
    GLDevice::bindTexture(BI_RANDOM_TEXTURE, *_rr.random_texture, *_rr.samplers.nearest_clampToEdge);
    GLDevice::draw(*_rr.fullscreen_triangle_source);
-
+   _rr.ssao_timer->stop();
    
    GLDevice::bindFramebuffer(_rr.ssao_framebuffer.get(), 1);
    
@@ -46,7 +46,7 @@ void SSAORenderer::render(const RenderData& render_data)
    GLDevice::bindTexture(BI_SSAO_TEXTURE, _rr.ssao_framebuffer->attachedTexture(GL_COLOR_ATTACHMENT1), *_rr.samplers.nearest_clampToEdge);
    GLDevice::draw(*_rr.fullscreen_triangle_source);
    GLDevice::bindFramebuffer(nullptr, 0);
-   //_rr.ssao_timer->stop();
+   
 
    //_rr.ssao_timer->printElapsedTimeInMs();
 }

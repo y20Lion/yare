@@ -6,6 +6,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/transform.hpp>
 #include <iterator>
+#include <iostream>
 
 #include "GLDevice.h"
 #include "GLBuffer.h"
@@ -237,7 +238,9 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
    _bindSceneUniforms();   
    
    // Z Pass   
+   render_resources->z_pass_timer->start();
    GLDevice::bindFramebuffer(render_resources->main_framebuffer.get(), 1);
+   glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
    glClear(GL_DEPTH_BUFFER_BIT);
    GLDevice::bindProgram(*_z_pass_render_program);
    for (auto& sorted_surface : render_data.surfaces_sorted_by_distance)
@@ -248,6 +251,8 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
       
       GLDevice::draw(*surface.vertex_source_position_normal); // TODO dont render for ocean and animated geometry
    }
+   glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+   render_resources->z_pass_timer->stop();
 
    // SSAO render
    ssao_renderer->render(render_data);
@@ -255,13 +260,24 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
    GLDevice::bindTexture(BI_SSAO_TEXTURE, ssao_texture, *render_resources->samplers.nearest_clampToEdge);
         
    // Material Pass
+   render_resources->material_pass_timer->start();
    GLDevice::bindFramebuffer(render_resources->main_framebuffer.get(), 0);
+   //glClear(GL_DEPTH_BUFFER_BIT);
    _renderSurfacesMaterial(_scene.opaque_surfaces);
-   background_sky->render();
+   render_resources->material_pass_timer->stop();
 
-   /*GLDevice::bindColorBlendState({ GLBlendingMode::ModulateAdd });
+   render_resources->background_timer->start();
+   background_sky->render();
+   render_resources->background_timer->stop();
+   GLDevice::bindColorBlendState({ GLBlendingMode::ModulateAdd });
    _renderSurfacesMaterial(_scene.transparent_surfaces);
-   GLDevice::bindDefaultColorBlendState();*/
+   GLDevice::bindDefaultColorBlendState();
+
+   std::cout << "z:"<< render_resources->z_pass_timer->elapsedTimeInMs() 
+             << " ssao:"<<  render_resources->ssao_timer->elapsedTimeInMs() 
+             << " mat:" << render_resources->material_pass_timer->elapsedTimeInMs()
+             << " b:" << render_resources->background_timer->elapsedTimeInMs()
+             << std::endl;
 
 }
 
@@ -269,6 +285,7 @@ void RenderEngine::_renderSurfacesMaterial(SurfaceRange surfaces)
 {
    int surface_index = int(std::distance(surfaces.begin(), _scene.surfaces.begin()));
    const GLProgram* current_program = nullptr;
+
    for (const auto& surface : surfaces)
    {
       _bindSurfaceUniforms(surface_index++, surface);
