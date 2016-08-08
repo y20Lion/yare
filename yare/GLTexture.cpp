@@ -123,6 +123,36 @@ int GLTexture2D::readbackBufferSize() const
    return _width * _height * GLFormats::componentCount(format.first) * GLFormats::sizeOfType(format.second);
 }
 
+GLTexture3D::GLTexture3D(const GLTexture3DDesc& desc)
+   : _height(desc.height)
+   , _width(desc.width)
+   , _depth(desc.depth)
+   , _internal_format(desc.internal_format)
+{
+   _level_count = desc.mipmapped ? GLFormats::mipmapLevelCount(desc.width, desc.height) : 1;
+
+   glCreateTextures(GL_TEXTURE_3D, 1, &_texture_id);
+   glTextureStorage3D(_texture_id, _level_count, desc.internal_format, desc.width, desc.height, desc.depth);
+
+   if (desc.texture_pixels != nullptr)
+   {
+      auto format = _getExternalFormatAndType(desc.internal_format, false);
+      glTextureSubImage3D(_texture_id, 0, 0, 0, 0, _width, _height, _depth, format.first, format.second, desc.texture_pixels);
+
+      if (desc.mipmapped)
+      {
+         glGenerateTextureMipmap(_texture_id);
+      }
+   }
+
+   glTextureParameteri(_texture_id, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+   glTextureParameteri(_texture_id, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+}
+
+GLTexture3D::~GLTexture3D()
+{
+}
+
 Uptr<GLTexture1D> createMipmappedTexture1D(int width, GLenum internal_format, void* pixels, bool pixels_in_bgr)
 {
    GLTexture1DDesc desc;
@@ -171,6 +201,32 @@ Uptr<GLTexture2D> createTexture2D(int width, int height, GLenum internal_format,
    desc.texture_pixels_in_bgr = false;
 
    return std::make_unique<GLTexture2D>(desc);
+}
+
+Uptr<GLTexture3D> createMipmappedTexture3D(int width, int height, int depth, GLenum internal_format, void* pixels)
+{
+   GLTexture3DDesc desc;
+   desc.mipmapped = true;
+   desc.width = width;
+   desc.height = height;
+   desc.depth = depth;
+   desc.internal_format = internal_format;
+   desc.texture_pixels = pixels;
+
+   return std::make_unique<GLTexture3D>(desc);
+}
+
+Uptr<GLTexture3D> createTexture3D(int width, int height, int depth, GLenum internal_format, void* pixels)
+{
+   GLTexture3DDesc desc;
+   desc.mipmapped = false;
+   desc.width = width;
+   desc.height = height;
+   desc.depth = depth;
+   desc.internal_format = internal_format;
+   desc.texture_pixels = pixels;
+
+   return std::make_unique<GLTexture3D>(desc);
 }
 
 

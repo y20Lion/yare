@@ -101,6 +101,8 @@ static Uptr<RenderMesh> readMesh(const Json::Value& mesh_object, std::ifstream& 
 		render_mesh->unmapVertices();
 	}
 
+   render_mesh->commitToGPU();
+
 	return render_mesh;
 }
 
@@ -516,6 +518,19 @@ void readTransformHierarchy(const Json::Value& json_hierarchy, Scene* scene)
    scene->transform_hierarchy = std::make_unique<TransformHierarchy>(std::move(nodes));
 }
 
+static void readAOVolumes(const Json::Value& json_ao_volumes, Scene* scene)
+{
+   for (const auto& json_ao_volume : json_ao_volumes)
+   {
+      AOVolume ao_volume;
+      ao_volume.transform_node_index = scene->object_name_to_transform_node_index.at(json_ao_volume["Name"].asString());
+      ao_volume.size = readVec3(json_ao_volume["Size"]);
+      ao_volume.position = readVec3(json_ao_volume["Position"]);
+      ao_volume.resolution = json_ao_volume["Resolution"].asInt();
+      scene->ambient_occlusion_volumes.emplace_back(ao_volume);
+   }
+}
+
 void import3DY(const std::string& filename, const RenderEngine& render_engine, Scene* scene)
 {
 	std::ifstream data_file(filename+"\\data.bin", std::ifstream::binary);
@@ -526,6 +541,7 @@ void import3DY(const std::string& filename, const RenderEngine& render_engine, S
 	json_file.close();
 
    readTransformHierarchy(root["TransformHierarchy"], scene);
+   readAOVolumes(root["AOVolumes"], scene);
    readLights(root["Lights"], scene);
    readEnvironment(render_engine, root["Environment"], scene);
    readActions(root["Actions"], scene);

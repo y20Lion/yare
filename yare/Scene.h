@@ -23,9 +23,9 @@ class RenderMesh;
 class Skeleton;
 class GLTextureCubemap;
 class GLTexture2D;
+class GLTexture3D;
 class AnimationPlayer;
 class TransformHierarchy;
-
 
 struct SurfaceInstance
 {
@@ -105,6 +105,14 @@ struct RenderData
    glm::mat4x4 matrix_view_world;
 };
 
+struct AOVolume
+{
+   int transform_node_index;
+   vec3 position;
+   vec3 size;
+   int resolution;
+};
+
 class Scene
 {
 public:
@@ -117,6 +125,7 @@ public:
    std::map<std::string, int> object_name_to_transform_node_index;
 
    Camera camera;
+   std::vector<AOVolume> ambient_occlusion_volumes;
    std::vector<Sptr<Skeleton>> skeletons;
    std::vector<Sptr<IMaterial>> materials;   
    std::vector<Light> lights;
@@ -124,6 +133,7 @@ public:
    SurfaceRange opaque_surfaces;
    SurfaceRange transparent_surfaces;
 
+   Uptr<GLTexture3D> ao_volume;
    Uptr<GLTextureCubemap> sky_cubemap;
    Uptr<GLTexture2D> sky_latlong;
    Uptr<GLTextureCubemap> sky_diffuse_cubemap;

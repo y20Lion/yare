@@ -125,6 +125,11 @@ int main()
    char* file = "D:\\BlenderTests\\town.3dy";
    import3DY(file, render_engine, render_engine.scene());
    render_engine.offlinePrepareScene();
+   Raytracer raytracer;
+   raytracer.init(*render_engine.scene());
+   raytracer.bakeAmbiantOcclusionVolume(*render_engine.scene());
+
+   
    CameraManipulator camera_manipulator(&render_engine.scene()->camera.point_of_view);
 
    glfwShowWindow(window);

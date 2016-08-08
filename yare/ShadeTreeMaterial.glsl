@@ -496,4 +496,8 @@ void evalLayerWeight(float blend, vec3 normal, out float out_fresnel, out float 
 
        //shading_result.rgb = vec3(texelFetch(ssao_texture, ivec2(gl_FragCoord.xy), 0).r/10.0);
        //shading_result.rgb = vec3((texelFetch(ssao_texture, ivec2(gl_FragCoord.xy), 0).r));
+
+   vec3 voxel_size = ao_volume_size / 64.0;
+   vec3 uvw = ((attr_position+normal*sqrt(3.0)*0.5*voxel_size) - ao_volume_bound_min) / ao_volume_size;
+   shading_result.rgb = vec3(texture(ao_volume, uvw).r)*2.0;
  }

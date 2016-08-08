@@ -44,14 +44,16 @@ struct SurfaceUniforms
 
 struct SceneUniforms
 {
-   mat4 matrix_proj_world; 
+   mat4 matrix_proj_world;
    vec3 eye_position;
    float time;
-
+   vec3 ao_volume_bound_min;
    float delta_time;
+   vec3 ao_volume_size;
+   float proj_coeff_11;
+
    float znear;
    float zfar;
-   float proj_coeff_11;
    float tessellation_edges_per_screen_height;
 
 };
@@ -133,6 +135,8 @@ void RenderEngine::offlinePrepareScene()
       surface.vertex_source_for_material = createVertexSource(*surface.mesh, surface.material->requiredMeshFields(_scene.surfaces[i].material_variant), surface.material->hasTessellation());
       surface.vertex_source_position_normal = createVertexSource(*surface.mesh, int(MeshFieldName::Position)| int(MeshFieldName::Normal), surface.material->hasTessellation());// TODO rename
    }
+
+   _scene.transform_hierarchy->updateNodesWorldToLocalMatrix();
 }
 
 void RenderEngine::updateScene(RenderData& render_data)
@@ -208,6 +212,7 @@ void RenderEngine::_bindSceneUniforms()
    const auto & diffuse_cubemap = counter < 120 ? *_scene.sky_diffuse_cubemap : *_scene.sky_diffuse_cubemap_sh;
    GLDevice::bindTexture(BI_SKY_CUBEMAP, *_scene.sky_cubemap, *(render_resources->samplers.mipmap_clampToEdge));
    GLDevice::bindTexture(BI_SKY_DIFFUSE_CUBEMAP, diffuse_cubemap, *render_resources->samplers.mipmap_clampToEdge);
+   GLDevice::bindTexture(BI_AO_VOLUME, *_scene.ao_volume, *render_resources->samplers.mipmap_clampToEdge);
    counter++;
    if (counter == 240)
       counter = 0;
@@ -435,6 +440,9 @@ void RenderEngine::_updateUniformBuffers(const RenderData& render_data, float ti
    scene_uniforms->proj_coeff_11 = render_data.matrix_proj_view[1][1];
    float tessellation_pixels_per_edge = 30.0;
    scene_uniforms->tessellation_edges_per_screen_height = render_resources->framebuffer_size.height / tessellation_pixels_per_edge;
+
+   scene_uniforms->ao_volume_size = _scene.ambient_occlusion_volumes[0].size;
+   scene_uniforms->ao_volume_bound_min = _scene.ambient_occlusion_volumes[0].position - 0.5f*_scene.ambient_occlusion_volumes[0].size;
 }
 
 void RenderEngine::_updateRenderMatrices(RenderData& render_data)

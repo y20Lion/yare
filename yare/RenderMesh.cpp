@@ -30,6 +30,7 @@ RenderMesh::RenderMesh(int triangle_count, int vertex_count, const std::vector<V
 	desc.size_bytes = vertex_buffer_size;
    desc.data = nullptr;
 	_vertex_buffer = std::make_unique<GLBuffer>(desc);
+   _vertex_cpu_buffer = std::make_unique<char[]>(vertex_buffer_size);
 }
 
 RenderMesh::~RenderMesh()
@@ -39,13 +40,12 @@ RenderMesh::~RenderMesh()
 
 void* RenderMesh::mapVertices(MeshFieldName vertex_field)
 {
-	const auto& field = _fields.at(vertex_field);
-	return _vertex_buffer->mapRange(field.offset, field.size, GL_MAP_WRITE_BIT);
+   const auto& field = _fields.at(vertex_field);
+   return _vertex_cpu_buffer.get() + field.offset;
 }
 
 void RenderMesh::unmapVertices()
 {
-	_vertex_buffer->unmap();
 }
 
 void* RenderMesh::mapTrianglesIndices()
@@ -56,6 +56,14 @@ void* RenderMesh::mapTrianglesIndices()
 void RenderMesh::unmapTriangleIndices()
 {
 
+}
+
+void RenderMesh::commitToGPU()
+{
+   auto size = _vertex_buffer->size();
+   void* gpu_buffer = _vertex_buffer->mapRange(0, size, GL_MAP_WRITE_BIT);
+   memcpy(gpu_buffer, _vertex_cpu_buffer.get(), size);
+   _vertex_buffer->unmap();
 }
 
 Uptr<GLVertexSource> createVertexSource(const RenderMesh& mesh, FieldsMask fields_bitmask, bool tessellation)

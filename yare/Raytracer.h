@@ -19,7 +19,7 @@ public:
 
    void init(const Scene& scene);
    void raytraceTest();
-   void bakeAmbiantOcclusionVolume();
+   void bakeAmbiantOcclusionVolume(Scene& scene);
 
 private:
    void _wait();

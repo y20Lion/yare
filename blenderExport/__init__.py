@@ -253,7 +253,6 @@ def writeCurveRgbNodeProperties(node, json_node, binary_file):
     
 def forwardGroupOutputLink(group_name, node_link):
     group_node = node_link.from_node
-    #print(group_node.name)
     group_output_node = group_node.node_tree.nodes['Group Output']
     group_output_node_input = next(input for input in group_output_node.inputs if input.identifier==node_link.from_socket.identifier)
     link = group_output_node_input.links[0]
@@ -435,7 +434,7 @@ def writeAnimationCurves(curves, object):
     return json_curves
 
 def isValidMeshObject(object):
-    return object.is_visible(bpy.context.scene) and hasMesh(object)
+    return object.is_visible(bpy.context.scene) and hasMesh(object) and (object.get('AOVolume') is None)
     
 def isValidAnimatedObject(object):
     if object.animation_data is None:
@@ -540,6 +539,15 @@ def writeSurfaces(armatures_bone_indices, binary_file):
         updateProgress("progress", i/object_count)
     return json_surfaces
 
+def writeAOVolumes():
+    json_ao_volumes = []
+    for object in bpy.context.scene.objects:
+        if object.get('AOVolume') is None:
+            continue
+        json_ao_volumes.append({'Name':object.name, 'Size':(object.scale*2.0)[:], 'Position':object.location[:], 'Resolution':int(object['AOVolume']) })
+        
+    return json_ao_volumes
+    
     
 class Export3DY(bpy.types.Operator, ExportHelper):
     bl_idname = "export.3dy"
@@ -567,6 +575,7 @@ class Export3DY(bpy.types.Operator, ExportHelper):
         json_root['Actions'] = writeActions()
         json_root['TransformHierarchy'] = writeTransformHierarchy()        
         json_root['Surfaces'] = writeSurfaces(armatures_bone_indices, binary_file)
+        json_root['AOVolumes'] = writeAOVolumes()
 
         binary_file_size = binary_file.tell()
         binary_file.close()

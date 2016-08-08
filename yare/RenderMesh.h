@@ -33,10 +33,12 @@ public:
     ~RenderMesh();
 
     void* mapVertices(MeshFieldName vertex_field);
-    void unmapVertices();
+    void unmapVertices();    
 
     void* mapTrianglesIndices();
     void unmapTriangleIndices();
+
+    void commitToGPU();
 
 	const GLBuffer& vertexBuffer() const { return *_vertex_buffer;  }
 	int triangleCount() const { return _triangle_count; }
@@ -59,6 +61,7 @@ private:
 	int _vertex_count;
     //GLBuffer _index_buffer;
     Uptr<GLBuffer> _vertex_buffer;
+    std::unique_ptr<char[]> _vertex_cpu_buffer;
 };
 
 Uptr<GLVertexSource> createVertexSource(const RenderMesh& mesh, FieldsMask fields_bitmask, bool tessellation);
