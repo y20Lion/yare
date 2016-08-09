@@ -110,7 +110,7 @@ GLTexture2D::~GLTexture2D()
 {    
 }
 
-void GLTexture2D::readbackPixels(void* ptr, int level) const
+void GLTexture2D::readbackTexels(void* ptr, int level) const
 {
    auto format = _getExternalFormatAndType(_internal_format, false);
    int buf_size = _width * _height * GLFormats::componentCount(format.first) * GLFormats::sizeOfType(format.second);
@@ -151,6 +151,19 @@ GLTexture3D::GLTexture3D(const GLTexture3DDesc& desc)
 
 GLTexture3D::~GLTexture3D()
 {
+}
+
+void GLTexture3D::readbackTexels(void* ptr, int level) const
+{
+   auto format = _getExternalFormatAndType(_internal_format, false);
+   int buf_size = _width * _height* _depth * GLFormats::componentCount(format.first) * GLFormats::sizeOfType(format.second);
+   glGetTextureImage(_texture_id, 0, format.first, format.second, buf_size, ptr);
+}
+
+int GLTexture3D::readbackBufferSize() const
+{
+   auto format = _getExternalFormatAndType(_internal_format, false);
+   return _width * _height * _depth * GLFormats::componentCount(format.first) * GLFormats::sizeOfType(format.second);
 }
 
 Uptr<GLTexture1D> createMipmappedTexture1D(int width, GLenum internal_format, void* pixels, bool pixels_in_bgr)

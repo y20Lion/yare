@@ -67,7 +67,7 @@ public:
    virtual ~GLTexture2D();
    DISALLOW_COPY_AND_ASSIGN(GLTexture2D)
 
-   void readbackPixels(void* ptr, int level = 0) const;
+   void readbackTexels(void* ptr, int level = 0) const;
    int readbackBufferSize() const;
 
    int width() const override { return _width;  }
@@ -93,6 +93,9 @@ public:
    GLTexture3D(const GLTexture3DDesc& desc);
    virtual ~GLTexture3D();
    DISALLOW_COPY_AND_ASSIGN(GLTexture3D)
+
+   void readbackTexels(void* ptr, int level = 0) const;
+   int readbackBufferSize() const;
 
    int width() const override { return _width; }
    int height() const override { return _height; }

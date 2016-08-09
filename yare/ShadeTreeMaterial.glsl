@@ -92,7 +92,7 @@ vec3 normal = gl_FrontFacing ? normalize(attr_normal) : -normalize(attr_normal);
 vec3 tangent = normalize(attr_tangent);
 #endif
 vec3 view_vector = normalize(eye_position - attr_position);
-float ssao = texelFetch(ssao_texture, ivec2(gl_FragCoord.xy), 0).r;
+float ssao = 1.0;
 
 float vec3ToFloat(vec3 v)
 {
@@ -485,6 +485,12 @@ void evalLayerWeight(float blend, vec3 normal, out float out_fresnel, out float 
 
  void main()
  {    
+    ssao *= texelFetch(ssao_texture, ivec2(gl_FragCoord.xy), 0).r;
+    vec3 voxel_size = ao_volume_size / textureSize(ao_volume, 0);
+    vec3 uvw = ((attr_position + normal*1.2*voxel_size) - ao_volume_bound_min) / ao_volume_size;
+    float ao_encoded_val = texture(ao_volume, uvw).r;    
+    ssao *= ao_encoded_val*ao_encoded_val;
+    //shading_result.rgb = vec3(texture(ao_volume, uvw).r)*2.0;
     %s
        //shading_result.rgb = vec3(fresnel(1.45, dot(normal, normalize(eye_position - attr_position))));
        //shading_result.rgb = vec3(GroupFresnel_Node_Fac- fresnel(1.45, dot(normal, normalize(eye_position - attr_position))));
@@ -496,8 +502,6 @@ void evalLayerWeight(float blend, vec3 normal, out float out_fresnel, out float 
 
        //shading_result.rgb = vec3(texelFetch(ssao_texture, ivec2(gl_FragCoord.xy), 0).r/10.0);
        //shading_result.rgb = vec3((texelFetch(ssao_texture, ivec2(gl_FragCoord.xy), 0).r));
-
-   vec3 voxel_size = ao_volume_size / 64.0;
-   vec3 uvw = ((attr_position+normal*sqrt(3.0)*0.5*voxel_size) - ao_volume_bound_min) / ao_volume_size;
-   shading_result.rgb = vec3(texture(ao_volume, uvw).r)*2.0;
+       //shading_result.rgb = vec3(ssao);
+   
  }

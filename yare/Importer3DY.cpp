@@ -35,6 +35,16 @@ static void readDataBlock(const Json::Value& json_object, uint64_t* address, uin
 	*size = datablock["Size"].asUInt64();
 }
 
+static std::unique_ptr<char[]> readDataBlock(const Json::Value& json_object, std::ifstream& data_file)
+{
+   uint64_t address, size;
+   readDataBlock(json_object, &address, &size);
+   auto buffer = std::make_unique<char[]>(size);
+   data_file.seekg(address, std::ios::beg);
+   data_file.read(buffer.get(), size);
+   return buffer;
+}
+
 static MeshFieldName _fieldName(const std::string& field_name)
 {
     if (field_name == "position")
@@ -123,6 +133,11 @@ static vec3 readVec3(const Json::Value& json_vec)
    return vec3(json_vec[0].asFloat(), json_vec[1].asFloat(), json_vec[2].asFloat());
 }
 
+static ivec3 readIVec3(const Json::Value& json_vec)
+{
+   return ivec3(json_vec[0].asInt(), json_vec[1].asInt(), json_vec[2].asInt());
+}
+
 static vec4 readVec4(const Json::Value& json_vec)
 {
    return vec4(json_vec[0].asFloat(), json_vec[1].asFloat(), json_vec[2].asFloat(), json_vec[3].asFloat());
@@ -204,25 +219,14 @@ static void readVectMathNodeProperties(const Json::Value& json_node, VectorMathN
 
 static void readColorRampNodeProperties(const Json::Value& json_node, ColorRampNode& node, std::ifstream& data_file)
 {
-   uint64_t address, size;
    const auto& json_colors = json_node["Colors"];
-
-   readDataBlock(json_colors, &address, &size);
-   auto temp_buf_ptr = std::make_unique<char[]>(size);
-   data_file.seekg(address, std::ios::beg);
-   data_file.read(temp_buf_ptr.get(), size);
-
+   auto temp_buf_ptr = readDataBlock(json_colors, data_file);
    node.ramp_texture = createMipmappedTexture1D(256, GL_RGB16, temp_buf_ptr.get());
 }
 
 static auto readCurve(const Json::Value& json_curve_node, std::ifstream& data_file)
 {
-   uint64_t address, size;
-   readDataBlock(json_curve_node, &address, &size);
-   auto temp_buf_ptr = std::make_unique<char[]>(size);
-   data_file.seekg(address, std::ios::beg);
-   data_file.read(temp_buf_ptr.get(), size);
-
+   auto temp_buf_ptr = readDataBlock(json_curve_node, data_file);
    return createTexture1D(256, GL_R16, temp_buf_ptr.get());
 }
 
@@ -518,16 +522,23 @@ void readTransformHierarchy(const Json::Value& json_hierarchy, Scene* scene)
    scene->transform_hierarchy = std::make_unique<TransformHierarchy>(std::move(nodes));
 }
 
-static void readAOVolumes(const Json::Value& json_ao_volumes, Scene* scene)
+static void readAOVolume(const Json::Value& json_ao_volume, const std::string& filename, Scene* scene)
 {
-   for (const auto& json_ao_volume : json_ao_volumes)
+   scene->ao_volume = std::make_unique<AOVolume>();// TODO optional
+   AOVolume& ao_volume = *scene->ao_volume;
+   ao_volume.transform_node_index = scene->object_name_to_transform_node_index.at(json_ao_volume["Name"].asString());
+   ao_volume.size = readVec3(json_ao_volume["Size"]);
+   ao_volume.position = readVec3(json_ao_volume["Position"]);
+   ao_volume.resolution = readIVec3(json_ao_volume["Resolution"]);  
+   if (json_ao_volume.isMember("Path"))
    {
-      AOVolume ao_volume;
-      ao_volume.transform_node_index = scene->object_name_to_transform_node_index.at(json_ao_volume["Name"].asString());
-      ao_volume.size = readVec3(json_ao_volume["Size"]);
-      ao_volume.position = readVec3(json_ao_volume["Position"]);
-      ao_volume.resolution = json_ao_volume["Resolution"].asInt();
-      scene->ambient_occlusion_volumes.emplace_back(ao_volume);
+      std::ifstream ao_volume_file(filename + "\\ao_volume.bin", std::ifstream::binary);
+      int volume_size_in_mem = ao_volume.resolution.x*ao_volume.resolution.y*ao_volume.resolution.z;
+      auto buffer = std::make_unique<char[]>(volume_size_in_mem);
+      ao_volume_file.read(buffer.get(), volume_size_in_mem);
+      ao_volume_file.close();
+      ao_volume.texture = createTexture3D(ao_volume.resolution.x, ao_volume.resolution.y, ao_volume.resolution.z,
+                                          GL_R8, buffer.get());
    }
 }
 
@@ -541,7 +552,7 @@ void import3DY(const std::string& filename, const RenderEngine& render_engine, S
 	json_file.close();
 
    readTransformHierarchy(root["TransformHierarchy"], scene);
-   readAOVolumes(root["AOVolumes"], scene);
+   readAOVolume(root["AOVolume"], filename, scene);
    readLights(root["Lights"], scene);
    readEnvironment(render_engine, root["Environment"], scene);
    readActions(root["Actions"], scene);
@@ -585,6 +596,28 @@ void import3DY(const std::string& filename, const RenderEngine& render_engine, S
       surface_instance.material_program = &surface_instance.material->compile(surface_instance.material_variant);
 		scene->surfaces.push_back(surface_instance);      
 	}
+}
+
+void saveBakedAmbientOcclusionVolumeTo3DY(const std::string& filename, const Scene& scene)
+{
+   Json::Value root;
+   std::ifstream json_file_as_read(filename + "\\structure.json");
+   json_file_as_read >> root;
+   json_file_as_read.close();
+   
+   int voxels_size = scene.ao_volume->texture->readbackBufferSize();
+   auto voxels = std::make_unique<char[]>(voxels_size);
+   scene.ao_volume->texture->readbackTexels(voxels.get());
+
+   std::ofstream ao_volume_file(filename + "\\ao_volume.bin", std::ofstream::binary);
+   ao_volume_file.write(voxels.get(), voxels_size);
+   ao_volume_file.close();
+
+   root["AOVolume"]["Path"] = "ao_volume.bin";
+
+   std::ofstream json_file_as_write(filename + "\\structure.json");
+   json_file_as_write << root;
+   json_file_as_write.close();
 }
 
 }

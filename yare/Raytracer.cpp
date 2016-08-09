@@ -100,7 +100,7 @@ void Raytracer::raytraceTest()
 static vec3 _position(int x, int y, int z, const AOVolume& ao_volume)
 {
    vec3 corner = ao_volume.position - 0.5f*ao_volume.size;
-   return corner + ao_volume.size * vec3(float(x) + 0.5f, float(y) + 0.5f, float(z) + 0.5f) / float(ao_volume.resolution);
+   return corner + ao_volume.size * vec3(float(x) + 0.5f, float(y) + 0.5f, float(z) + 0.5f) / vec3(ao_volume.resolution);
 }
 
 static float3 _convertVec3(const vec3& vec)
@@ -110,27 +110,22 @@ static float3 _convertVec3(const vec3& vec)
 
 void Raytracer::bakeAmbiantOcclusionVolume(Scene& scene)
 {   
-    AOVolume& ao_volume = scene.ambient_occlusion_volumes[0];
-    ao_volume.resolution = 128;
-   auto ao_texture = std::make_unique<float[]>(ao_volume.resolution*ao_volume.resolution*ao_volume.resolution); 
-   //auto ao_texture_final = std::make_unique<char[]>(ao_volume.resolution*ao_volume.resolution*ao_volume.resolution);
-   int ray_count = ao_volume.resolution*ao_volume.resolution*ao_volume.resolution;
+   AOVolume& ao_volume = *scene.ao_volume;
+   ivec3 resolution = ao_volume.resolution;
+   int ray_count = resolution.x*resolution.y*resolution.z;
    int voxel_count = ray_count;
+   auto ao_texture = std::make_unique<float[]>(voxel_count);
+   auto final_ao_texture = std::make_unique<unsigned char[]>(voxel_count);
    auto ray_buffer = _api->CreateBuffer(sizeof(ray)*ray_count, nullptr);
    auto isect_buffer = _api->CreateBuffer(sizeof(int)*ray_count, nullptr);
 
    #pragma omp parallel for
-   for (int z = 0; z < ao_volume.resolution; ++z)
-   {
-      for (int y = 0; y < ao_volume.resolution; ++y)
-      {
-         for (int x = 0; x < ao_volume.resolution; ++x)
-         {           
-            (ao_texture.get())[z*(ao_volume.resolution*ao_volume.resolution) + y*ao_volume.resolution + x] = 0.0;
-         }
-      }
+   for (int i = 0; i < voxel_count; ++i)
+   {         
+      (ao_texture.get())[i] = 0.0;
    }   
-   int pass_count = 200;
+
+   int pass_count = 2048;
    for (int pass = 0; pass < pass_count; ++pass)
    {      
       ray* rays = nullptr;
@@ -140,16 +135,14 @@ void Raytracer::bakeAmbiantOcclusionVolume(Scene& scene)
       vec3 pass_direction = glm::sphericalRand(1.0f);
       
       #pragma omp parallel for
-      for (int z = 0; z < ao_volume.resolution; ++z)
+      for (int z = 0; z < resolution.z; ++z)
       {
-         for (int y = 0; y < ao_volume.resolution; ++y)
+         for (int y = 0; y < resolution.y; ++y)
          {
-            for (int x = 0; x < ao_volume.resolution; ++x)
+            for (int x = 0; x < resolution.x; ++x)
             {
-               
-
                vec3 pos = _position(x, y, z, ao_volume);
-               rays[z*(ao_volume.resolution*ao_volume.resolution) + y*ao_volume.resolution + x] = ray(_convertVec3(pos), _convertVec3(pass_direction)/*float3(0.f, 0.f, -1.f)*/, 1000000.f);
+               rays[z*(resolution.x*resolution.y) + y*resolution.x + x] = ray(_convertVec3(pos), _convertVec3(pass_direction), 1000000.f);
             }
          }
       }
@@ -163,17 +156,11 @@ void Raytracer::bakeAmbiantOcclusionVolume(Scene& scene)
       _api->MapBuffer(isect_buffer, kMapRead, 0, sizeof(int)*ray_count, (void**)&intersections, &_status_event);
       _wait();
 
-   #pragma omp parallel for
-      for (int z = 0; z < ao_volume.resolution; ++z)
+      #pragma omp parallel for
+      for (int i = 0; i < voxel_count; ++i)
       {
-         for (int y = 0; y < ao_volume.resolution; ++y)
-         {
-            for (int x = 0; x < ao_volume.resolution; ++x)
-            {
-               int shape_id = intersections[z*(ao_volume.resolution*ao_volume.resolution) + y*ao_volume.resolution + x];
-               (ao_texture.get())[z*(ao_volume.resolution*ao_volume.resolution) + y*ao_volume.resolution + x] += float(shape_id != -1);
-            }
-         }
+         int shape_id = intersections[i];
+         (ao_texture.get())[i] += float(shape_id != -1);
       }
 
       _api->UnmapBuffer(isect_buffer, intersections, &_status_event);
@@ -184,11 +171,12 @@ void Raytracer::bakeAmbiantOcclusionVolume(Scene& scene)
    #pragma omp parallel for
    for (int i = 0; i < voxel_count; ++i)
    {
-      float& voxel_value = (ao_texture.get())[i];
-      voxel_value = 1.0 - voxel_value /float(pass_count);
+      float voxel_value = (ao_texture.get())[i];
+      float ao = 2.0f*(1.0f - voxel_value /float(pass_count));
+      (final_ao_texture.get())[i] = (unsigned char)(clamp(sqrtf(ao) * 255.0f, 0.0f, 255.0f));
    }
 
-   scene.ao_volume = createTexture3D(ao_volume.resolution, ao_volume.resolution, ao_volume.resolution, GL_R16F, ao_texture.get());
+   scene.ao_volume->texture = createTexture3D(resolution.x, resolution.y, resolution.z, GL_R8, final_ao_texture.get());
 
 }
 

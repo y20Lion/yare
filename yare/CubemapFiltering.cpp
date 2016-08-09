@@ -106,7 +106,7 @@ std::vector<CubemapFiltering::ExtractedLight> CubemapFiltering::extractDirection
    glMemoryBarrier(GL_ALL_BARRIER_BITS); //GL_TEXTURE_UPDATE_BARRIER_BIT should be enough but I'm paranoid
 
    auto buf_ptr = std::make_unique<uint8_t[]>(_parallel_reduce_result->readbackBufferSize());
-   _parallel_reduce_result->readbackPixels(buf_ptr.get());
+   _parallel_reduce_result->readbackTexels(buf_ptr.get());
    vec4* pixels = (vec4*)buf_ptr.get();
    
    std::vector<CubemapFiltering::ExtractedLight> lights;

@@ -539,14 +539,21 @@ def writeSurfaces(armatures_bone_indices, binary_file):
         updateProgress("progress", i/object_count)
     return json_surfaces
 
-def writeAOVolumes():
-    json_ao_volumes = []
+def writeAOVolume():    
     for object in bpy.context.scene.objects:
         if object.get('AOVolume') is None:
             continue
-        json_ao_volumes.append({'Name':object.name, 'Size':(object.scale*2.0)[:], 'Position':object.location[:], 'Resolution':int(object['AOVolume']) })
+        max_resolution = int(object['AOVolume'])
+        volume_size = (object.scale*2.0)[:]
+        max_dim = max(volume_size)
+        voxel_size = max_dim/max_resolution
         
-    return json_ao_volumes
+        volume_resolution = [int(elem/voxel_size) for elem in volume_size]
+        volume_size = [elem*voxel_size for elem in volume_resolution]
+            
+        return {'Name':object.name, 'Size':volume_size, 'Position':object.location[:], 'Resolution':volume_resolution }
+        
+    return None
     
     
 class Export3DY(bpy.types.Operator, ExportHelper):
@@ -575,7 +582,7 @@ class Export3DY(bpy.types.Operator, ExportHelper):
         json_root['Actions'] = writeActions()
         json_root['TransformHierarchy'] = writeTransformHierarchy()        
         json_root['Surfaces'] = writeSurfaces(armatures_bone_indices, binary_file)
-        json_root['AOVolumes'] = writeAOVolumes()
+        json_root['AOVolume'] = writeAOVolume()
 
         binary_file_size = binary_file.tell()
         binary_file.close()
