@@ -502,6 +502,6 @@ void evalLayerWeight(float blend, vec3 normal, out float out_fresnel, out float 
 
        //shading_result.rgb = vec3(texelFetch(ssao_texture, ivec2(gl_FragCoord.xy), 0).r/10.0);
        //shading_result.rgb = vec3((texelFetch(ssao_texture, ivec2(gl_FragCoord.xy), 0).r));
-       //shading_result.rgb = vec3(ssao);
+       shading_result.rgb = vec3(ssao);
    
  }

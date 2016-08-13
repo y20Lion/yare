@@ -130,7 +130,7 @@ int main()
       Raytracer raytracer;
       raytracer.init(*render_engine.scene());
       raytracer.bakeAmbiantOcclusionVolume(*render_engine.scene());
-      saveBakedAmbientOcclusionVolumeTo3DY(file, *render_engine.scene());
+      //saveBakedAmbientOcclusionVolumeTo3DY(file, *render_engine.scene());
    }
       
    CameraManipulator camera_manipulator(&render_engine.scene()->camera.point_of_view);

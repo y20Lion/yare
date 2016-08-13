@@ -6,7 +6,7 @@
   <ItemDefinitionGroup>
     <Link>
       <AdditionalLibraryDirectories>$(SolutionDir)\thirdparty\RadeonRays\debug;$(SolutionDir)\thirdparty\RadeonRays;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>RadeonRays64D.lib;RadeonRays64.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>RadeonRays64D.lib;CLW64D.lib;OpenCL.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ClCompile>
       <AdditionalIncludeDirectories>$(SolutionDir)\thirdparty\RadeonRays\include;$(SolutionDir)\thirdparty\RadeonRays\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>

@@ -1,9 +1,10 @@
 #include "Raytracer.h"
 
-#include <radeon_rays.h>
+#include <radeon_rays_cl.h>
 #include <assert.h>
 #include <glm/gtc/random.hpp>
 #include <iostream>
+#include <CLW/CLW.h>
 
 #include "Scene.h"
 #include "RenderMesh.h"
@@ -14,23 +15,37 @@ namespace yare {
 
 using namespace RadeonRays;
 
-Raytracer::Raytracer()
+CLWContext CreateOpenCLContext()
 {
-   int nativeidx = -1;
-   for (uint32_t idx = 0; idx < IntersectionApi::GetDeviceCount(); ++idx)
-   {
-      DeviceInfo devinfo;
-      IntersectionApi::GetDeviceInfo(idx, devinfo);
+   std::vector<CLWPlatform> platforms;
+   CLWPlatform::CreateAllPlatforms(platforms);
 
-      if (devinfo.type == DeviceInfo::kGpu)
+   for (int i = 0; i < platforms.size(); ++i)
+   {
+      for (int d = 0; d < (int)platforms[i].GetDeviceCount(); ++d)
       {
-         nativeidx = idx;
+         if (platforms[i].GetDevice(d).GetType() != CL_DEVICE_TYPE_GPU)
+            continue;
+
+         return CLWContext::Create(platforms[i].GetDevice(d));
       }
    }
+   return CLWContext::Create(platforms[0].GetDevice(0));
+}
 
-   assert(nativeidx != -1);
+Raytracer::Raytracer()
+{
+   _ocl_context = CreateOpenCLContext();
+   cl_device_id id = _ocl_context.GetDevice(0).GetID();
+   cl_command_queue queue = _ocl_context.GetCommandQueue(0);
+   _api = IntersectionApiCL::CreateFromOpenClContext(_ocl_context, id, queue);
 
-   _api = IntersectionApi::Create(nativeidx);
+   _update_rays_prog = CLWProgram::CreateFromFile("ao_kernels.cl", _ocl_context);  
+}
+
+Raytracer::~Raytracer()
+{
+   IntersectionApi::Delete(_api);
 }
 
 static matrix _convertMatrix(const mat4x3 mat)
@@ -67,36 +82,6 @@ void Raytracer::init(const Scene& scene)
    _api->Commit();
 }
 
-void Raytracer::raytraceTest()
-{
-   // Prepare the ray
-   ray r(float3(0.f, 0.f, -10.f), float3(0.f, 0.f, 1.f), 10000.f);
-  // r.SetMask(0xFFFFFFFF);
-   
-   auto ray_buffer = _api->CreateBuffer(sizeof(ray), &r);
-   auto isect_buffer = _api->CreateBuffer(sizeof(Intersection), nullptr);
-   //auto isect_flag_buffer = _api->CreateBuffer(sizeof(int), nullptr);
-
-   // Commit geometry update
-   //ASSERT_NO_THROW(api_->Commit());
-
-   // Intersect
-   _api->QueryIntersection(ray_buffer, 1, isect_buffer, nullptr, nullptr);
-
-   //_api->QueryOcclusion(ray_buffer, 1, isect_buffer, nullptr, nullptr);
-
-   Intersection* tmp = nullptr;
-   Intersection isect;
-   _api->MapBuffer(isect_buffer, kMapRead, 0, sizeof(Intersection), (void**)&tmp, &_status_event);
-   _wait();
-   isect = *tmp;
-   _api->UnmapBuffer(isect_buffer, tmp, &_status_event);
-   _wait();
-
-   // Check results
-   //isect.shapeid, mesh->GetId();
-}
-
 static vec3 _position(int x, int y, int z, const AOVolume& ao_volume)
 {
    vec3 corner = ao_volume.position - 0.5f*ao_volume.size;
@@ -108,76 +93,77 @@ static float3 _convertVec3(const vec3& vec)
    return float3(vec.x, vec.y, vec.z);
 }
 
+static cl_float3 _toCL(const vec3& vec)
+{
+   return cl_float3{ vec.x, vec.y, vec.z };
+}
+
 void Raytracer::bakeAmbiantOcclusionVolume(Scene& scene)
 {   
    AOVolume& ao_volume = *scene.ao_volume;
    ivec3 resolution = ao_volume.resolution;
    int ray_count = resolution.x*resolution.y*resolution.z;
    int voxel_count = ray_count;
-   auto ao_texture = std::make_unique<float[]>(voxel_count);
    auto final_ao_texture = std::make_unique<unsigned char[]>(voxel_count);
-   auto ray_buffer = _api->CreateBuffer(sizeof(ray)*ray_count, nullptr);
-   auto isect_buffer = _api->CreateBuffer(sizeof(int)*ray_count, nullptr);
 
-   #pragma omp parallel for
-   for (int i = 0; i < voxel_count; ++i)
-   {         
-      (ao_texture.get())[i] = 0.0;
-   }   
+   auto ocl_ray_buffer =  _ocl_context.CreateBuffer<ray>(ray_count, CL_MEM_READ_WRITE);
+   auto ray_buffer = _api->CreateFromOpenClBuffer(ocl_ray_buffer);
 
-   int pass_count = 2048;
+   auto ocl_intersection_buffer = _ocl_context.CreateBuffer<int>(ray_count, CL_MEM_READ_WRITE);
+   auto isect_buffer = _api->CreateFromOpenClBuffer(ocl_intersection_buffer);
+
+   auto ocl_ao_volume_buffer = _ocl_context.CreateBuffer<float>(ray_count, CL_MEM_READ_WRITE);   
+   _ocl_context.FillBuffer(0, ocl_ao_volume_buffer, 0.0f, ray_count);
+
+
+   CLWKernel rays_kernel = _update_rays_prog.GetKernel("initRays");   
+   rays_kernel.SetArg(0, _toCL(resolution));
+   rays_kernel.SetArg(1, _toCL(ao_volume.size));
+   rays_kernel.SetArg(2, _toCL(ao_volume.position));
+   rays_kernel.SetArg(3, ray_count);
+   rays_kernel.SetArg(4, ocl_ray_buffer);
+   _ocl_context.Launch1D(0, ray_count, 1, rays_kernel);
+   
+   int pass_count = 2000;
+   int progress = 0;
    for (int pass = 0; pass < pass_count; ++pass)
    {      
-      ray* rays = nullptr;
-      _api->MapBuffer(ray_buffer, kMapWrite, 0, sizeof(ray)*ray_count, (void**)&rays, &_status_event);
-      _wait();
-
       vec3 pass_direction = glm::sphericalRand(1.0f);
-      
-      #pragma omp parallel for
-      for (int z = 0; z < resolution.z; ++z)
-      {
-         for (int y = 0; y < resolution.y; ++y)
-         {
-            for (int x = 0; x < resolution.x; ++x)
-            {
-               vec3 pos = _position(x, y, z, ao_volume);
-               rays[z*(resolution.x*resolution.y) + y*resolution.x + x] = ray(_convertVec3(pos), _convertVec3(pass_direction), 1000000.f);
-            }
-         }
-      }
 
-      _api->UnmapBuffer(ray_buffer, rays, &_status_event);
-      _wait();
+      CLWKernel rays_kernel = _update_rays_prog.GetKernel("updateRaysDirection");
+      rays_kernel.SetArg(0, _toCL(pass_direction));
+      rays_kernel.SetArg(1, ray_count);
+      rays_kernel.SetArg(2, ocl_ray_buffer);
+      _ocl_context.Launch1D(0, ray_count, 1, rays_kernel);
 
       _api->QueryOcclusion(ray_buffer, ray_count, isect_buffer, nullptr, nullptr);
 
-      int* intersections = nullptr;
-      _api->MapBuffer(isect_buffer, kMapRead, 0, sizeof(int)*ray_count, (void**)&intersections, &_status_event);
-      _wait();
+      CLWKernel accumulate_kernel = _update_rays_prog.GetKernel("accumulateAO");     
+      accumulate_kernel.SetArg(0, ray_count);
+      accumulate_kernel.SetArg(1, ocl_intersection_buffer);
+      accumulate_kernel.SetArg(2, ocl_ao_volume_buffer);
+      _ocl_context.Launch1D(0, ray_count, 1, accumulate_kernel);
 
-      #pragma omp parallel for
-      for (int i = 0; i < voxel_count; ++i)
+      int new_progress = int(float(pass) / float(pass_count) * 100.0f);
+      if (new_progress != progress)
       {
-         int shape_id = intersections[i];
-         (ao_texture.get())[i] += float(shape_id != -1);
+         progress = new_progress;
+         std::cout << "Submission progress: " << progress << "%\r";
       }
-
-      _api->UnmapBuffer(isect_buffer, intersections, &_status_event);
-      _wait();
-      std::cout << pass << std::endl;
    }
 
+   float* ao_texture = nullptr;
+   _ocl_context.MapBuffer(0, ocl_ao_volume_buffer, CL_MAP_READ, &ao_texture).Wait();
    #pragma omp parallel for
    for (int i = 0; i < voxel_count; ++i)
    {
-      float voxel_value = (ao_texture.get())[i];
-      float ao = 2.0f*(1.0f - voxel_value /float(pass_count));
+      float voxel_value = ao_texture[i];
+      float ao = 2.0f*(1.0f - voxel_value / float(pass_count));
       (final_ao_texture.get())[i] = (unsigned char)(clamp(sqrtf(ao) * 255.0f, 0.0f, 255.0f));
    }
+   _ocl_context.UnmapBuffer(0, ocl_ao_volume_buffer, ao_texture);
 
    scene.ao_volume->texture = createTexture3D(resolution.x, resolution.y, resolution.z, GL_R8, final_ao_texture.get());
-
 }
 
 void Raytracer::_wait()
