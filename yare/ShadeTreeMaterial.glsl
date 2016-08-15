@@ -483,6 +483,35 @@ void evalLayerWeight(float blend, vec3 normal, out float out_fresnel, out float 
    out_facing = 1.0 - out_facing;
 }
 
+float raymarchSDF(vec3 dir, vec3 start)
+{
+   vec3 voxel_size = ao_volume_size / textureSize(ao_volume, 0);
+   
+   const int num_steps = 200;
+   vec3 current_pos = start;
+   current_pos += dir*0.04;
+   float res = 1.0f;
+   
+   float t = 0.0;
+   for (int i = 0; i < num_steps; ++i)
+   {
+      
+      vec3 uvw = (current_pos - ao_volume_bound_min) / ao_volume_size;
+      if (clamp(uvw, vec3(0.0), vec3(1.0)) != uvw)
+         return res;
+                 
+      float distance = texture(sdf_volume, uvw).r;
+      res = min(res, 10.0*abs(distance)/t);
+      if (distance < 0.005 || res < 0.005 )
+         return res;
+
+      t += abs(distance);
+      current_pos += dir*abs(distance);
+   }
+
+   return res;
+}
+
  void main()
  {    
     ssao *= texelFetch(ssao_texture, ivec2(gl_FragCoord.xy), 0).r;
@@ -490,18 +519,16 @@ void evalLayerWeight(float blend, vec3 normal, out float out_fresnel, out float 
     vec3 uvw = ((attr_position + normal*1.2*voxel_size) - ao_volume_bound_min) / ao_volume_size;
     float ao_encoded_val = texture(ao_volume, uvw).r;    
     ssao *= ao_encoded_val*ao_encoded_val;
-    //shading_result.rgb = vec3(texture(ao_volume, uvw).r)*2.0;
+
     %s
-       //shading_result.rgb = vec3(fresnel(1.45, dot(normal, normalize(eye_position - attr_position))));
-       //shading_result.rgb = vec3(GroupFresnel_Node_Fac- fresnel(1.45, dot(normal, normalize(eye_position - attr_position))));
-       //shading_result.rgb = vec3(Fresnel_Node_Fac);
-    //shading_result_transp_factor.xyzw = vec4(0.0);
 
-    /*if (all(greaterThan(shading_result_transp_factor.xyz,vec3(0.99))))
-       discard;*/ // TODO add
 
-       //shading_result.rgb = vec3(texelFetch(ssao_texture, ivec2(gl_FragCoord.xy), 0).r/10.0);
-       //shading_result.rgb = vec3((texelFetch(ssao_texture, ivec2(gl_FragCoord.xy), 0).r));
-       shading_result.rgb = vec3(ssao);
-   
+    float theta = time;
+    //shading_result.rgb = vec3(ssao);
+    vec3 light_dir = vec3(cos(time), sin(time), 0.5);
+    shading_result.rgb = vec3(raymarchSDF(normalize(light_dir), attr_position))*max(dot(light_dir,normal), 0.0);
+
+    vec3 uvw2 = (attr_position - ao_volume_bound_min) / ao_volume_size;
+    float distance = texture(sdf_volume, uvw2).r;
+    //shading_result.rgb = vec3(abs(distance));
  }

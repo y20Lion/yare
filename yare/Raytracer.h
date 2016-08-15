@@ -25,6 +25,7 @@ public:
 
    void init(const Scene& scene);
    void bakeAmbiantOcclusionVolume(Scene& scene);
+   void bakeSignedDistanceFieldVolume(Scene& scene);
 
 private:
    void _wait();
@@ -33,8 +34,8 @@ private:
    RadeonRays::IntersectionApiCL* _api;
    RadeonRays::Event* _status_event;
    CLWContext _ocl_context;
-   CLWProgram _update_rays_prog;
-   CLWProgram _accumulate_ao_prog; 
+   CLWProgram _raytracer_prog;
+   CLWBuffer<RadeonRays::float3> _ocl_face_normal_buffer;
 };
 
 }

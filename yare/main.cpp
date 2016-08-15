@@ -118,10 +118,10 @@ int main()
 
    RenderEngine render_engine(ImageSize(1500, 1000));
    //char* file = "D:\\BlenderTests\\Sintel_Lite_Cycles_V2.3dy";
-   //char* file = "D:\\BlenderTests\\stanford_bunny.3dy";
+   char* file = "D:\\BlenderTests\\stanford_bunny.3dy";
 
 
-   char* file = "D:\\BlenderTests\\town.3dy";
+   //char* file = "D:\\BlenderTests\\DeLorean_BlendSwap.3dy";
    import3DY(file, render_engine, render_engine.scene());
    render_engine.offlinePrepareScene();
 
@@ -129,7 +129,8 @@ int main()
    {
       Raytracer raytracer;
       raytracer.init(*render_engine.scene());
-      raytracer.bakeAmbiantOcclusionVolume(*render_engine.scene());
+      raytracer.bakeSignedDistanceFieldVolume(*render_engine.scene());
+      //raytracer.bakeAmbiantOcclusionVolume(*render_engine.scene());
       //saveBakedAmbientOcclusionVolumeTo3DY(file, *render_engine.scene());
    }
       

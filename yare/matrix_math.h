@@ -44,5 +44,10 @@ inline mat4x3 composeAS(const mat4x3& affine_space1, const mat4x3& affine_space2
    result[3] = rotation1*affine_space2[3] + affine_space1[3];
    return result;
 }
+inline mat3 normalMatrix(const mat4x4& matrix)
+{
+   return mat3(transpose(inverse(matrix)));
+}
+
 
 }

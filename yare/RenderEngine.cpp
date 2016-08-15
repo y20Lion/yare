@@ -212,7 +212,8 @@ void RenderEngine::_bindSceneUniforms()
    const auto & diffuse_cubemap = counter < 120 ? *_scene.sky_diffuse_cubemap : *_scene.sky_diffuse_cubemap_sh;
    GLDevice::bindTexture(BI_SKY_CUBEMAP, *_scene.sky_cubemap, *(render_resources->samplers.mipmap_clampToEdge));
    GLDevice::bindTexture(BI_SKY_DIFFUSE_CUBEMAP, diffuse_cubemap, *render_resources->samplers.mipmap_clampToEdge);
-   GLDevice::bindTexture(BI_AO_VOLUME, *_scene.ao_volume->texture, *render_resources->samplers.mipmap_clampToEdge);
+   //GLDevice::bindTexture(BI_AO_VOLUME, *_scene.ao_volume->texture, *render_resources->samplers.mipmap_clampToEdge);
+   GLDevice::bindTexture(BI_SDF_VOLUME, *_scene.ao_volume->sdf_texture, *render_resources->samplers.mipmap_clampToEdge);
    counter++;
    if (counter == 240)
       counter = 0;
@@ -460,7 +461,7 @@ void RenderEngine::_updateRenderMatrices(RenderData& render_data)
    {
       mat4 matrix_world_local = _scene.transform_hierarchy->nodeWorldToLocalMatrix(_scene.surfaces[i].transform_node_index);
       render_data.main_view_surface_data[i].matrix_world_local = matrix_world_local;
-      render_data.main_view_surface_data[i].normal_matrix_world_local = mat3(transpose(inverse(matrix_world_local)));
+      render_data.main_view_surface_data[i].normal_matrix_world_local = normalMatrix(matrix_world_local);
       render_data.main_view_surface_data[i].matrix_proj_local = render_data.matrix_proj_world * matrix_world_local;
    }
 }

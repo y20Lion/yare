@@ -112,6 +112,7 @@ struct AOVolume
    vec3 size;
    ivec3 resolution;
    Uptr<GLTexture3D> texture;
+   Uptr<GLTexture3D> sdf_texture;
 };
 
 class Scene

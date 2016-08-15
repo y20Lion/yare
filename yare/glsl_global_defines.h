@@ -5,6 +5,7 @@
 #define BI_SKY_DIFFUSE_CUBEMAP 11
 #define BI_SSAO_TEXTURE 12
 #define BI_AO_VOLUME 13
+#define BI_SDF_VOLUME 14
 
 // uniforms buffers
 #define BI_SCENE_UNIFORMS 1

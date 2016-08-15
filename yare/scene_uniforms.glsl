@@ -3,6 +3,7 @@ layout(binding = BI_SKY_CUBEMAP) uniform samplerCube sky_cubemap;
 layout(binding = BI_SKY_DIFFUSE_CUBEMAP) uniform samplerCube sky_diffuse_cubemap;
 layout(binding = BI_SSAO_TEXTURE) uniform sampler2D ssao_texture;
 layout(binding = BI_AO_VOLUME) uniform sampler3D ao_volume;
+layout(binding = BI_SDF_VOLUME) uniform sampler3D sdf_volume;
 
 layout(std140, binding = BI_SCENE_UNIFORMS) uniform SceneUniforms
 {
