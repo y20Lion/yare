@@ -52,7 +52,9 @@ struct SceneUniforms
    vec3 ao_volume_size;
    float proj_coeff_11;
 
+   vec3 sdf_volume_bound_min;
    float znear;
+   vec3 sdf_volume_size;
    float zfar;
    float tessellation_edges_per_screen_height;
 
@@ -212,8 +214,13 @@ void RenderEngine::_bindSceneUniforms()
    const auto & diffuse_cubemap = counter < 120 ? *_scene.sky_diffuse_cubemap : *_scene.sky_diffuse_cubemap_sh;
    GLDevice::bindTexture(BI_SKY_CUBEMAP, *_scene.sky_cubemap, *(render_resources->samplers.mipmap_clampToEdge));
    GLDevice::bindTexture(BI_SKY_DIFFUSE_CUBEMAP, diffuse_cubemap, *render_resources->samplers.mipmap_clampToEdge);
-   //GLDevice::bindTexture(BI_AO_VOLUME, *_scene.ao_volume->texture, *render_resources->samplers.mipmap_clampToEdge);
-   GLDevice::bindTexture(BI_SDF_VOLUME, *_scene.ao_volume->sdf_texture, *render_resources->samplers.mipmap_clampToEdge);
+   
+   if (_scene.ao_volume)
+      GLDevice::bindTexture(BI_AO_VOLUME, *_scene.ao_volume->ao_texture, *render_resources->samplers.mipmap_clampToEdge);
+   
+   if (_scene.sdf_volume)
+      GLDevice::bindTexture(BI_SDF_VOLUME, *_scene.sdf_volume->sdf_texture, *render_resources->samplers.mipmap_clampToEdge);
+
    counter++;
    if (counter == 240)
       counter = 0;
@@ -442,8 +449,17 @@ void RenderEngine::_updateUniformBuffers(const RenderData& render_data, float ti
    float tessellation_pixels_per_edge = 30.0;
    scene_uniforms->tessellation_edges_per_screen_height = render_resources->framebuffer_size.height / tessellation_pixels_per_edge;
 
-   scene_uniforms->ao_volume_size = _scene.ao_volume->size;
-   scene_uniforms->ao_volume_bound_min = _scene.ao_volume->position - 0.5f*_scene.ao_volume->size;
+   if (_scene.ao_volume)
+   {
+      scene_uniforms->ao_volume_size = _scene.ao_volume->size;
+      scene_uniforms->ao_volume_bound_min = _scene.ao_volume->position - 0.5f*_scene.ao_volume->size;
+   }
+
+   if (_scene.sdf_volume)
+   {
+      scene_uniforms->sdf_volume_size = _scene.sdf_volume->size;
+      scene_uniforms->sdf_volume_bound_min = _scene.sdf_volume->position - 0.5f*_scene.sdf_volume->size;
+   }
 }
 
 void RenderEngine::_updateRenderMatrices(RenderData& render_data)

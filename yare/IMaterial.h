@@ -5,7 +5,7 @@ namespace yare {
 class GLProgram;
 struct RenderResources;
 
-enum class MaterialVariant {Normal = 1, WithSkinning = 2};
+enum class MaterialVariant : int {Normal = 1 << 0, WithSkinning = 1 << 1, EnableAOVolume = 1 << 2, EnableSDFVolume = 1 << 3};
 
 class IMaterial
 {

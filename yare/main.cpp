@@ -125,13 +125,24 @@ int main()
    import3DY(file, render_engine, render_engine.scene());
    render_engine.offlinePrepareScene();
 
-   if (render_engine.scene()->ao_volume && !render_engine.scene()->ao_volume->texture)
+   bool bake_ao_volume = render_engine.scene()->ao_volume && !render_engine.scene()->ao_volume->ao_texture;
+   bool bake_sdf_volume =  render_engine.scene()->sdf_volume && !render_engine.scene()->sdf_volume->sdf_texture;
+   if (bake_ao_volume || bake_sdf_volume)
    {
       Raytracer raytracer;
       raytracer.init(*render_engine.scene());
-      raytracer.bakeSignedDistanceFieldVolume(*render_engine.scene());
-      //raytracer.bakeAmbiantOcclusionVolume(*render_engine.scene());
-      //saveBakedAmbientOcclusionVolumeTo3DY(file, *render_engine.scene());
+      
+      if (bake_ao_volume)
+      {
+         raytracer.bakeAmbiantOcclusionVolume(*render_engine.scene());
+         saveBakedAmbientOcclusionVolumeTo3DY(file, *render_engine.scene());
+      }
+
+      if (bake_sdf_volume)
+      {
+         raytracer.bakeSignedDistanceFieldVolume(*render_engine.scene());
+         saveBakedSignedDistanceFieldVolumeTo3DY(file, *render_engine.scene());
+      }
    }
       
    CameraManipulator camera_manipulator(&render_engine.scene()->camera.point_of_view);

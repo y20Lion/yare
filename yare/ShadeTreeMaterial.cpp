@@ -117,6 +117,12 @@ std::string ShadeTreeMaterial::_buildProgramDefinesString(MaterialVariant materi
    if (int(material_variant) & int(MaterialVariant::WithSkinning))
       defines += "#define USE_SKINNING \n";
 
+   if (int(material_variant) & int(MaterialVariant::EnableAOVolume))
+      defines += "#define USE_AO_VOLUME \n";
+
+   if (int(material_variant) & int(MaterialVariant::EnableSDFVolume))
+      defines += "#define USE_SDF_VOLUME \n";
+
    return defines;
 }
 

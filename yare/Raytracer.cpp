@@ -198,13 +198,13 @@ void Raytracer::bakeAmbiantOcclusionVolume(Scene& scene)
    }
    _ocl_context.UnmapBuffer(0, ocl_ao_volume_buffer, ao_texture).Wait();
 
-   scene.ao_volume->texture = createTexture3D(resolution.x, resolution.y, resolution.z, GL_R8, final_ao_texture.get());
+   scene.ao_volume->ao_texture = createTexture3D(resolution.x, resolution.y, resolution.z, GL_R8, final_ao_texture.get());
 }
 
 void Raytracer::bakeSignedDistanceFieldVolume(Scene& scene)
 {
-   AOVolume& ao_volume = *scene.ao_volume;
-   ivec3 resolution = ao_volume.resolution;
+   SDFVolume& sdf_volume = *scene.sdf_volume;
+   ivec3 resolution = sdf_volume.resolution;
    int ray_count = resolution.x*resolution.y*resolution.z;
    int voxel_count = ray_count;
    
@@ -219,8 +219,8 @@ void Raytracer::bakeSignedDistanceFieldVolume(Scene& scene)
 
    CLWKernel rays_kernel = _raytracer_prog.GetKernel("initRays");
    rays_kernel.SetArg(0, _toCL(resolution));
-   rays_kernel.SetArg(1, _toCL(ao_volume.size));
-   rays_kernel.SetArg(2, _toCL(ao_volume.position));
+   rays_kernel.SetArg(1, _toCL(sdf_volume.size));
+   rays_kernel.SetArg(2, _toCL(sdf_volume.position));
    rays_kernel.SetArg(3, ray_count);
    rays_kernel.SetArg(4, ocl_ray_buffer);
    size_t gs[] = { resolution.x, resolution.y, resolution.z };
@@ -273,7 +273,7 @@ void Raytracer::bakeSignedDistanceFieldVolume(Scene& scene)
    }
    _ocl_context.UnmapBuffer(0, ocl_sdf_volume_accumulation, mapped_accumulated_sdf).Wait();
 
-   scene.ao_volume->sdf_texture = createTexture3D(resolution.x, resolution.y, resolution.z, GL_R16F, final_sdf_texture.get());
+   scene.sdf_volume->sdf_texture = createTexture3D(resolution.x, resolution.y, resolution.z, GL_R16F, final_sdf_texture.get());
 }
 
 void Raytracer::_wait()

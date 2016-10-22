@@ -111,7 +111,15 @@ struct AOVolume
    vec3 position;
    vec3 size;
    ivec3 resolution;
-   Uptr<GLTexture3D> texture;
+   Uptr<GLTexture3D> ao_texture;  
+};
+
+struct SDFVolume
+{
+   int transform_node_index;
+   vec3 position;
+   vec3 size;
+   ivec3 resolution;
    Uptr<GLTexture3D> sdf_texture;
 };
 
@@ -128,6 +136,7 @@ public:
 
    Camera camera;
    Uptr<AOVolume> ao_volume;
+   Uptr<SDFVolume> sdf_volume;
    std::vector<Sptr<Skeleton>> skeletons;
    std::vector<Sptr<IMaterial>> materials;   
    std::vector<Light> lights;

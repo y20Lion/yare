@@ -434,7 +434,7 @@ def writeAnimationCurves(curves, object):
     return json_curves
 
 def isValidMeshObject(object):
-    return object.is_visible(bpy.context.scene) and hasMesh(object) and (object.get('AOVolume') is None)
+    return object.is_visible(bpy.context.scene) and hasMesh(object) and (object.get('AOVolume') is None) and (object.get('SDFVolume') is None)
     
 def isValidAnimatedObject(object):
     if object.animation_data is None:
@@ -539,11 +539,11 @@ def writeSurfaces(armatures_bone_indices, binary_file):
         updateProgress("progress", i/object_count)
     return json_surfaces
 
-def writeAOVolume():    
+def writeVolume(vol_type):    
     for object in bpy.context.scene.objects:
-        if object.get('AOVolume') is None:
+        if object.get(vol_type+'Volume') is None:
             continue
-        max_resolution = int(object['AOVolume'])
+        max_resolution = int(object[vol_type+'Volume'])
         volume_size = (object.scale*2.0)[:]
         max_dim = max(volume_size)
         voxel_size = max_dim/max_resolution
@@ -582,7 +582,8 @@ class Export3DY(bpy.types.Operator, ExportHelper):
         json_root['Actions'] = writeActions()
         json_root['TransformHierarchy'] = writeTransformHierarchy()        
         json_root['Surfaces'] = writeSurfaces(armatures_bone_indices, binary_file)
-        json_root['AOVolume'] = writeAOVolume()
+        json_root['AOVolume'] = writeVolume('AO')
+        json_root['SDFVolume'] = writeVolume('SDF')
 
         binary_file_size = binary_file.tell()
         binary_file.close()

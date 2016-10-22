@@ -386,14 +386,13 @@ vec3 evalBump(bool invert, float strength, float max_displacement_distance, floa
    float det = dot(dPdx, cross(dPdy, normal));
    float absdet = abs(det);
 
-   vec3 disturbed_normal = normalize(/*absdet**/normal - /*sign(det)**/max_displacement_distance* surfaceGradient(normal, dPdx, dPdy, dHdx, dHdy));
+   vec3 disturbed_normal = normalize(normal - max_displacement_distance* surfaceGradient(normal, dPdx, dPdy, dHdx, dHdy));
    return  mix(normal, disturbed_normal, strength);
 }
 
 #ifdef USE_NORMAL_MAPPING
 vec3 evalNormalMap(vec3 normal_color, float scale)
 {
-   //vec3 fixed_tangent = normalize(tangent - dot(tangent, normal) * normal);
    vec3 bitangent = cross(tangent, normal);  
    vec3 normal_in_tangent_space = 2.0*normal_color - vec3(1.0);
    normal_in_tangent_space.x *= scale;
@@ -483,27 +482,28 @@ void evalLayerWeight(float blend, vec3 normal, out float out_fresnel, out float 
    out_facing = 1.0 - out_facing;
 }
 
+#ifdef USE_SDF_VOLUME
 float raymarchSDF(vec3 dir, vec3 start)
 {
-   vec3 voxel_size = ao_volume_size / textureSize(ao_volume, 0);
+   vec3 voxel_size = sdf_volume_size / textureSize(sdf_volume, 0);
    
    const int num_steps = 200;
    vec3 current_pos = start;
-   current_pos += dir*0.04;
+   current_pos += dir*voxel_size*0.25;
    float res = 1.0f;
    
    float t = 0.0;
    for (int i = 0; i < num_steps; ++i)
    {
       
-      vec3 uvw = (current_pos - ao_volume_bound_min) / ao_volume_size;
+      vec3 uvw = (current_pos - sdf_volume_bound_min) / sdf_volume_size;
       if (clamp(uvw, vec3(0.0), vec3(1.0)) != uvw)
          return res;
                  
       float distance = texture(sdf_volume, uvw).r;
       res = min(res, 10.0*abs(distance)/t);
-      if (distance < 0.005 || res < 0.005 )
-         return res;
+      if (/*distance < 0.005 ||*/ res < 0.05 )
+         return 0.0;
 
       t += abs(distance);
       current_pos += dir*abs(distance);
@@ -511,24 +511,30 @@ float raymarchSDF(vec3 dir, vec3 start)
 
    return res;
 }
+#endif
 
  void main()
  {    
+
     ssao *= texelFetch(ssao_texture, ivec2(gl_FragCoord.xy), 0).r;
+#ifdef USE_AO_VOLUME
     vec3 voxel_size = ao_volume_size / textureSize(ao_volume, 0);
     vec3 uvw = ((attr_position + normal*1.2*voxel_size) - ao_volume_bound_min) / ao_volume_size;
     float ao_encoded_val = texture(ao_volume, uvw).r;    
     ssao *= ao_encoded_val*ao_encoded_val;
+#endif
 
     %s
+       shading_result.rgb = vec3(ssao);
 
-
-    float theta = time;
-    //shading_result.rgb = vec3(ssao);
+#ifdef USE_SDF_VOLUME
+    float theta = time;    
     vec3 light_dir = vec3(cos(time), sin(time), 0.5);
     shading_result.rgb = vec3(raymarchSDF(normalize(light_dir), attr_position))*max(dot(light_dir,normal), 0.0);
-
-    vec3 uvw2 = (attr_position - ao_volume_bound_min) / ao_volume_size;
-    float distance = texture(sdf_volume, uvw2).r;
+#endif
+   /* vec3 uvw2 = (attr_position - sdf_volume_bound_min) / sdf_volume_size;
+    float distance = texture(sdf_volume, uvw2).r;*/
     //shading_result.rgb = vec3(abs(distance));
+    
+
  }

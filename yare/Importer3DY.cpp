@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <algorithm>
+#include <cctype>
 #include <fstream>
 #include <json/json.h>
 #include <iostream>
@@ -524,7 +525,7 @@ void readTransformHierarchy(const Json::Value& json_hierarchy, Scene* scene)
 
 static void readAOVolume(const Json::Value& json_ao_volume, const std::string& filename, Scene* scene)
 {
-   scene->ao_volume = std::make_unique<AOVolume>();// TODO optional
+   scene->ao_volume = std::make_unique<AOVolume>();
    AOVolume& ao_volume = *scene->ao_volume;
    ao_volume.transform_node_index = scene->object_name_to_transform_node_index.at(json_ao_volume["Name"].asString());
    ao_volume.size = readVec3(json_ao_volume["Size"]);
@@ -533,12 +534,42 @@ static void readAOVolume(const Json::Value& json_ao_volume, const std::string& f
    if (json_ao_volume.isMember("Path"))
    {
       std::ifstream ao_volume_file(filename + "\\ao_volume.bin", std::ifstream::binary);
+      if (!ao_volume_file.is_open())
+      {         
+         return;
+      }
+
       int volume_size_in_mem = ao_volume.resolution.x*ao_volume.resolution.y*ao_volume.resolution.z;
       auto buffer = std::make_unique<char[]>(volume_size_in_mem);
       ao_volume_file.read(buffer.get(), volume_size_in_mem);
       ao_volume_file.close();
-      ao_volume.texture = createTexture3D(ao_volume.resolution.x, ao_volume.resolution.y, ao_volume.resolution.z,
+      ao_volume.ao_texture = createTexture3D(ao_volume.resolution.x, ao_volume.resolution.y, ao_volume.resolution.z,
                                           GL_R8, buffer.get());
+   }
+}
+
+static void readSDFVolume(const Json::Value& json_sdf_volume, const std::string& filename, Scene* scene)
+{
+   scene->sdf_volume = std::make_unique<SDFVolume>();
+   SDFVolume& sdf_volume = *scene->sdf_volume;
+   sdf_volume.transform_node_index = scene->object_name_to_transform_node_index.at(json_sdf_volume["Name"].asString());
+   sdf_volume.size = readVec3(json_sdf_volume["Size"]);
+   sdf_volume.position = readVec3(json_sdf_volume["Position"]);
+   sdf_volume.resolution = readIVec3(json_sdf_volume["Resolution"]);
+   if (json_sdf_volume.isMember("Path"))
+   {
+      std::ifstream sdf_volume_file(filename + "\\sdf_volume.bin", std::ifstream::binary);
+      if (!sdf_volume_file.is_open())
+      {         
+         return;
+      }
+
+      int volume_size_in_mem = sdf_volume.resolution.x*sdf_volume.resolution.y*sdf_volume.resolution.z*4;
+      auto buffer = std::make_unique<char[]>(volume_size_in_mem);
+      sdf_volume_file.read(buffer.get(), volume_size_in_mem);
+      sdf_volume_file.close();
+      sdf_volume.sdf_texture = createTexture3D(sdf_volume.resolution.x, sdf_volume.resolution.y, sdf_volume.resolution.z,
+                                             GL_R16F, buffer.get());
    }
 }
 
@@ -552,7 +583,13 @@ void import3DY(const std::string& filename, const RenderEngine& render_engine, S
 	json_file.close();
 
    readTransformHierarchy(root["TransformHierarchy"], scene);
-   readAOVolume(root["AOVolume"], filename, scene);
+
+   if (!root["AOVolume"].isNull())
+      readAOVolume(root["AOVolume"], filename, scene);
+
+   if (!root["SDFVolume"].isNull())
+      readSDFVolume(root["SDFVolume"], filename, scene);
+
    readLights(root["Lights"], scene);
    readEnvironment(render_engine, root["Environment"], scene);
    readActions(root["Actions"], scene);
@@ -593,31 +630,59 @@ void import3DY(const std::string& filename, const RenderEngine& render_engine, S
          surface_instance.skeleton = nullptr;
          surface_instance.material_variant = MaterialVariant::Normal;
       }
+
+      if (scene->ao_volume)
+      {
+         ((int&)surface_instance.material_variant) |= int(MaterialVariant::EnableAOVolume);
+      }
+
+      if (scene->sdf_volume)
+      {
+         ((int&)surface_instance.material_variant) |= int(MaterialVariant::EnableSDFVolume);
+      }
+
       surface_instance.material_program = &surface_instance.material->compile(surface_instance.material_variant);
 		scene->surfaces.push_back(surface_instance);      
 	}
 }
 
-void saveBakedAmbientOcclusionVolumeTo3DY(const std::string& filename, const Scene& scene)
+static std::string _toUppercase(const std::string& input)
+{
+   std::string output = input;
+   for (auto & c : output) c = std::toupper(c);
+   return output;
+}
+
+static void saveBakedVolumeTo3DY(const std::string& filename, const GLTexture3D& volume_texture, const std::string& volume_type, const Scene& scene)
 {
    Json::Value root;
    std::ifstream json_file_as_read(filename + "\\structure.json");
    json_file_as_read >> root;
    json_file_as_read.close();
-   
-   int voxels_size = scene.ao_volume->texture->readbackBufferSize();
+
+   int voxels_size = volume_texture.readbackBufferSize();
    auto voxels = std::make_unique<char[]>(voxels_size);
-   scene.ao_volume->texture->readbackTexels(voxels.get());
+   volume_texture.readbackTexels(voxels.get());
 
-   std::ofstream ao_volume_file(filename + "\\ao_volume.bin", std::ofstream::binary);
-   ao_volume_file.write(voxels.get(), voxels_size);
-   ao_volume_file.close();
+   std::ofstream volume_file(filename + "\\"+volume_type+"_volume.bin", std::ofstream::binary);
+   volume_file.write(voxels.get(), voxels_size);
+   volume_file.close();
 
-   root["AOVolume"]["Path"] = "ao_volume.bin";
+   root[_toUppercase(volume_type)+"Volume"]["Path"] = volume_type + "_volume.bin";
 
    std::ofstream json_file_as_write(filename + "\\structure.json");
    json_file_as_write << root;
    json_file_as_write.close();
+}
+
+void saveBakedAmbientOcclusionVolumeTo3DY(const std::string& filename, const Scene& scene)
+{
+   saveBakedVolumeTo3DY(filename, *scene.ao_volume->ao_texture, "ao", scene);
+}
+
+void saveBakedSignedDistanceFieldVolumeTo3DY(const std::string& filename, const Scene& scene)
+{
+   saveBakedVolumeTo3DY(filename, *scene.sdf_volume->sdf_texture, "sdf", scene);
 }
 
 }
