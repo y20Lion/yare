@@ -14,6 +14,13 @@ class BackgroundSky;
 struct ImageSize;
 class FilmPostProcessor;
 class SSAORenderer;
+class ClusteredLightCuller;
+
+struct RenderSettings
+{
+   float light_contribution_threshold = 0.05f;
+};
+
 
 class RenderEngine
 {
@@ -32,6 +39,7 @@ public:
    Uptr<BackgroundSky> background_sky;
    Uptr<FilmPostProcessor> film_processor;
    Uptr<SSAORenderer> ssao_renderer;
+   Uptr<ClusteredLightCuller> clustered_light_culler;
    
 private:
    void _bindSceneUniforms();
@@ -44,6 +52,7 @@ private:
    void _sortSurfacesByMaterial();
    void _updateUniformBuffers(const RenderData& render_data, float time, float delta_time);
    void _updateRenderMatrices(RenderData& render_data);
+   void _computeLightsRadius();
 
 private:
    DISALLOW_COPY_AND_ASSIGN(RenderEngine)
@@ -51,11 +60,17 @@ private:
    
    Uptr<GLDynamicBuffer> _surface_uniforms;
    Uptr<GLDynamicBuffer> _scene_uniforms;
-   Uptr<GLBuffer> _lights_ssbo;
+
+   Uptr<GLBuffer> _sphere_lights_ssbo;
+   Uptr<GLBuffer> _spot_lights_ssbo;
+   Uptr<GLBuffer> _rectangle_lights_ssbo;
+   Uptr<GLBuffer> _sun_lights_ssbo;
 
    Uptr<GLProgram> _z_pass_render_program;
 
    size_t _surface_uniforms_size;
+
+   RenderSettings _settings;
 };
 
 }

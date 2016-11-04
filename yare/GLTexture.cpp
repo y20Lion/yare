@@ -32,7 +32,23 @@ static std::pair<GLenum, GLenum> _getExternalFormatAndType(GLenum internal_forma
         case GL_RGBA32F: return std::make_pair(RGBA, GL_FLOAT);
         case GL_RGB32F: return std::make_pair(RGB, GL_FLOAT);
         case GL_RG32F: return std::make_pair(GL_RG, GL_FLOAT);
-        case GL_R32F: return std::make_pair(GL_RED, GL_FLOAT);
+        case GL_R32F: return std::make_pair(GL_RED, GL_FLOAT);        
+    }
+
+    GLenum RGB_INTEGER = bgr ? GL_BGR_INTEGER : GL_RGB_INTEGER;
+    GLenum RGBA_INTEGER = bgr ? GL_BGRA_INTEGER : GL_RGBA_INTEGER;
+
+    switch (internal_format)
+    {
+       case GL_RGBA32UI: return std::make_pair(RGBA_INTEGER, GL_UNSIGNED_INT);
+       case GL_RGB32UI: return std::make_pair(RGB_INTEGER, GL_UNSIGNED_INT);
+       case GL_RG32UI: return std::make_pair(GL_RG_INTEGER, GL_UNSIGNED_INT);
+       case GL_R32UI: return std::make_pair(GL_RED_INTEGER, GL_UNSIGNED_INT);
+
+       case GL_RGBA32I: return std::make_pair(RGBA_INTEGER, GL_INT);
+       case GL_RGB32I: return std::make_pair(RGB_INTEGER, GL_INT);
+       case GL_RG32I: return std::make_pair(GL_RG_INTEGER, GL_INT);
+       case GL_R32I: return std::make_pair(GL_RED_INTEGER, GL_INT);
     }
     assert(false);
     return std::make_pair(0, 0);
@@ -164,6 +180,12 @@ int GLTexture3D::readbackBufferSize() const
 {
    auto format = _getExternalFormatAndType(_internal_format, false);
    return _width * _height * _depth * GLFormats::componentCount(format.first) * GLFormats::sizeOfType(format.second);
+}
+
+void GLTexture3D::update(void* data)
+{
+   auto format = _getExternalFormatAndType(_internal_format, false);
+   glTextureSubImage3D(_texture_id, 0, 0, 0, 0, _width, _height, _depth, format.first, format.second, data);
 }
 
 Uptr<GLTexture1D> createMipmappedTexture1D(int width, GLenum internal_format, void* pixels, bool pixels_in_bgr)

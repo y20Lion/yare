@@ -97,6 +97,8 @@ public:
    void readbackTexels(void* ptr, int level = 0) const;
    int readbackBufferSize() const;
 
+   void update(void* data);
+
    int width() const override { return _width; }
    int height() const override { return _height; }
    int depth() const override { return _depth; }

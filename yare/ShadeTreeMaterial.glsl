@@ -180,10 +180,44 @@ vec3 pointLightIncidentRadiance(vec3 light_power, vec3 light_position)
    return light_power / (4 * PI*light_distance*light_distance);
 }
 
+vec3 out_val = vec3(0);
 vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
 {
+   vec2 current_ndc01_pos = (gl_FragCoord.xy - viewport.xy) / (viewport.zw);
+   ivec3 current_cluster_coords = ivec3(light_clusters_dims * vec3(current_ndc01_pos, gl_FragCoord.z));
+   
+   uvec2 cluster_data = texelFetch(light_list_head, current_cluster_coords, 0).xy;
+   unsigned int start_offset = cluster_data.x;
+   unsigned int sphere_light_count = cluster_data.y;
+
+   out_val = vec3(start_offset/100.0f);
+
    vec3 irradiance = vec3(0.0);
-   for (int i = 0; i < lights.length(); ++i)
+   for (unsigned int i = 0; i < sphere_light_count; ++i)
+   {
+      int light_index = light_list_data[start_offset+i];
+      SphereLight light = sphere_lights[light_index];
+
+      vec3 light_dir = normalize(light.position - attr_position);
+      irradiance += max(dot(light_dir, normal), 0.0) * pointLightIncidentRadiance(light.color, light.position);
+   }
+
+   /*for (unsigned int i = 0; i < spot_lights.length(); ++i)
+   {
+      int light_index = light_list_data[start_offset + i];
+      SpotLight light = spot_lights[i];
+
+      vec3 light_dir = normalize(light.position - attr_position);
+      float spot_attenuation = spotLightAttenuation(light_dir, light.cos_half_angle, light.direction, light.angle_smooth);
+
+      // we consider the interior of flashlight as if made of black albedo material.
+      // This means that not all the light source power is redirected to the light cone, some is lost in the directions outside of the cone.
+      irradiance += max(dot(light_dir, normal), 0.0) * pointLightIncidentRadiance(light.color, light.position) * spot_attenuation;
+   }*/
+
+   
+
+   /*for (int i = 0; i < lights.length(); ++i)
    {
       Light light = lights[i];
       if (light.type == LIGHT_SPHERE)
@@ -212,8 +246,8 @@ vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
          // This means that not all the light source power is redirected to the light cone, some is lost in the directions outside of the cone.
          irradiance += max(dot(light_dir, normal), 0.0) * pointLightIncidentRadiance(light.color, light_position) * spot_attenuation;
       }
-   }
-   vec3 env_irradiance = texture(sky_diffuse_cubemap, normal).rgb*ssao;
+   }*/
+   vec3 env_irradiance = vec3(0);// texture(sky_diffuse_cubemap, normal).rgb*ssao;
    return  (irradiance + env_irradiance) * color / PI; // color/PI is the diffuse brdf constant value
 }
 
@@ -319,7 +353,7 @@ vec3 evalGlossyBSDF(vec3 color, vec3 normal, float roughness)
    roughness = max(roughness, 0.001);
    vec3 exit_radiance = vec3(0.0);
 
-   for (int i = 0; i < lights.length(); ++i)
+   /*for (int i = 0; i < lights.length(); ++i)
    {
       Light light = lights[i];
       if (light.type == LIGHT_SPHERE)
@@ -350,7 +384,7 @@ vec3 evalGlossyBSDF(vec3 color, vec3 normal, float roughness)
          
          exit_radiance += evalMicrofacetGGX(roughness, normal, view_vector, light_vector) * pointLightIncidentRadiance(light.color, light_position) * spot_attenuation;
       }
-   }   
+   }   */
      
    vec3 sky_radiance = importanceSampleSkyCubemap(roughness, normal, view_vector)*ssao;
 
@@ -525,7 +559,7 @@ float raymarchSDF(vec3 dir, vec3 start)
 #endif
 
     %s
-       shading_result.rgb = vec3(ssao);
+       //shading_result.rgb = vec3(ssao);
 
 #ifdef USE_SDF_VOLUME
     float theta = time;    
@@ -536,5 +570,5 @@ float raymarchSDF(vec3 dir, vec3 start)
     float distance = texture(sdf_volume, uvw2).r;*/
     //shading_result.rgb = vec3(abs(distance));
     
-
+    //shading_result.rgb = vec3(out_val);
  }

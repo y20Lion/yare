@@ -30,6 +30,7 @@
 #include "TransformHierarchy.h"
 #include "stl_helpers.h"
 #include "SSAORenderer.h"
+#include "ClusteredLightCuller.h"
 
 namespace yare {
 
@@ -56,47 +57,50 @@ struct SceneUniforms
    float znear;
    vec3 sdf_volume_size;
    float zfar;
+   ivec4 viewport;
    float tessellation_edges_per_screen_height;
 
 };
 
-struct LightSSBO
+struct LightSphereSSBO
 {
    vec3 color;
-   int type;      
-   union
-   {
-      struct Sphere
-      {
-         glm::vec3 position;
-         float size;
-         float padding[8];
-      } sphere;
-      struct Rectangle
-      {
-         glm::vec3 position;
-         float padding;
-         glm::vec3 direction_x;
-         float size_x;
-         glm::vec3 direction_y;
-         float size_y;
-      } rectangle;
-      struct Sun
-      {
-         glm::vec3 direction;
-         float size;
-         float padding[8];
-      } sun;
-      struct Spot
-      {
-         glm::vec3 position;
-         float cos_half_angle;
-         glm::vec3 direction;
-         float angle_smooth;
-         float padding[4];
-      } spot;
-   };
+   float size;
+   glm::vec3 position;
+   int padding;
 };
+
+struct LightSpotSSBO
+{
+   vec3 color;
+   float angle_smooth;
+   glm::vec3 position;
+   float cos_half_angle;
+   glm::vec3 direction;
+   int padding;
+};
+
+struct LightRectangleSSBO
+{
+   vec3 color;
+   float size_x;
+   glm::vec3 position;
+   float size_y;
+   glm::vec3 direction_x;
+   int padding;
+   glm::vec3 direction_y;
+   int padding1;
+};
+
+struct LightSunSSBO
+{
+   vec3 color;
+   float size;
+   glm::vec3 direction;
+   int padding;
+};
+
+
 
 RenderEngine::RenderEngine(const ImageSize& framebuffer_size)
    : _scene()
@@ -105,6 +109,7 @@ RenderEngine::RenderEngine(const ImageSize& framebuffer_size)
    , background_sky(new BackgroundSky(*render_resources))
    , film_processor(new FilmPostProcessor(*render_resources))
    , ssao_renderer(new SSAORenderer(*render_resources))
+   , clustered_light_culler(new ClusteredLightCuller(*render_resources))
 {    
    _z_pass_render_program = createProgramFromFile("z_pass_render.glsl");
 }
@@ -139,6 +144,8 @@ void RenderEngine::offlinePrepareScene()
    }
 
    _scene.transform_hierarchy->updateNodesWorldToLocalMatrix();
+
+   _computeLightsRadius();
 }
 
 void RenderEngine::updateScene(RenderData& render_data)
@@ -157,6 +164,8 @@ void RenderEngine::updateScene(RenderData& render_data)
    _sortSurfacesByDistanceToCamera(render_data);
    _updateUniformBuffers(render_data, time_lapse, time_lapse - last_update_time);
    
+   clustered_light_culler->buildLightLists(_scene, render_data);
+
    last_update_time = time_lapse;
 }
 
@@ -226,6 +235,8 @@ void RenderEngine::_bindSceneUniforms()
       counter = 0;
    glBindBufferRange(GL_UNIFORM_BUFFER, BI_SCENE_UNIFORMS, _scene_uniforms->id(),
                      _scene_uniforms->getRenderSegmentOffset(), _scene_uniforms->segmentSize());
+
+   clustered_light_culler->bindLightLists();
 }
 
 void RenderEngine::_bindSurfaceUniforms(int suface_index, const SurfaceInstance& surface)
@@ -279,6 +290,8 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
    _renderSurfacesMaterial(_scene.opaque_surfaces);
    render_resources->material_pass_timer->stop();
 
+   clustered_light_culler->drawClusterGrid();
+
    render_resources->background_timer->start();
    background_sky->render();
    render_resources->background_timer->stop();
@@ -316,47 +329,92 @@ void RenderEngine::_renderSurfacesMaterial(SurfaceRange surfaces)
 
 void RenderEngine::_createSceneLightsBuffer()
 {  
-   _lights_ssbo = createBuffer(sizeof(LightSSBO)*_scene.lights.size()+sizeof(glm::vec4), GL_MAP_WRITE_BIT);
-
-   char* data = (char*)_lights_ssbo->map(GL_MAP_WRITE_BIT);
-   data += sizeof(glm::vec4);
+   int sphere_light_count = 0;
+   int spot_light_count = 0;
+   int rectangle_light_count = 0;
+   int sun_light_count = 0;
    for (const auto& light : _scene.lights)
-   {      
-      LightSSBO* buffer_light = (LightSSBO*)data;
-      buffer_light->type = int(light.type);      
+   {
+      switch (light.type)
+      {
+      case LightType::Sphere: sphere_light_count++; break;
+      case LightType::Spot: spot_light_count++; break;
+      case LightType::Rectangle: rectangle_light_count++; break;
+      case LightType::Sun: sun_light_count++; break;      
+      }
+   }
+
+   _sphere_lights_ssbo = createBuffer(sizeof(LightSphereSSBO)*sphere_light_count + sizeof(vec4), GL_MAP_WRITE_BIT);
+   _spot_lights_ssbo = createBuffer(sizeof(LightSpotSSBO)*spot_light_count + sizeof(vec4), GL_MAP_WRITE_BIT);
+   _rectangle_lights_ssbo = createBuffer(sizeof(LightRectangleSSBO)*rectangle_light_count + sizeof(vec4), GL_MAP_WRITE_BIT);
+   _sun_lights_ssbo = createBuffer(sizeof(LightSunSSBO)*sun_light_count + sizeof(vec4), GL_MAP_WRITE_BIT);
+
+   char* sphere_data = (char*)_sphere_lights_ssbo->map(GL_MAP_WRITE_BIT);
+   *((ivec3*)sphere_data) = clustered_light_culler->clustersDimensions();
+   sphere_data += sizeof(vec4);
+   char* spot_data = (char*)_spot_lights_ssbo->map(GL_MAP_WRITE_BIT);
+   spot_data += sizeof(vec4);
+   char* rectangle_data = (char*)_rectangle_lights_ssbo->map(GL_MAP_WRITE_BIT);
+   rectangle_data += sizeof(vec4);
+   char* sun_data = (char*)_sun_lights_ssbo->map(GL_MAP_WRITE_BIT);
+   sun_data += sizeof(vec4);
+
+   for (const auto& light : _scene.lights)
+   {
       switch (light.type)
       {
          case LightType::Sphere:
+         {
+            LightSphereSSBO* buffer_light = (LightSphereSSBO*)sphere_data;
             buffer_light->color = light.color*light.strength; // light power is stored in color (Watt)
-            buffer_light->sphere.position = light.world_to_local_matrix[3];
-            buffer_light->sphere.size = light.sphere.size;
+            buffer_light->position = light.world_to_local_matrix[3];
+            buffer_light->size = light.sphere.size;
+            sphere_data += sizeof(LightSphereSSBO);
             break;
+         }
          case LightType::Rectangle:
-            buffer_light->color = light.color*light.strength/(light.rectangle.size_x*light.rectangle.size_y); // radiant exitance is stored in color (Watt/m^2)
-            buffer_light->rectangle.position = light.world_to_local_matrix[3];
-            buffer_light->rectangle.direction_x = normalize(light.world_to_local_matrix[0]);
-            buffer_light->rectangle.direction_y = normalize(light.world_to_local_matrix[1]);
-            buffer_light->rectangle.size_x = light.rectangle.size_x;
-            buffer_light->rectangle.size_y = light.rectangle.size_y; 
+         {
+            LightRectangleSSBO* buffer_light = (LightRectangleSSBO*)rectangle_data;
+            buffer_light->color = light.color*light.strength / (light.rectangle.size_x*light.rectangle.size_y); // radiant exitance is stored in color (Watt/m^2)
+            buffer_light->position = light.world_to_local_matrix[3];
+            buffer_light->direction_x = normalize(light.world_to_local_matrix[0]);
+            buffer_light->direction_y = normalize(light.world_to_local_matrix[1]);
+            buffer_light->size_x = light.rectangle.size_x;
+            buffer_light->size_y = light.rectangle.size_y;
+            rectangle_data += sizeof(LightRectangleSSBO);
             break;
+         }
          case LightType::Sun:
+         {
+            LightSunSSBO* buffer_light = (LightSunSSBO*)sun_data;
             buffer_light->color = light.color*light.strength; // incident radiance is stored in color (Watt/m^2/ster)
-            buffer_light->sun.direction = light.world_to_local_matrix[2];
-            buffer_light->sun.size = light.sun.size;
+            buffer_light->direction = light.world_to_local_matrix[2];
+            buffer_light->size = light.sun.size;
+            sun_data += sizeof(LightSunSSBO);
             break;
+         }
          case LightType::Spot:
+         {
+            LightSpotSSBO* buffer_light = (LightSpotSSBO*)spot_data;
             buffer_light->color = light.color*light.strength; // light power is stored in color (Watt)
-            buffer_light->spot.position = light.world_to_local_matrix[3];
-            buffer_light->spot.direction = light.world_to_local_matrix[2];
-            buffer_light->spot.cos_half_angle = cos(light.spot.angle/2.0f);
-            buffer_light->spot.angle_smooth = light.spot.angle_blend;
+            buffer_light->position = light.world_to_local_matrix[3];
+            buffer_light->direction = light.world_to_local_matrix[2];
+            buffer_light->cos_half_angle = cos(light.spot.angle / 2.0f);
+            buffer_light->angle_smooth = light.spot.angle_blend;
+            spot_data += sizeof(LightSpotSSBO);
             break;
+         }
       }
-
-      data += sizeof(LightSSBO);
    }
-   _lights_ssbo->unmap();
-   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, BI_LIGHTS_SSBO, _lights_ssbo->id());
+
+   _sphere_lights_ssbo->unmap();
+   _rectangle_lights_ssbo->unmap();
+   _spot_lights_ssbo->unmap();
+   _sun_lights_ssbo->unmap();
+   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, BI_SPHERE_LIGHTS_SSBO, _sphere_lights_ssbo->id());
+   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, BI_SPOT_LIGHTS_SSBO, _spot_lights_ssbo->id());
+   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, BI_RECTANGLE_LIGHTS_SSBO, _rectangle_lights_ssbo->id());
+   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, BI_SUN_LIGHTS_SSBO, _sun_lights_ssbo->id());  
 }
 
 
@@ -460,14 +518,34 @@ void RenderEngine::_updateUniformBuffers(const RenderData& render_data, float ti
       scene_uniforms->sdf_volume_size = _scene.sdf_volume->size;
       scene_uniforms->sdf_volume_bound_min = _scene.sdf_volume->position - 0.5f*_scene.sdf_volume->size;
    }
+
+   scene_uniforms->viewport = ivec4(0, 0, render_resources->main_framebuffer->width(), render_resources->main_framebuffer->height());
 }
+
+static Frustum _frustum(float fovy, float aspect, float znear, float zfar)
+{
+   Frustum result;
+   result.near = znear;
+   result.far = zfar;
+   result.top = znear * tan(fovy*0.5f);
+   result.bottom = -result.top;
+   result.right = result.top * aspect;
+   result.left = -result.right;
+
+   return result;
+}
+
 
 void RenderEngine::_updateRenderMatrices(RenderData& render_data)
 {
+   _scene.camera.frustum = _frustum(3.14f / 2.0f, render_resources->framebuffer_size.ratio(), 0.05f, 20.0f);
+   
    const float znear = _scene.camera.frustum.near;
    const float zfar = _scene.camera.frustum.far;
    auto matrix_view_world = lookAt(_scene.camera.point_of_view.from, _scene.camera.point_of_view.to, _scene.camera.point_of_view.up);
-   auto matrix_projection = perspective(3.14f / 2.0f, render_resources->framebuffer_size.ratio(), znear, zfar);
+
+   const Frustum& f = _scene.camera.frustum;
+   auto matrix_projection = frustum(f.left, f.right, f.bottom, f.top, f.near, f.far);
    render_data.matrix_proj_world = matrix_projection * matrix_view_world;
    render_data.matrix_view_world = matrix_view_world;
    render_data.matrix_view_proj = inverse(matrix_projection);
@@ -479,6 +557,17 @@ void RenderEngine::_updateRenderMatrices(RenderData& render_data)
       render_data.main_view_surface_data[i].matrix_world_local = matrix_world_local;
       render_data.main_view_surface_data[i].normal_matrix_world_local = normalMatrix(matrix_world_local);
       render_data.main_view_surface_data[i].matrix_proj_local = render_data.matrix_proj_world * matrix_world_local;
+   }
+}
+
+void RenderEngine::_computeLightsRadius()
+{
+   for (auto& light : _scene.lights)
+   {
+      if (light.type == LightType::Sun)
+         continue;
+      
+      light.radius = 4.0f;// sqrtf(light.strength / (_settings.light_contribution_threshold * 4.0f * float(M_PI)));
    }
 }
 

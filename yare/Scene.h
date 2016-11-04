@@ -71,7 +71,8 @@ struct Light
    glm::vec3 color;
    float strength;
    glm::mat4x3 world_to_local_matrix;
-   
+   float radius;
+
    union
    {
       LightSphereData sphere;

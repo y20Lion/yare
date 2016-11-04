@@ -527,7 +527,7 @@ def writeSurfaces(armatures_bone_indices, binary_file):
         armature_name = getMeshArmature(object)
         bone_name_to_index = armatures_bone_indices[armature_name] if (armature_name is not None) else None
         
-        mesh = object.data ##to_mesh(bpy.context.scene, True, "PREVIEW")#
+        mesh = object.to_mesh(bpy.context.scene, True, "PREVIEW")#.data
         json_mesh = writeMesh(binary_file, mesh, object.vertex_groups, bone_name_to_index)
         if len(object.data.materials) != 0:
             material_name = object.data.materials[0].name

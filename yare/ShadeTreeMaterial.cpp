@@ -1,6 +1,7 @@
-#include "ShadeTreeMaterial.h"
+﻿#include "ShadeTreeMaterial.h"
 
 #include <algorithm>
+#include <GL/glew.h>
 
 #include "stl_helpers.h"
 #include "GLProgram.h"

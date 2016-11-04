@@ -187,7 +187,7 @@ Uptr<ShadeTreeNode> createShadeTreeNode(const std::string& node_type)
         return std::make_unique<OutputNode>();
     else if (node_type == "BSDF_DIFFUSE")
         return std::make_unique<DiffuseBSDFNode>();
-    else if (node_type == "BSDF_GLOSSY")
+    else if (node_type == "BSDF_GLOSSY" || node_type == "BSDF_ANISOTROPIC")
        return std::make_unique<GlossyBSDFNode>();
     else if (node_type == "EMISSION")
        return std::make_unique<EmissionBSDFNode>();

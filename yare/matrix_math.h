@@ -49,5 +49,11 @@ inline mat3 normalMatrix(const mat4x4& matrix)
    return mat3(transpose(inverse(matrix)));
 }
 
+inline vec3 project(const mat4x4& matrix, const vec3& point)
+{
+   vec4 vec_hs = matrix * vec4(point, 1.0f);
+   return vec_hs.xyz / vec3(vec_hs.w);
+}
+
 
 }
