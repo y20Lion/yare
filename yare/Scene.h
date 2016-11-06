@@ -104,6 +104,8 @@ struct RenderData
    glm::mat4x4 matrix_view_proj;
    glm::mat4x4 matrix_proj_view;
    glm::mat4x4 matrix_view_world;
+
+   vec3 points[4];
 };
 
 struct AOVolume

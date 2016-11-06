@@ -290,7 +290,7 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
    _renderSurfacesMaterial(_scene.opaque_surfaces);
    render_resources->material_pass_timer->stop();
 
-   clustered_light_culler->drawClusterGrid();
+   clustered_light_culler->drawClusterGrid(render_data);
 
    render_resources->background_timer->start();
    background_sky->render();
@@ -298,13 +298,6 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
    GLDevice::bindColorBlendState({ GLBlendingMode::ModulateAdd });
    _renderSurfacesMaterial(_scene.transparent_surfaces);
    GLDevice::bindDefaultColorBlendState();
-
-   std::cout << "z:"<< render_resources->z_pass_timer->elapsedTimeInMs() 
-             << " ssao:"<<  render_resources->ssao_timer->elapsedTimeInMs() 
-             << " mat:" << render_resources->material_pass_timer->elapsedTimeInMs()
-             << " b:" << render_resources->background_timer->elapsedTimeInMs()
-             << std::endl;
-
 }
 
 void RenderEngine::_renderSurfacesMaterial(SurfaceRange surfaces)

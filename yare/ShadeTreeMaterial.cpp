@@ -98,12 +98,12 @@ std::string ShadeTreeMaterial::_createFragmentShaderCode(const ShadeTreeEvaluati
    for (const std::string& glsl : evaluation.glsl_code)
       nodes_shading.append(glsl);
 
-   return string_format(fragment_template, defines, texture_bindings, nodes_shading);
+   return string_format_str(fragment_template, defines, texture_bindings, nodes_shading);
 }
 
 std::string ShadeTreeMaterial::_createVertexShaderCode(const ShadeTreeEvaluation& evaluation, const std::string& vertex_template, const std::string& defines)
 {
-   return string_format(vertex_template, defines );
+   return string_format_str(vertex_template, defines );
 }
 
 std::string ShadeTreeMaterial::_buildProgramDefinesString(MaterialVariant material_variant)

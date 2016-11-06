@@ -149,6 +149,10 @@ public:
         return label;
     }
 
+    void addSpace() {
+       mLayout->appendRow(10);       
+    }
+
     /// Add a new data widget controlled using custom getter/setter functions
     template <typename Type> detail::FormWidget<Type> *
     addVariable(const std::string &label, const std::function<void(Type)> &setter,

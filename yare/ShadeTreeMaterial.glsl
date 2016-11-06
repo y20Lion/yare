@@ -183,14 +183,14 @@ vec3 pointLightIncidentRadiance(vec3 light_power, vec3 light_position)
 vec3 out_val = vec3(0);
 vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
 {
-   vec2 current_ndc01_pos = (gl_FragCoord.xy - viewport.xy) / (viewport.zw);
-   ivec3 current_cluster_coords = ivec3(light_clusters_dims * vec3(current_ndc01_pos, gl_FragCoord.z));
+   vec2 current_ndc01_pos = (gl_FragCoord.xy /*- viewport.xy*/) / (viewport.zw);
+   ivec3 current_cluster_coords = ivec3(light_clusters_dims * vec3(current_ndc01_pos, 0.0/*gl_FragCoord.z*/));
    
    uvec2 cluster_data = texelFetch(light_list_head, current_cluster_coords, 0).xy;
    unsigned int start_offset = cluster_data.x;
    unsigned int sphere_light_count = cluster_data.y;
 
-   out_val = vec3(start_offset/100.0f);
+   out_val = vec3(start_offset);
 
    vec3 irradiance = vec3(0.0);
    for (unsigned int i = 0; i < sphere_light_count; ++i)
@@ -570,5 +570,5 @@ float raymarchSDF(vec3 dir, vec3 start)
     float distance = texture(sdf_volume, uvw2).r;*/
     //shading_result.rgb = vec3(abs(distance));
     
-    //shading_result.rgb = vec3(out_val);
+    //shading_result.rgb = vec3(out_val/100.0);
  }

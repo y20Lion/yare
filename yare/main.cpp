@@ -2,8 +2,6 @@
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
-#include <nanogui/nanogui.h>
-
 
 #include <assert.h>
 #include <iostream>
@@ -21,6 +19,7 @@
 #include "ImageSize.h"
 #include "GLDevice.h"
 #include "Raytracer.h"
+#include "AppGui.h"
 
 using namespace yare;
 
@@ -76,32 +75,8 @@ void handleInputs(GLFWwindow* window, CameraManipulator* camera_manipulator)
    previous_state = state;
 }
 
-void updateScene(RenderEngine* render_engine, int data_index);
-void renderScene(RenderEngine* render_engine, int data_index);
-
-
-
-
-
-using namespace nanogui;
-
-enum test_enum {
-   Item1 = 0,
-   Item2,
-   Item3
-};
-
-bool bvar = true;
-int ivar = 12345678;
-double dvar = 3.1415926;
-float fvar = (float)dvar;
-std::string strval = "A string";
-test_enum enumval = Item2;
-Color colval(0.5f, 0.5f, 0.7f, 1.f);
-
-Screen *screen = nullptr;
-
-bool nanogui_mouse_event = false;
+float updateScene(RenderEngine* render_engine, int data_index, GLFWwindow* update_context);
+float renderScene(RenderEngine* render_engine, int data_index, AppGui* app_gui, GLFWwindow* render_context);
 
 int main()
 {
@@ -123,9 +98,11 @@ int main()
    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
    glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);/*GLFW_OPENGL_COMPAT_PROFILE*/
+   //glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
    glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
    GLFWwindow* window = glfwCreateWindow(1500, 1000, "MyWindow", NULL, NULL);
+   GLFWwindow* update_context = glfwCreateWindow(1, 1, "", NULL, window);
 
    glfwMakeContextCurrent(window);
    glfwSwapInterval(1);
@@ -136,112 +113,17 @@ int main()
    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
    //glPixelStorei(GL_PACK_ALIGNMENT, 1);
    //glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-
-
-
-   // Create a nanogui screen and pass the glfw pointer to initialize
-   screen = new Screen();
-   screen->initialize(window, true);
-
-   int width, height;
-   glfwGetFramebufferSize(window, &width, &height);
-   glViewport(0, 0, width, height);
-   //glfwSwapInterval(0);
-   //glfwSwapBuffers(window);
-
-   // Create nanogui gui
-   bool enabled = true;
-   FormHelper *gui = new FormHelper(screen);
-   ref<Window> nanoguiWindow = gui->addWindow(Eigen::Vector2i(10, 10), "Form helper example");
-   gui->addGroup("Basic types");
-   gui->addVariable("bool", bvar)->setTooltip("Test tooltip.");
-   gui->addVariable("string", strval);
-
-   gui->addGroup("Validating fields");
-   gui->addVariable("int", ivar)->setSpinnable(true);
-   gui->addVariable("float", fvar)->setTooltip("Test.");
-   gui->addVariable("double", dvar)->setSpinnable(true);
-
-   gui->addGroup("Complex types");
-   gui->addVariable("Enumeration", enumval, enabled)->setItems({ "Item 1", "Item 2", "Item 3" });
-   gui->addVariable("Color", colval);
-
-   gui->addGroup("Other widgets");
-   gui->addButton("A button", []() { std::cout << "Button pressed." << std::endl; })->setTooltip("Testing a much longer tooltip, that will wrap around to new lines multiple times.");;
-
-   nanoguiWindow->setPosition(Vector2i(width - nanoguiWindow->preferredSize(screen->nvgContext())[0] - 5, 5));
-
    
-   ref<TextBox> hud = new TextBox(screen, "lol");
-   hud->setPosition(Vector2i(500, 100));
+   RenderEngine render_engine(ImageSize(1500, 1000));
 
-   screen->setVisible(true);
-   screen->performLayout();
-
-
-
-   glfwSetCursorPosCallback(window,
-                            [](GLFWwindow *, double x, double y) {
-      screen->cursorPosCallbackEvent(x, y);
-   }
-   );
-
-   
-   glfwSetMouseButtonCallback(window,
-      [](GLFWwindow *, int button, int action, int modifiers)
-      {
-         nanogui_mouse_event = screen->mouseButtonCallbackEvent(button, action, modifiers);
-
-      }
-   );
-
-   glfwSetKeyCallback(window,
-                      [](GLFWwindow *, int key, int scancode, int action, int mods) {
-      screen->keyCallbackEvent(key, scancode, action, mods);
-   }
-   );
-
-   glfwSetCharCallback(window,
-                       [](GLFWwindow *, unsigned int codepoint) {
-      screen->charCallbackEvent(codepoint);
-   }
-   );
-
-   glfwSetDropCallback(window,
-                       [](GLFWwindow *, int count, const char **filenames) {
-      screen->dropCallbackEvent(count, filenames);
-   }
-   );
-
-   glfwSetScrollCallback(window,
-                         [](GLFWwindow *, double x, double y) {
-      screen->scrollCallbackEvent(x, y);
-   }
-   );
-
-   glfwSetFramebufferSizeCallback(window,
-                                  [](GLFWwindow *, int width, int height) {
-      screen->resizeCallbackEvent(width, height);
-   }
-   );
-
-
-
-
-
-
-
-
-
-
+   AppGui app_gui(window, &render_engine);
 
    GLDevice::bindDefaultDepthStencilState();
    GLDevice::bindDefaultColorBlendState();
    GLDevice::bindDefaultRasterizationState();
    //glEnable(GL_CULL_FACE);
 
-   RenderEngine render_engine(ImageSize(1500, 1000));
+   
    //char* file = "D:\\BlenderTests\\Sintel_Lite_Cycles_V2.3dy";
    //char* file = "D:\\BlenderTests\\stanford_bunny.3dy";
 
@@ -277,42 +159,30 @@ int main()
 
    int update_index = 0;
    int render_index = 1;
-   updateScene(&render_engine, render_index); // bootstrap the update/render multithreaded cycle
+   updateScene(&render_engine, render_index, update_context); // bootstrap the update/render multithreaded cycle
    int i = 0;
    while (!glfwWindowShouldClose(window))
    {
       glfwPollEvents();
-      if (!nanogui_mouse_event)
+      if (!app_gui.hasMouseFocus())
       {
          handleInputs(window, &camera_manipulator);
          if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS)
             render_engine.clustered_light_culler->debugUpdateClusteredGrid(render_engine.scene()->render_data[render_index]);
       }
       
-
+          
       GLDynamicBuffer::moveActiveSegments();
+
       // we run at the same time the render of the current frame and the update of the next one
-      auto next_frame_scene_update_fence = std::async(updateScene, &render_engine, update_index);
-
-      renderScene(&render_engine, render_index);
-      //render_engine.presentDebugTexture();   
-
-      // Draw nanogui
-      hud->setValue(std::to_string(i));
-      ++i;
-      //hud->performLayout(screen->nvgContext());
-
-      Vector2i pref = hud->preferredSize(screen->nvgContext());
-      hud->setSize(pref);
-      hud->performLayout(screen->nvgContext());
-      //hud->upd();
-      screen->drawContents();
-      screen->drawWidgets();
-      
-      glfwSwapBuffers(window);       
-
-      next_frame_scene_update_fence.wait();  
+      auto next_frame_scene_update_fence = std::async(updateScene, &render_engine, update_index, update_context);
+      float render_duration = renderScene(&render_engine, render_index, &app_gui, window);      
+      float update_duration = next_frame_scene_update_fence.get();
       // end of multithreaded section
+
+      
+      if ( (i++) % 60 == 0 )
+         app_gui.reportCPUTimings(render_duration*1000.0f, update_duration*1000.0f);
 
       std::swap(update_index, render_index);
    }
@@ -321,14 +191,32 @@ int main()
    return 0;
 }
 
-void updateScene(RenderEngine* render_engine, int data_index)
+float updateScene(RenderEngine* render_engine, int data_index, GLFWwindow* update_context)
 {
+   auto start = std::chrono::steady_clock::now();
+   
+   glfwMakeContextCurrent(update_context);
+   
    render_engine->updateScene(render_engine->scene()->render_data[data_index]);
+
+   glfwMakeContextCurrent(nullptr);
+
+   float update_duration = std::chrono::duration<float>(std::chrono::steady_clock::now() - start).count();
+   return update_duration;   
 }
 
-void renderScene(RenderEngine* render_engine, int data_index)
+float renderScene(RenderEngine* render_engine, int data_index, AppGui* app_gui, GLFWwindow* window)
 {
+   auto start = std::chrono::steady_clock::now();
+   
    render_engine->renderScene(render_engine->scene()->render_data[data_index]);
+   //render_engine.presentDebugTexture();  
+   app_gui->drawWidgets();
+  
+   glfwSwapBuffers(window);
+
+   float render_duration = std::chrono::duration<float>(std::chrono::steady_clock::now() - start).count();
+   return render_duration;
 }
 
 

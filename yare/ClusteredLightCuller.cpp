@@ -1,6 +1,7 @@
 #include "ClusteredLightCuller.h"
 
 #include <glm/common.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include "glsl_global_defines.h"
 #include "GLDevice.h"
@@ -25,7 +26,7 @@ ClusteredLightCuller::ClusteredLightCuller(const RenderResources& render_resourc
 
    _light_list_head = createTexture3D(_light_clusters_dims.x, _light_clusters_dims.y, _light_clusters_dims.z, GL_RG32UI);
    _light_list_data = createDynamicBuffer(cMaxLightsPerCluster*sizeof(int) * _light_clusters_dims.x * _light_clusters_dims.y * _light_clusters_dims.z);
-   
+   //_light_list_data = createBuffer(cMaxLightsPerCluster * sizeof(int) * _light_clusters_dims.x * _light_clusters_dims.y * _light_clusters_dims.z, GL_MAP_WRITE_BIT);
    _initDebugData();
 }
 
@@ -45,40 +46,109 @@ struct intAabb3
 // From 2D Polyhedral Bounds of a Clipped, Perspective - Projected 3D Sphere
 void sphereBoundsForAxis(const vec3& axis, const vec3& sphere_center, float sphere_radius, float znear, vec3 bounds_cs[2])
 {
-   vec2 c(dot(axis, sphere_center), sphere_center.z);
+   bool sphere_clipping_with_znear = !((sphere_center.z + sphere_radius) < znear);
 
-   float tSquared = dot(c, c) - sphere_radius*sphere_radius;
-   bool eye_inside_of_sphere = (tSquared <= 0);
+   // given in coordinates (a,z), where a is in the direction of the vector a, and z is in the standard z direction
+   const vec2& projectedCenter = vec2(dot(axis, sphere_center), sphere_center.z);
+   vec2 bounds_az[2];
+   float tSquared = dot(projectedCenter, projectedCenter) - SQUARE(sphere_radius);
+   float t, cLength, costheta, sintheta;
 
-   vec2 v = eye_inside_of_sphere ?   vec2(0.0f) : vec2(sqrt(tSquared), sphere_radius) / vec2(length(c));
-   // Does the near plane intersect the sphere?
-   const bool sphere_clipping_with_znear  = (c.y + sphere_radius >= znear);
-   // Square root of the discriminant; NaN (and unused)
-   // if the camera is in the sphere
-   float k = sqrt(sphere_radius*sphere_radius - SQUARE(znear - c.y));
-   
-   vec2 bounds[2];
+   bool camera_outside_sphere = (tSquared > 0);
+   if (camera_outside_sphere)
+   { // Camera is outside sphere
+                        // Distance to the tangent points of the sphere (points where a vector from the camera are tangent to the sphere) (calculated a-z space)
+      t = sqrt(tSquared);
+      cLength = length(projectedCenter);
+
+      // Theta is the angle between the vector from the camera to the center of the sphere and the vectors from the camera to the tangent points
+      costheta = t / cLength;
+      sintheta = sphere_radius / cLength;
+   }
+   float sqrtPart;
+   if (sphere_clipping_with_znear) 
+      sqrtPart = sqrt(SQUARE(sphere_radius) - SQUARE(znear - projectedCenter.y));
+
+   sqrtPart *= -1;
    for (int i = 0; i < 2; ++i)
    {
-      if (!eye_inside_of_sphere)
-         bounds[i] = v.x* mat2(v.x, -v.y, v.y, v.x) * c;
+      if (tSquared >  0)
+      {
+         const mat2& rotateTheta = mat2(costheta, -sintheta,
+                                              sintheta, costheta);
+         
+         vec2 rotated =(rotateTheta * projectedCenter);
+         vec2 norm = rotated / length(rotated);
+         vec2 point = t * norm;
+         
+         bounds_az[i] = costheta * (rotateTheta * projectedCenter);
 
-      const bool clip_bound = eye_inside_of_sphere || (bounds[i].y > znear);
-      /*if (sphere_clipping_with_znear && clip_bound)
-         bounds[i] = vec2(projCenter.x + k, znear);*/
+         int a = 0;
+      }
 
-      // Set up for the lower bound
-      v.y = -v.y; 
-      k = -k;
+      if (sphere_clipping_with_znear && (!camera_outside_sphere || bounds_az[i].y > znear))
+      {
+         bounds_az[i].x = projectedCenter.x + sqrtPart;
+         bounds_az[i].y = znear;
+      }
+      sintheta *= -1; // negate theta for B
+      sqrtPart *= -1; // negate sqrtPart for B
    }
+   bounds_cs[0] = bounds_az[0].x * axis;
+   bounds_cs[0].z = bounds_az[0].y;
+   bounds_cs[1] = bounds_az[1].x * axis;
+   bounds_cs[1].z = bounds_az[1].y;
 
-   // Transform back to camera space
-   bounds_cs[1] = bounds[1].x* axis;
-   bounds_cs[1].z = bounds[1].y;
+   /*bool trivialAccept = (sphere_center.z + sphere_radius) < znear; // Entirely in back of nearPlane (Trivial Accept)
+                                                                   //const vec3& a = axis ? vec3(1, 0, 0) : vec3(0, 1, 0);
 
-   bounds_cs[0] = bounds[0].x* axis;
-   bounds_cs[0].z = bounds[0].y;
+                                                                   // given in coordinates (a,z), where a is in the direction of the vector a, and z is in the standard z direction
+   const vec2& projectedCenter = vec2(dot(axis, sphere_center), sphere_center.z);
+   vec2 bounds_az[2];
+   float tSquared = dot(projectedCenter, projectedCenter) - SQUARE(sphere_radius);
+   float t, cLength, costheta, sintheta;
+
+   if (tSquared >  0) { // Camera is outside sphere
+                        // Distance to the tangent points of the sphere (points where a vector from the camera are tangent to the sphere) (calculated a-z space)
+      t = sqrt(tSquared);
+      cLength = length(projectedCenter);
+
+      // Theta is the angle between the vector from the camera to the center of the sphere and the vectors from the camera to the tangent points
+      costheta = t / cLength;
+      sintheta = sphere_radius / cLength;
+   }
+   float sqrtPart;
+   if (!trivialAccept) sqrtPart = sqrt(SQUARE(sphere_radius) - SQUARE(znear - projectedCenter.y));
+   sqrtPart *= -1;
+   for (int i = 0; i < 2; ++i) {
+      if (tSquared >  0) {
+         const mat2& rotateTheta = mat2(costheta, -sintheta,
+                                        sintheta, costheta);
+
+         vec2 rotated = (rotateTheta * projectedCenter);
+         vec2 norm = rotated / length(rotated);
+         vec2 point = t * norm;
+
+         bounds_az[i] = costheta * (rotateTheta * projectedCenter);
+
+         int a = 0;
+      }
+
+      if (!trivialAccept && (tSquared <= 0 || bounds_az[i].y > znear))
+      {
+         bounds_az[i].x = projectedCenter.x + sqrtPart;
+         bounds_az[i].y = znear;
+      }
+      sintheta *= -1; // negate theta for B
+      sqrtPart *= -1; // negate sqrtPart for B
+   }
+   bounds_cs[0] = bounds_az[0].x * axis;
+   bounds_cs[0].z = bounds_az[0].y;
+   bounds_cs[1] = bounds_az[1].x * axis;
+   bounds_cs[1].z = bounds_az[1].y;*/
 }
+
+
 
 
 static Aabb3 _computeLightClipSpaceBoundingBox(const Scene& scene, const RenderData& render_data, const Light& light)
@@ -96,10 +166,14 @@ static Aabb3 _computeLightClipSpaceBoundingBox(const Scene& scene, const RenderD
    Aabb3 res;
    res.pmin = vec3(project(matrix_proj_view, left_right[0]).x, project(matrix_proj_view, bottom_top[0]).y, 0.0f);
    res.pmax = vec3(project(matrix_proj_view, left_right[1]).x, project(matrix_proj_view, bottom_top[1]).y, 1.0f);
-   
+
    res.pmin.xy = (res.pmin.xy + vec2(1.0f)) * 0.5f;
    res.pmax.xy = (res.pmax.xy + vec2(1.0f)) * 0.5f;
 
+   const_cast<vec3&>(render_data.points[0]) = left_right[0];
+   const_cast<vec3&>(render_data.points[1]) = left_right[1];
+   const_cast<vec3&>(render_data.points[2]) = bottom_top[0];
+   const_cast<vec3&>(render_data.points[3]) = bottom_top[1];
    return res;
 }
 
@@ -137,7 +211,7 @@ void ClusteredLightCuller::buildLightLists(const Scene& scene, RenderData& rende
 
       for (int z = voxels_overlapping_light.pmin.z; z <= voxels_overlapping_light.pmax.z; z++)
       {
-         for (int y = voxels_overlapping_light.pmin.x; y <= voxels_overlapping_light.pmax.y ; y++)
+         for (int y = voxels_overlapping_light.pmin.y; y <= voxels_overlapping_light.pmax.y ; y++)
          {
             for (int x = voxels_overlapping_light.pmin.x; x <= voxels_overlapping_light.pmax.x; x++)
             {
@@ -151,12 +225,37 @@ void ClusteredLightCuller::buildLightLists(const Scene& scene, RenderData& rende
    _updateClustersGLData();
 }
 
-void ClusteredLightCuller::drawClusterGrid()
+vec3* _drawCross(const vec3& center, vec3* buffer)
+{
+   float size = 0.025f;
+   buffer[0] = center + vec3(size, 0.0f, 0.0f);
+   buffer[1] = center + vec3(-size, 0.0f, 0.0f);
+   buffer[2] = center + vec3(0.0f, size, 0.0f);
+   buffer[3] = center + vec3(0.0f, -size, 0.0f);
+   buffer += 4;
+   return buffer;
+}
+
+void ClusteredLightCuller::drawClusterGrid(const RenderData& render_data)
 {
    GLDevice::bindProgram(*_debug_draw_cluster_grid);
    GLDevice::bindUniformMatrix4(0, glm::inverse(_debug_matrix_proj_world));
    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, _debug_enabled_clusters->id());
    GLDevice::draw(*_debug_cluster_grid_vertex_source);
+   //glDisable(GL_DEPTH_TEST);
+ 
+   /*vec3* line_data = (vec3*)_debug_lines_buffer->map(GL_MAP_WRITE_BIT);
+   line_data = _drawCross(project(render_data.matrix_proj_view, render_data.points[0]), line_data);
+   line_data = _drawCross(project(render_data.matrix_proj_view, render_data.points[1]), line_data);
+   line_data = _drawCross(project(render_data.matrix_proj_view, render_data.points[2]), line_data);
+   line_data = _drawCross(project(render_data.matrix_proj_view, render_data.points[3]), line_data);
+   _debug_lines_buffer->unmap();
+
+   _debug_lines_source->setVertexCount(4*4);
+   GLDevice::bindProgram(*_debug_draw);
+   GLDevice::bindUniformMatrix4(0, mat4(1.0));
+   GLDevice::draw(*_debug_lines_source);*/
+   //glEnable(GL_DEPTH_TEST);
 }
 
 void ClusteredLightCuller::debugUpdateClusteredGrid(RenderData& render_data)
@@ -214,12 +313,13 @@ void ClusteredLightCuller::_updateClustersGLData()
    }
 
    _light_list_head->update(gpu_lists_head.get());
-   _light_list_data->unmap();
+   //_light_list_data->unmap();
 }
 
 void ClusteredLightCuller::_initDebugData()
 {
    _debug_draw_cluster_grid = createProgramFromFile("debug_clustered_shading.glsl");
+   _debug_draw = createProgramFromFile("debug_draw.glsl");
    _debug_cluster_grid = createBuffer(_light_clusters_dims.x * _light_clusters_dims.y * _light_clusters_dims.z * sizeof(vec3) * 24, GL_MAP_WRITE_BIT);
    _debug_enabled_clusters = createBuffer(_light_clusters_dims.x * _light_clusters_dims.y * _light_clusters_dims.z * sizeof(int), GL_MAP_WRITE_BIT);
 
@@ -275,6 +375,14 @@ void ClusteredLightCuller::_initDebugData()
    _debug_cluster_grid_vertex_source->setPrimitiveType(GL_LINES);
    _debug_cluster_grid_vertex_source->setVertexCount(_light_clusters_dims.x * _light_clusters_dims.y * _light_clusters_dims.z * 24);
    _debug_cluster_grid_vertex_source->setVertexAttribute(0, 3, GL_FLOAT, GLSLVecType::vec);
+
+   _debug_lines_buffer = createBuffer(sizeof(vec3) * 100, GL_MAP_WRITE_BIT);
+
+   _debug_lines_source = std::make_unique<GLVertexSource>();
+   _debug_lines_source->setVertexBuffer(*_debug_lines_buffer);
+   _debug_lines_source->setPrimitiveType(GL_LINES);
+   _debug_lines_source->setVertexCount(100);
+   _debug_lines_source->setVertexAttribute(0, 3, GL_FLOAT, GLSLVecType::vec);
 }
 
 void ClusteredLightCuller::bindLightLists()

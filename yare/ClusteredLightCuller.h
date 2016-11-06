@@ -31,7 +31,7 @@ public:
 
    void buildLightLists(const Scene& scene, RenderData& render_data);
 
-   void drawClusterGrid();
+   void drawClusterGrid(const RenderData& render_data);
    void debugUpdateClusteredGrid(RenderData& render_data);
 
    const GLTexture3D& lightListHead() const;
@@ -54,9 +54,14 @@ private:
    Uptr<GLTexture3D> _light_list_head;
    Uptr<GLDynamicBuffer> _light_list_data;
    Uptr<GLProgram> _debug_draw_cluster_grid;
+   Uptr<GLProgram> _debug_draw;
    Uptr<GLBuffer> _debug_cluster_grid;
    Uptr<GLBuffer> _debug_enabled_clusters;
    Uptr<GLVertexSource> _debug_cluster_grid_vertex_source;
+
+   Uptr<GLBuffer> _debug_lines_buffer;
+   Uptr<GLVertexSource> _debug_lines_source;
+
    mat4 _debug_matrix_proj_world;
    const RenderResources& _rr;
 };
