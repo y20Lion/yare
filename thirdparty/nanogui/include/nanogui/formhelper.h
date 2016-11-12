@@ -150,7 +150,7 @@ public:
     }
 
     void addSpace() {
-       mLayout->appendRow(10);       
+       mLayout->appendRow(10);
     }
 
     /// Add a new data widget controlled using custom getter/setter functions

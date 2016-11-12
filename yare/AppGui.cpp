@@ -9,27 +9,27 @@ using namespace nanogui;
 namespace yare {
 
 
-enum test_enum {
-   Item1 = 0,
-   Item2,
-   Item3
-};
-
-bool bvar = true;
-int ivar = 12345678;
-double dvar = 3.1415926;
-float fvar = (float)dvar;
-std::string strval = "A string";
-test_enum enumval = Item2;
-Color colval(0.5f, 0.5f, 0.7f, 1.f);
-
-Screen *screen = nullptr;
-
 static bool nanogui_mouse_event = false;
+static Graph* graph;
+static Screen *screen = nullptr;
 
-Slider * slider;
-Label* lol;
-Graph* graph;
+static void addSliderVariable(FormHelper* gui, Window* nanogui_window, const std::string& name, float* value, float value_min, float value_max)
+{
+   gui->addSpace();
+
+   Label* value_label = new Label(nanogui_window, std::to_string(*value));
+   gui->addWidget(name +":", value_label);
+   Slider* slider = new Slider(nanogui_window);
+
+   gui->addWidget("", slider);
+   slider->setRange(std::make_pair(value_min, value_max));
+   slider->setCallback([value_label, value](float new_value) 
+   { 
+      *value = new_value;
+      value_label->setCaption(string_format("%.2f", new_value));
+   });
+}
+
 AppGui::AppGui(GLFWwindow* window, RenderEngine* render_engine)
    : _render_engine(render_engine)
 {
@@ -43,41 +43,17 @@ AppGui::AppGui(GLFWwindow* window, RenderEngine* render_engine)
    // Create nanogui gui
    bool enabled = true;
    FormHelper *gui = new FormHelper(screen);
-   ref<Window> nanoguiWindow = gui->addWindow(Eigen::Vector2i(10, 10), "Form helper example");
-   gui->addGroup("Basic types");
-   gui->addVariable("bool", bvar)->setTooltip("Test tooltip.");
-   gui->addVariable("string", strval);
-
-   gui->addGroup("Validating; fields");
-   gui->addVariable("int", ivar)->setSpinnable(true);
-   gui->addVariable("float", fvar)->setTooltip("Test.");
-   gui->addVariable("double", dvar)->setSpinnable(true);
-
-   gui->addGroup("Complex types");
-   gui->addVariable("Enumeration", enumval, enabled)->setItems({ "Item 1", "Item 2", "Item 3" });
-   gui->addVariable("Color", colval);
-
-   //gui->addSmallGroup("Stuff1");
-   //gui->addButton("A button", []() { std::cout << "Button pressed." << std::endl; })->setTooltip("Testing a much longer tooltip, that will wrap around to new lines multiple times.");
-   gui->addSpace();
-   Label* test4 = new Label(nanoguiWindow, "3.0");
-   gui->addWidget("Stuff:", test4);
-   Slider* slider = new Slider(nanoguiWindow);
-   
-   gui->addWidget("", slider);
-   slider->setCallback([test4](float value) { test4->setCaption(string_format("%.2f", value)); });
-
-   gui->addSpace();
-   gui->addWidget("other Stuff:", new Label(nanoguiWindow, "5.0"));
-   gui->addWidget("", new Slider(nanoguiWindow));
-
-
-   //nanoguiWindow->setFixedWidth(400);
+   ref<Window> nanoguiWindow = gui->addWindow(Eigen::Vector2i(10, 10), "Tweaking");
+   gui->addGroup("Clustered shading debug");
+   gui->addVariable("x", render_engine->_settings.x)->setSpinnable(true);
+   gui->addVariable("y", render_engine->_settings.y)->setSpinnable(true);
+   gui->addVariable("z", render_engine->_settings.z)->setSpinnable(true);
+   addSliderVariable(gui, nanoguiWindow, "bias", &render_engine->_settings.bias, -5.0, 5.0);
+   addSliderVariable(gui, nanoguiWindow, "bias2", &render_engine->_settings.bias, -5.0, 5.0);
 
    nanoguiWindow->setPosition(Vector2i(width - nanoguiWindow->preferredSize(screen->nvgContext())[0] - 10, 5));
  
-
-   ref<Window> hudWindow = new Window(screen, "");//hud_helper->addWindow(Eigen::Vector2i(10, 10), "");
+   ref<Window> hudWindow = new Window(screen, "");
    hudWindow->setLayout(new BoxLayout(Orientation::Horizontal));
 
    _hud = new Label(hudWindow, "lol");
@@ -85,11 +61,11 @@ AppGui::AppGui(GLFWwindow* window, RenderEngine* render_engine)
    _hud->setFixedSize(Vector2i(200, 0));
    _hud->setColor(Color(1.0f, 1.0f, 0.0f, 1.0f));
 
-   ref<Window> graph_window = new Window(screen, "");//hud_helper->addWindow(Eigen::Vector2i(10, 10), "");
+   ref<Window> graph_window = new Window(screen, "");
    graph_window->setLayout(new BoxLayout(Orientation::Horizontal));
 
-   graph = new Graph(graph_window, "lol");
-   graph_window->setPosition(Vector2i(200, 200));
+   graph = new Graph(graph_window, "Render time");
+   graph_window->setPosition(Vector2i(0, height - graph_window->preferredSize(screen->nvgContext())[1]));
    graph->setValues(VectorXf(20));
    _render_times.resize(20);
    
@@ -161,17 +137,10 @@ void AppGui::_updateHUDText()
                                         render_resources->background_timer->elapsedTimeInMs(),
                                         _render_time_ms,
                                        _update_time_ms);
-   //std::cout << slider->value() << std::endl;
    _hud->setCaption(hud_text);
 
    for (int i = 0; i < 20; ++i)
-      graph->values()[i] = _render_times[i]/10.0;
-  /* static int i = 0;
-   ++i;
-   lol->setCaption(std::to_string(i));*/
-   /*Vector2i pref = _hud->preferredSize(screen->nvgContext());
-   _hud->setSize(pref);
-   _hud->performLayout(screen->nvgContext()); */  
+      graph->values()[i] = _render_times[i]/10.0f;
 
    screen->performLayout();
 }

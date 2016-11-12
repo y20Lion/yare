@@ -175,16 +175,18 @@ int main()
       GLDynamicBuffer::moveActiveSegments();
 
       // we run at the same time the render of the current frame and the update of the next one
-      auto next_frame_scene_update_fence = std::async(updateScene, &render_engine, update_index, update_context);
+      /*auto next_frame_scene_update_fence = std::async(updateScene, &render_engine, update_index, update_context);
       float render_duration = renderScene(&render_engine, render_index, &app_gui, window);      
-      float update_duration = next_frame_scene_update_fence.get();
+      float update_duration = next_frame_scene_update_fence.get();*/
+      float render_duration = renderScene(&render_engine, render_index, &app_gui, window);
+      float update_duration = updateScene(&render_engine, render_index, update_context);
       // end of multithreaded section
 
       
       if ( (i++) % 60 == 0 )
          app_gui.reportCPUTimings(render_duration*1000.0f, update_duration*1000.0f);
 
-      std::swap(update_index, render_index);
+      //std::swap(update_index, render_index);
    }
 
    glfwTerminate();
@@ -195,11 +197,11 @@ float updateScene(RenderEngine* render_engine, int data_index, GLFWwindow* updat
 {
    auto start = std::chrono::steady_clock::now();
    
-   glfwMakeContextCurrent(update_context);
+   //glfwMakeContextCurrent(update_context);
    
    render_engine->updateScene(render_engine->scene()->render_data[data_index]);
 
-   glfwMakeContextCurrent(nullptr);
+   //glfwMakeContextCurrent(nullptr);
 
    float update_duration = std::chrono::duration<float>(std::chrono::steady_clock::now() - start).count();
    return update_duration;   

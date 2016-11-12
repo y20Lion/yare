@@ -109,7 +109,7 @@ RenderEngine::RenderEngine(const ImageSize& framebuffer_size)
    , background_sky(new BackgroundSky(*render_resources))
    , film_processor(new FilmPostProcessor(*render_resources))
    , ssao_renderer(new SSAORenderer(*render_resources))
-   , clustered_light_culler(new ClusteredLightCuller(*render_resources))
+   , clustered_light_culler(new ClusteredLightCuller(*render_resources, _settings))
 {    
    _z_pass_render_program = createProgramFromFile("z_pass_render.glsl");
 }
@@ -290,7 +290,7 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
    _renderSurfacesMaterial(_scene.opaque_surfaces);
    render_resources->material_pass_timer->stop();
 
-   clustered_light_culler->drawClusterGrid(render_data);
+   clustered_light_culler->drawClusterGrid(render_data, _settings.x + _settings.y*32 + _settings.z*(32*32));
 
    render_resources->background_timer->start();
    background_sky->render();
@@ -312,6 +312,8 @@ void RenderEngine::_renderSurfacesMaterial(SurfaceRange surfaces)
       if (surface.material_program != current_program)
       {
          GLDevice::bindProgram(*surface.material_program);
+         glUniform1f(42, _settings.bias);         
+         GLDevice::bindUniformMatrix4(43, clustered_light_culler->_debug_render_data.matrix_proj_world);
          surface.material->bindTextures();
          current_program = surface.material_program;
       }      
@@ -532,9 +534,8 @@ static Frustum _frustum(float fovy, float aspect, float znear, float zfar)
 void RenderEngine::_updateRenderMatrices(RenderData& render_data)
 {
    _scene.camera.frustum = _frustum(3.14f / 2.0f, render_resources->framebuffer_size.ratio(), 0.05f, 20.0f);
-   
-   const float znear = _scene.camera.frustum.near;
-   const float zfar = _scene.camera.frustum.far;
+   render_data.frustum = _scene.camera.frustum;
+
    auto matrix_view_world = lookAt(_scene.camera.point_of_view.from, _scene.camera.point_of_view.to, _scene.camera.point_of_view.up);
 
    const Frustum& f = _scene.camera.frustum;

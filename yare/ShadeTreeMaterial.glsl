@@ -87,6 +87,9 @@ layout(location = 0, index = 0) out vec4 shading_result;
 layout(location = 0, index = 1) out vec4 shading_result_transp_factor;
 %s
 
+layout(location = 42) uniform float bias;
+layout(location = 43) uniform mat4 debug_proj_world;
+
 vec3 normal = gl_FrontFacing ? normalize(attr_normal) : -normalize(attr_normal);
 #ifdef USE_NORMAL_MAPPING
 vec3 tangent = normalize(attr_tangent);
@@ -183,23 +186,35 @@ vec3 pointLightIncidentRadiance(vec3 light_power, vec3 light_position)
 vec3 out_val = vec3(0);
 vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
 {
-   vec2 current_ndc01_pos = (gl_FragCoord.xy /*- viewport.xy*/) / (viewport.zw);
-   ivec3 current_cluster_coords = ivec3(light_clusters_dims * vec3(current_ndc01_pos, 0.0/*gl_FragCoord.z*/));
+   vec4 p = debug_proj_world*vec4(attr_position, 1.0);
+   p /= p.w;
    
+  /* vec2 current_ndc01_pos = (gl_FragCoord.xy - viewport.xy) / (viewport.zw);
+   float z_eye_space = 2.0 * znear * zfar / (znear + zfar - (2.0*gl_FragCoord.z-1.0) * (zfar - znear));
+   float cluster_z =  (z_eye_space-znear)/(zfar-znear);
+
+   ivec3 current_cluster_coords = ivec3(light_clusters_dims * vec3(current_ndc01_pos, cluster_z));*/
+   float z_eye_space = 2.0 * znear * zfar / (znear + zfar - p.z * (zfar - znear));
+   float cluster_z = (z_eye_space - znear) / (zfar - znear);
+
+   ivec3 current_cluster_coords = ivec3(light_clusters_dims * vec3((p.xy+1.0)*0.5, cluster_z));
+   current_cluster_coords.z += int(bias);
    uvec2 cluster_data = texelFetch(light_list_head, current_cluster_coords, 0).xy;
    unsigned int start_offset = cluster_data.x;
    unsigned int sphere_light_count = cluster_data.y;
 
-   out_val = vec3(start_offset);
+   out_val = vec3(cluster_z);
 
    vec3 irradiance = vec3(0.0);
+   
    for (unsigned int i = 0; i < sphere_light_count; ++i)
    {
       int light_index = light_list_data[start_offset+i];
       SphereLight light = sphere_lights[light_index];
 
       vec3 light_dir = normalize(light.position - attr_position);
-      irradiance += max(dot(light_dir, normal), 0.0) * pointLightIncidentRadiance(light.color, light.position);
+      if (distance(attr_position, light.position) <= 4.0)
+         irradiance += max(dot(light_dir, normal), 0.0) * pointLightIncidentRadiance(light.color, light.position);
    }
 
    /*for (unsigned int i = 0; i < spot_lights.length(); ++i)
@@ -248,7 +263,7 @@ vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
       }
    }*/
    vec3 env_irradiance = vec3(0);// texture(sky_diffuse_cubemap, normal).rgb*ssao;
-   return  (irradiance + env_irradiance) * color / PI; // color/PI is the diffuse brdf constant value
+   return  (irradiance*5.0 + env_irradiance) * color / PI; // color/PI is the diffuse brdf constant value
 }
 
 float DFactor(float alpha, float NoH)
@@ -570,5 +585,5 @@ float raymarchSDF(vec3 dir, vec3 start)
     float distance = texture(sdf_volume, uvw2).r;*/
     //shading_result.rgb = vec3(abs(distance));
     
-    //shading_result.rgb = vec3(out_val/100.0);
+    //shading_result.rgb = vec3(int(out_val*light_clusters_dims)/20.0);
  }

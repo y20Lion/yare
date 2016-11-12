@@ -19,6 +19,10 @@ class ClusteredLightCuller;
 struct RenderSettings
 {
    float light_contribution_threshold = 0.05f;
+   float bias = 0.0f;
+   int x = 16;
+   int y = 16;
+   int z = 16;
 };
 
 
@@ -40,6 +44,8 @@ public:
    Uptr<FilmPostProcessor> film_processor;
    Uptr<SSAORenderer> ssao_renderer;
    Uptr<ClusteredLightCuller> clustered_light_culler;
+
+   RenderSettings _settings;
    
 private:
    void _bindSceneUniforms();
@@ -70,7 +76,7 @@ private:
 
    size_t _surface_uniforms_size;
 
-   RenderSettings _settings;
+   
 };
 
 }

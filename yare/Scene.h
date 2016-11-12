@@ -104,6 +104,7 @@ struct RenderData
    glm::mat4x4 matrix_view_proj;
    glm::mat4x4 matrix_proj_view;
    glm::mat4x4 matrix_view_world;
+   Frustum frustum;
 
    vec3 points[4];
 };
