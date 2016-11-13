@@ -75,8 +75,63 @@ void handleInputs(GLFWwindow* window, CameraManipulator* camera_manipulator)
    previous_state = state;
 }
 
+void createContexts(GLFWwindow** window_context, GLFWwindow** update_context)
+{
+   glfwWindowHint(GLFW_SAMPLES, 1); // TODO yvain remove
+   glfwWindowHint(GLFW_DEPTH_BITS, 0);
+   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
+   glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
+   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);/*GLFW_OPENGL_COMPAT_PROFILE*/
+                                                                 //glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
+   glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
+   glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
+   *window_context = glfwCreateWindow(1500, 1000, "MyWindow", NULL, NULL);
+   *update_context = glfwCreateWindow(1, 1, "", NULL, *window_context);
+
+   glfwMakeContextCurrent(*window_context);
+   glfwSwapInterval(1);
+
+   glEnable(GL_DEBUG_OUTPUT);
+   glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+   glDebugMessageCallback(&printGLDebugMessage, nullptr);
+   glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+   GLDevice::bindDefaultDepthStencilState();
+   GLDevice::bindDefaultColorBlendState();
+   GLDevice::bindDefaultRasterizationState();
+
+
+   //glEnable(GL_CULL_FACE);
+}
+
+void bakeSDForAOVolume(char* file, RenderEngine& render_engine)
+{
+   bool bake_ao_volume = render_engine.scene()->ao_volume && !render_engine.scene()->ao_volume->ao_texture;
+   bool bake_sdf_volume = render_engine.scene()->sdf_volume && !render_engine.scene()->sdf_volume->sdf_texture;
+   if (bake_ao_volume || bake_sdf_volume)
+   {
+      Raytracer raytracer;
+      raytracer.init(*render_engine.scene());
+
+      if (bake_ao_volume)
+      {
+         raytracer.bakeAmbiantOcclusionVolume(*render_engine.scene());
+         saveBakedAmbientOcclusionVolumeTo3DY(file, *render_engine.scene());
+      }
+
+      if (bake_sdf_volume)
+      {
+         raytracer.bakeSignedDistanceFieldVolume(*render_engine.scene());
+         saveBakedSignedDistanceFieldVolumeTo3DY(file, *render_engine.scene());
+      }
+   }
+}
+
+
 float updateScene(RenderEngine* render_engine, int data_index, GLFWwindow* update_context);
 float renderScene(RenderEngine* render_engine, int data_index, AppGui* app_gui, GLFWwindow* render_context);
+
+#define MULTITHREADED_RENDER
 
 int main()
 {
@@ -92,74 +147,30 @@ int main()
       return -1;
    }
 
-   glfwWindowHint(GLFW_SAMPLES, 1); // TODO yvain remove
-   glfwWindowHint(GLFW_DEPTH_BITS, 0);
-   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
-   glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
-   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);/*GLFW_OPENGL_COMPAT_PROFILE*/
-   //glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
-   glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
-   glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
-   GLFWwindow* window = glfwCreateWindow(1500, 1000, "MyWindow", NULL, NULL);
-   GLFWwindow* update_context = glfwCreateWindow(1, 1, "", NULL, window);
-
-   glfwMakeContextCurrent(window);
-   glfwSwapInterval(1);
-
-   glEnable(GL_DEBUG_OUTPUT);
-   glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-   glDebugMessageCallback(&printGLDebugMessage, nullptr);
-   glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
-   //glPixelStorei(GL_PACK_ALIGNMENT, 1);
-   //glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+   GLFWwindow* window;
+   GLFWwindow* update_context;
+   createContexts(&window, &update_context);
    
    RenderEngine render_engine(ImageSize(1500, 1000));
 
    AppGui app_gui(window, &render_engine);
 
-   GLDevice::bindDefaultDepthStencilState();
-   GLDevice::bindDefaultColorBlendState();
-   GLDevice::bindDefaultRasterizationState();
-   //glEnable(GL_CULL_FACE);
-
-   
+   CameraManipulator camera_manipulator(&render_engine.scene()->camera.point_of_view);
+    
    //char* file = "D:\\BlenderTests\\Sintel_Lite_Cycles_V2.3dy";
    //char* file = "D:\\BlenderTests\\stanford_bunny.3dy";
-
-
    //char* file = "D:\\BlenderTests\\DeLorean.3dy";
    char* file = "D:\\BlenderTests\\test_clustered_shading.3dy";
    import3DY(file, render_engine, render_engine.scene());
    render_engine.offlinePrepareScene();
-
-   bool bake_ao_volume = render_engine.scene()->ao_volume && !render_engine.scene()->ao_volume->ao_texture;
-   bool bake_sdf_volume =  render_engine.scene()->sdf_volume && !render_engine.scene()->sdf_volume->sdf_texture;
-   if (bake_ao_volume || bake_sdf_volume)
-   {
-      Raytracer raytracer;
-      raytracer.init(*render_engine.scene());
-      
-      if (bake_ao_volume)
-      {
-         raytracer.bakeAmbiantOcclusionVolume(*render_engine.scene());
-         saveBakedAmbientOcclusionVolumeTo3DY(file, *render_engine.scene());
-      }
-
-      if (bake_sdf_volume)
-      {
-         raytracer.bakeSignedDistanceFieldVolume(*render_engine.scene());
-         saveBakedSignedDistanceFieldVolumeTo3DY(file, *render_engine.scene());
-      }
-   }
-      
-   CameraManipulator camera_manipulator(&render_engine.scene()->camera.point_of_view);
+   bakeSDForAOVolume(file, render_engine);
 
    glfwShowWindow(window);
 
    int update_index = 0;
    int render_index = 1;
    updateScene(&render_engine, render_index, update_context); // bootstrap the update/render multithreaded cycle
+
    int i = 0;
    while (!glfwWindowShouldClose(window))
    {
@@ -170,23 +181,26 @@ int main()
          if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS)
             render_engine.clustered_light_culler->debugUpdateClusteredGrid(render_engine.scene()->render_data[render_index]);
       }
-      
-          
+                
       GLDynamicBuffer::moveActiveSegments();
-
+           
+#ifdef MULTITHREADED_RENDER
       // we run at the same time the render of the current frame and the update of the next one
-      /*auto next_frame_scene_update_fence = std::async(updateScene, &render_engine, update_index, update_context);
+      auto next_frame_scene_update_fence = std::async(updateScene, &render_engine, update_index, update_context);
       float render_duration = renderScene(&render_engine, render_index, &app_gui, window);      
-      float update_duration = next_frame_scene_update_fence.get();*/
+      float update_duration = next_frame_scene_update_fence.get();
+      // end of multithreaded section
+#else
       float render_duration = renderScene(&render_engine, render_index, &app_gui, window);
       float update_duration = updateScene(&render_engine, render_index, update_context);
-      // end of multithreaded section
-
-      
+#endif
+                  
       if ( (i++) % 60 == 0 )
          app_gui.reportCPUTimings(render_duration*1000.0f, update_duration*1000.0f);
 
-      //std::swap(update_index, render_index);
+#ifdef MULTITHREADED_RENDER
+      std::swap(update_index, render_index);
+#endif
    }
 
    glfwTerminate();
@@ -196,12 +210,16 @@ int main()
 float updateScene(RenderEngine* render_engine, int data_index, GLFWwindow* update_context)
 {
    auto start = std::chrono::steady_clock::now();
-   
-   //glfwMakeContextCurrent(update_context);
-   
+
+#ifdef MULTITHREADED_RENDER   
+   glfwMakeContextCurrent(update_context);
+#endif   
+
    render_engine->updateScene(render_engine->scene()->render_data[data_index]);
 
-   //glfwMakeContextCurrent(nullptr);
+#ifdef MULTITHREADED_RENDER  
+   glfwMakeContextCurrent(nullptr);
+#endif 
 
    float update_duration = std::chrono::duration<float>(std::chrono::steady_clock::now() - start).count();
    return update_duration;   

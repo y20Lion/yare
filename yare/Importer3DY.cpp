@@ -6,6 +6,8 @@
 #include <fstream>
 #include <json/json.h>
 #include <iostream>
+#include <random>
+#include <functional>
 #include <glm/gtc/type_ptr.hpp>
 
 #include "GLTexture.h"
@@ -573,6 +575,26 @@ static void readSDFVolume(const Json::Value& json_sdf_volume, const std::string&
    }
 }
 
+void addRandomLights(Scene* scene)
+{
+   auto real_rand = std::bind(std::uniform_real_distribution<float>(0.0, 1.0), std::mt19937());
+
+   for (int i = 0; i < 100; ++i)
+   {
+      Light light;      
+      light.color = vec3(real_rand(), real_rand(), real_rand())+ vec3(0.05);
+      light.type = LightType::Sphere;
+      light.strength = real_rand()*5.0 + 1.0;
+      light.world_to_local_matrix = mat4x3(1.0f);
+      light.world_to_local_matrix[3] = vec3(real_rand()*5.0, real_rand()*5.0, real_rand());
+      light.sphere.size = 1.0;
+
+      scene->lights.push_back(light);
+   }
+}
+
+
+
 void import3DY(const std::string& filename, const RenderEngine& render_engine, Scene* scene)
 {
 	std::ifstream data_file(filename+"\\data.bin", std::ifstream::binary);
@@ -591,6 +613,8 @@ void import3DY(const std::string& filename, const RenderEngine& render_engine, S
       readSDFVolume(root["SDFVolume"], filename, scene);
 
    readLights(root["Lights"], scene);
+   addRandomLights(scene);
+
    readEnvironment(render_engine, root["Environment"], scene);
    readActions(root["Actions"], scene);
    auto skeletons = readSkeletons(root["Skeletons"], scene);

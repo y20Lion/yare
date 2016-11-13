@@ -19,11 +19,22 @@ class Scene;
 class GLDynamicBuffer;
 struct RenderData;
 struct RenderSettings;
+
+
 using namespace glm;
 
 struct Cluster
 {
    std::vector<short> point_lights;
+};
+
+_declspec(align(16))
+struct ClusterInfo
+{
+   vec3 corner_coord;
+   int padding;
+   vec3 center_coord;
+   int padding2;
 };
 
 class ClusteredLightCuller
@@ -45,6 +56,7 @@ private:
    int _toFlatClusterIndex(int x, int y, int z);
    void _updateClustersGLData();
    void _initDebugData();
+   int _sphereOverlapsVoxelOptim(int x, int y, int z, float sphere_radius, const vec3& sphere_center, const ClusterInfo* cluster_infos);
 
 public:
    RenderData _debug_render_data;
@@ -54,6 +66,7 @@ private:
    ivec3 _light_clusters_dims;
    
    std::vector<Cluster> _light_clusters;
+   std::vector<ClusterInfo> _cluster_info;
 
    Uptr<GLTexture3D> _light_list_head;
    Uptr<GLDynamicBuffer> _light_list_data;

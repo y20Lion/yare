@@ -189,15 +189,17 @@ vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
    vec4 p = debug_proj_world*vec4(attr_position, 1.0);
    p /= p.w;
    
-  /* vec2 current_ndc01_pos = (gl_FragCoord.xy - viewport.xy) / (viewport.zw);
+  vec2 current_ndc01_pos = (gl_FragCoord.xy - viewport.xy) / (viewport.zw);
    float z_eye_space = 2.0 * znear * zfar / (znear + zfar - (2.0*gl_FragCoord.z-1.0) * (zfar - znear));
    float cluster_z =  (z_eye_space-znear)/(zfar-znear);
 
-   ivec3 current_cluster_coords = ivec3(light_clusters_dims * vec3(current_ndc01_pos, cluster_z));*/
-   float z_eye_space = 2.0 * znear * zfar / (znear + zfar - p.z * (zfar - znear));
+   ivec3 current_cluster_coords = ivec3(light_clusters_dims * vec3(current_ndc01_pos, cluster_z));
+   /*float z_eye_space = 2.0 * znear * zfar / (znear + zfar - p.z * (zfar - znear));
    float cluster_z = (z_eye_space - znear) / (zfar - znear);
 
-   ivec3 current_cluster_coords = ivec3(light_clusters_dims * vec3((p.xy+1.0)*0.5, cluster_z));
+   ivec3 current_cluster_coords = ivec3(light_clusters_dims * vec3((p.xy+1.0)*0.5, cluster_z));*/
+
+
    current_cluster_coords.z += int(bias);
    uvec2 cluster_data = texelFetch(light_list_head, current_cluster_coords, 0).xy;
    unsigned int start_offset = cluster_data.x;

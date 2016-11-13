@@ -31,7 +31,7 @@ void GLBuffer::unmap()
     glUnmapNamedBuffer(_buffer_id);
 }
 
-static const int _segment_count = 4;
+static const int _segment_count = 3;
 int GLDynamicBuffer::_update_segment_index = 1;
 int GLDynamicBuffer::_render_segment_index = 0;
 
