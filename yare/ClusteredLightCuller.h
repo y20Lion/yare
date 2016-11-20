@@ -27,6 +27,7 @@ struct Cluster
 {
    std::vector<short> point_lights;
    std::vector<short> spot_lights;
+   std::vector<short> rectangle_lights;
 };
 
 _declspec(align(16))

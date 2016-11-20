@@ -52,6 +52,9 @@ struct LightRectangleData
 {
    float size_x;
    float size_y;
+   float bounds_width;
+   float bounds_height;
+   float bounds_depth;
 };
 
 struct LightSunData
@@ -65,7 +68,7 @@ struct LightSpotData
    float angle_blend;
 };
 
-enum class ClippingPlane { Left = 0, Right = 1, Bottom = 2, Top = 3, Near = 4, Far = 5};
+enum class ClippingPlane { Left = 0, Right = 1, Bottom = 2, Top = 3, Far = 4, Near = 5};
 
 struct Light
 {
@@ -75,7 +78,7 @@ struct Light
    glm::mat4x3 world_to_local_matrix;
    float radius;
 
-   vec4 frustum_planes_in_local[5];
+   vec4 frustum_planes_in_local[6];
 
    union
    {

@@ -155,7 +155,7 @@ void Raytracer::bakeAmbiantOcclusionVolume(Scene& scene)
    rays_kernel.SetArg(2, _toCL(ao_volume.position));
    rays_kernel.SetArg(3, ray_count);
    rays_kernel.SetArg(4, ocl_ray_buffer);
-   size_t gs[] = { resolution.x, resolution.y, resolution.z };
+   size_t gs[] = { size_t(resolution.x), size_t(resolution.y), size_t(resolution.z) };
    size_t ls[] = { 1, 1, 1 };
    _ocl_context.Launch3D(0, gs, ls, rays_kernel);
    

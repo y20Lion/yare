@@ -25,12 +25,12 @@ vec3 PointOfView::rightDirection() const
 }
 
 Frustum::Frustum()
-    : left(-1.0)
-    , right(1.0)
-    , bottom(-1.0)
-    , top(1.0)
-    , near(0.05)
-    , far(100.0)
+    : left(-1.0f)
+    , right(1.0f)
+    , bottom(-1.0f)
+    , top(1.0f)
+    , near(0.05f)
+    , far(100.0f)
 {
 }
 

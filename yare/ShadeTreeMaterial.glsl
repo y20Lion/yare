@@ -146,7 +146,7 @@ float rectangleLightIrradiance(vec3 light_pos, vec2 rec_size, vec3 plane_dir_x, 
       irradiance += saturate(dot(light_dir, normal));
 
       //irradiance *= rectangleSolidAngle(p0, p1, p2, p3) * 0.2;
-      irradiance = rectangleSolidAngle(p0, p1, p2, p3) * (dot(light_dir, normal));
+      irradiance = rectangleSolidAngle(p0, p1, p2, p3) * abs(dot(light_dir, normal));
    }
    return irradiance;
 }
@@ -203,8 +203,9 @@ vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
    current_cluster_coords.z += int(bias);
    uvec2 cluster_data = texelFetch(light_list_head, current_cluster_coords, 0).xy;
    unsigned int start_offset = cluster_data.x;
-   unsigned int sphere_light_count = cluster_data.y & 0xFFFF;
-   unsigned int spot_light_count = (cluster_data.y >> 16);
+   unsigned int sphere_light_count = cluster_data.y & 0x3FF;
+   unsigned int spot_light_count = (cluster_data.y >> 10) & 0x3FF;
+   unsigned int rectangle_light_count = (cluster_data.y >> 20) & 0x3FF;
 
    out_val = vec3(cluster_z);
 
@@ -212,7 +213,7 @@ vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
    
    for (unsigned int i = 0; i < sphere_light_count; ++i)
    {
-      int light_index = light_list_data[start_offset +i];
+      int light_index = light_list_data[start_offset + i];
       SphereLight light = sphere_lights[light_index];
 
       vec3 light_dir = normalize(light.position - attr_position);
@@ -235,52 +236,21 @@ vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
    }
    start_offset += spot_light_count;
 
-
-   /*for (unsigned int i = 0; i < spot_lights.length(); ++i)
+   for (unsigned int i = 0; i < rectangle_light_count; ++i)
    {
       int light_index = light_list_data[start_offset + i];
-      SpotLight light = spot_lights[i];
+      RectangleLight light = rectangle_lights[light_index];
 
-      vec3 light_dir = normalize(light.position - attr_position);
-      float spot_attenuation = spotLightAttenuation(light_dir, light.cos_half_angle, light.direction, light.angle_smooth);
+      vec2 light_size = vec2(light.size_x, light.size_y);
+      irradiance += rectangleLightIrradiance(light.position, light_size, light.direction_x, light.direction_y) * light.color;
+   }
 
-      // we consider the interior of flashlight as if made of black albedo material.
-      // This means that not all the light source power is redirected to the light cone, some is lost in the directions outside of the cone.
-      irradiance += max(dot(light_dir, normal), 0.0) * pointLightIncidentRadiance(light.color, light.position) * spot_attenuation;
-   }*/
-
-   
-
-   /*for (int i = 0; i < lights.length(); ++i)
+   for (int i = 0; i < sun_lights.length(); ++i)
    {
-      Light light = lights[i];
-      if (light.type == LIGHT_SPHERE)
-      {
-         vec3 light_position = light.data[0].xyz;
-         vec3 light_dir = normalize(light_position - attr_position);         
-         irradiance += max(dot(light_dir, normal), 0.0) * pointLightIncidentRadiance(light.color, light_position);
-      }
-      else if (light.type == LIGHT_SUN)
-      {
-         vec3 light_dir = light.data[0].xyz;
-         irradiance += max(dot(light_dir, normal), 0.0) * light.color;
-      }
-      else if (light.type == LIGHT_RECTANGLE)
-      {
-         vec2 light_size = vec2(light.data[1].w, light.data[2].w);
-         irradiance += rectangleLightIrradiance(light.data[0].xyz, light_size, light.data[1].xyz, light.data[2].xyz) * light.color;
-      }
-      else if (light.type == LIGHT_SPOT)
-      {
-         vec3 light_position = light.data[0].xyz;
-         vec3 light_dir = normalize(light_position - attr_position);
-         float spot_attenuation = spotLightAttenuation(light_dir, light.data[0].w, light.data[1].xyz, light.data[1].w);
-         
-         // we consider the interior of flashlight as if made of black albedo material.
-         // This means that not all the light source power is redirected to the light cone, some is lost in the directions outside of the cone.
-         irradiance += max(dot(light_dir, normal), 0.0) * pointLightIncidentRadiance(light.color, light_position) * spot_attenuation;
-      }
-   }*/
+      SunLight light = sun_lights[i];      
+      irradiance += max(dot(light.direction, normal), 0.0) * light.color;
+   }
+
    vec3 env_irradiance = vec3(0);// texture(sky_diffuse_cubemap, normal).rgb*ssao;
    return  (irradiance*5.0 + env_irradiance) * color / PI; // color/PI is the diffuse brdf constant value
 }

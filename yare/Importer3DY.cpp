@@ -582,9 +582,9 @@ void addRandomLights(Scene* scene)
    for (int i = 0; i < 100; ++i)
    {
       Light light;      
-      light.color = vec3(real_rand(), real_rand(), real_rand())+ vec3(0.05);
+      light.color = vec3(real_rand(), real_rand(), real_rand())+ vec3(0.05f);
       light.type = LightType::Sphere;
-      light.strength = real_rand()*5.0 + 1.0;
+      light.strength = real_rand()*5.0f + 1.0f;
       light.world_to_local_matrix = mat4x3(1.0f);
       light.world_to_local_matrix[3] = vec3(real_rand()*5.0, real_rand()*5.0, real_rand());
       light.sphere.size = 1.0;

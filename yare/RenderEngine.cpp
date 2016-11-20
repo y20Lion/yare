@@ -131,6 +131,7 @@ void RenderEngine::offlinePrepareScene()
    int surface_count = int(_scene.surfaces.size());
    _surface_uniforms = createDynamicBuffer(_surface_uniforms_size * surface_count);
    _scene_uniforms = createDynamicBuffer(sizeof(SceneUniforms));
+   _computeLightsRadius();
    _createSceneLightsBuffer();
    
    _scene.render_data[0].main_view_surface_data.resize(_scene.surfaces.size());
@@ -145,7 +146,7 @@ void RenderEngine::offlinePrepareScene()
 
    _scene.transform_hierarchy->updateNodesWorldToLocalMatrix();
 
-   _computeLightsRadius();
+   
 }
 
 void RenderEngine::updateScene(RenderData& render_data)
@@ -577,17 +578,35 @@ void RenderEngine::_computeLightsRadius()
 
    for (auto& light : _scene.lights)
    {
-      if (light.type != LightType::Spot)
-         continue;
-      
-      mat4 matrix_proj_spot = transpose(perspective(light.spot.angle, 1.0f, 9.0f*0.1f, 9.0f));
+      if (light.type == LightType::Spot)
+      {
+         light.radius = 9.0f;
+         mat4 matrix_proj_spot = transpose(perspective(light.spot.angle, 1.0f, light.radius*0.1f, light.radius));
 
-      light.frustum_planes_in_local[int(ClippingPlane::Left)]   = _normalizePlane(matrix_proj_spot[0] + matrix_proj_spot[3]);
-      light.frustum_planes_in_local[int(ClippingPlane::Right)] = _normalizePlane(-matrix_proj_spot[0] + matrix_proj_spot[3]);
-      light.frustum_planes_in_local[int(ClippingPlane::Bottom)] = _normalizePlane(matrix_proj_spot[1] + matrix_proj_spot[3]);
-      light.frustum_planes_in_local[int(ClippingPlane::Top)]    = _normalizePlane(-matrix_proj_spot[1] + matrix_proj_spot[3]);
-      light.frustum_planes_in_local[4]                          = _normalizePlane(-matrix_proj_spot[2] + matrix_proj_spot[3]);
+         light.frustum_planes_in_local[int(ClippingPlane::Left)] = _normalizePlane(matrix_proj_spot[0] + matrix_proj_spot[3]);
+         light.frustum_planes_in_local[int(ClippingPlane::Right)] = _normalizePlane(-matrix_proj_spot[0] + matrix_proj_spot[3]);
+         light.frustum_planes_in_local[int(ClippingPlane::Bottom)] = _normalizePlane(matrix_proj_spot[1] + matrix_proj_spot[3]);
+         light.frustum_planes_in_local[int(ClippingPlane::Top)] = _normalizePlane(-matrix_proj_spot[1] + matrix_proj_spot[3]);
+         light.frustum_planes_in_local[int(ClippingPlane::Far)] = _normalizePlane(-matrix_proj_spot[2] + matrix_proj_spot[3]);         
+      }
+      else if (light.type == LightType::Rectangle)
+      {
+         removeScaling(light.world_to_local_matrix);
  
+         float depth = light.radius;
+         float width = 0.5f * light.radius;
+         float height = 0.5f * light.radius;
+         light.rectangle.bounds_width  = width;
+         light.rectangle.bounds_height = height;
+         light.rectangle.bounds_depth  = depth;
+                  
+         light.frustum_planes_in_local[0] = vec4(1.0, 0.0, 0.0, width);
+         light.frustum_planes_in_local[1] = vec4(-1.0, 0.0, 0.0, width);
+         light.frustum_planes_in_local[2] = vec4(0.0, 1.0, 0.0, height);
+         light.frustum_planes_in_local[3] = vec4(0.0, -1.0, 0.0, height);
+         light.frustum_planes_in_local[4] = vec4(0.0, 0.0, 1.0, depth);
+         light.frustum_planes_in_local[5] = vec4(0.0, 0.0, -1.0, 0.0);
+      } 
    }
 }
 

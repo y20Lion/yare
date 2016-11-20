@@ -49,11 +49,28 @@ inline mat3 normalMatrix(const mat4x4& matrix)
    return mat3(transpose(inverse(matrix)));
 }
 
+inline float signOfFloat(float val)
+{
+   return float(0.0f < val) - float(val < 0.0f);
+}
+
 inline vec3 project(const mat4x4& matrix, const vec3& point)
 {
    vec4 vec_hs = matrix * vec4(point, 1.0f);
    return vec_hs.xyz / vec3(vec_hs.w);
 }
 
+inline vec3 extractScaling(const mat4x4& matrix)
+{
+   return vec3(length(vec3(matrix[0].xyz)), length(vec3(matrix[1].xyz)), length(vec3(matrix[2].xyz)));
+}
+
+inline void removeScaling(mat4x3& matrix)
+{
+   vec3 scale = extractScaling(matrix);
+   matrix[0] /= scale.x;
+   matrix[1] /= scale.y;
+   matrix[2] /= scale.z;
+}
 
 }
