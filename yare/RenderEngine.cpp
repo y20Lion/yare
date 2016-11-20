@@ -293,7 +293,7 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
    clustered_light_culler->drawClusterGrid(render_data, _settings.x + _settings.y*32 + _settings.z*(32*32));
 
    render_resources->background_timer->start();
-   background_sky->render();
+   background_sky->render(render_data);
    render_resources->background_timer->stop();
    GLDevice::bindColorBlendState({ GLBlendingMode::ModulateAdd });
    _renderSurfacesMaterial(_scene.transparent_surfaces);
@@ -554,6 +554,12 @@ void RenderEngine::_updateRenderMatrices(RenderData& render_data)
    }
 }
 
+
+vec4 _normalizePlane(vec4 plane)
+{
+   return plane / vec4(length(vec3(plane.xyz)));
+}
+
 void RenderEngine::_computeLightsRadius()
 {
    for (auto& light : _scene.lights)
@@ -562,6 +568,21 @@ void RenderEngine::_computeLightsRadius()
          continue;
       
       light.radius = 4.0f;// sqrtf(light.strength / (_settings.light_contribution_threshold * 4.0f * float(M_PI)));
+   }
+
+   for (auto& light : _scene.lights)
+   {
+      if (light.type != LightType::Spot)
+         continue;
+      
+      mat4 matrix_proj_spot = transpose(perspective(light.spot.angle, 1.0f, 9.0f*0.1f, 9.0f));
+
+      light.frustum_planes_in_local[int(ClippingPlane::Left)]   = _normalizePlane(matrix_proj_spot[0] + matrix_proj_spot[3]);
+      light.frustum_planes_in_local[int(ClippingPlane::Right)] = _normalizePlane(-matrix_proj_spot[0] + matrix_proj_spot[3]);
+      light.frustum_planes_in_local[int(ClippingPlane::Bottom)] = _normalizePlane(matrix_proj_spot[1] + matrix_proj_spot[3]);
+      light.frustum_planes_in_local[int(ClippingPlane::Top)]    = _normalizePlane(-matrix_proj_spot[1] + matrix_proj_spot[3]);
+      light.frustum_planes_in_local[4]                          = _normalizePlane(-matrix_proj_spot[2] + matrix_proj_spot[3]);
+ 
    }
 }
 

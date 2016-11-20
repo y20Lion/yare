@@ -189,7 +189,7 @@ vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
    vec4 p = debug_proj_world*vec4(attr_position, 1.0);
    p /= p.w;
    
-  vec2 current_ndc01_pos = (gl_FragCoord.xy - viewport.xy) / (viewport.zw);
+   vec2 current_ndc01_pos = (gl_FragCoord.xy - viewport.xy) / (viewport.zw);
    float z_eye_space = 2.0 * znear * zfar / (znear + zfar - (2.0*gl_FragCoord.z-1.0) * (zfar - znear));
    float cluster_z =  (z_eye_space-znear)/(zfar-znear);
 
@@ -203,7 +203,8 @@ vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
    current_cluster_coords.z += int(bias);
    uvec2 cluster_data = texelFetch(light_list_head, current_cluster_coords, 0).xy;
    unsigned int start_offset = cluster_data.x;
-   unsigned int sphere_light_count = cluster_data.y;
+   unsigned int sphere_light_count = cluster_data.y & 0xFFFF;
+   unsigned int spot_light_count = (cluster_data.y >> 16);
 
    out_val = vec3(cluster_z);
 
@@ -211,14 +212,28 @@ vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
    
    for (unsigned int i = 0; i < sphere_light_count; ++i)
    {
-      int light_index = light_list_data[start_offset+i];
+      int light_index = light_list_data[start_offset +i];
       SphereLight light = sphere_lights[light_index];
 
       vec3 light_dir = normalize(light.position - attr_position);
-      if (distance(attr_position, light.position) <= 4.0)
+      if (distance(attr_position, light.position) <= 4.0) // TODO pass radius
          irradiance += max(dot(light_dir, normal), 0.0) * pointLightIncidentRadiance(light.color, light.position);
    }
+   start_offset += sphere_light_count;
 
+   for (unsigned int i = 0; i < spot_light_count; ++i)
+   {
+      int light_index = light_list_data[start_offset + i];
+      SpotLight light = spot_lights[light_index];
+
+      vec3 light_dir = normalize(light.position - attr_position);
+      float spot_attenuation = spotLightAttenuation(light_dir, light.cos_half_angle, light.direction, light.angle_smooth);
+
+      // we consider the interior of flashlight as if made of black albedo material.
+      // This means that not all the light source power is redirected to the light cone, some is lost in the directions outside of the cone.
+      irradiance += max(dot(light_dir, normal), 0.0) * pointLightIncidentRadiance(light.color, light.position) * spot_attenuation;
+   }
+   start_offset += spot_light_count;
    /*for (unsigned int i = 0; i < spot_lights.length(); ++i)
    {
       int light_index = light_list_data[start_offset + i];

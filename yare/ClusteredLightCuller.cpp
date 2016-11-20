@@ -203,21 +203,10 @@ __forceinline __m128 _normalize(__m128 vec)
    return _mm_mul_ps(vec, _mm_rsqrt_ps(_mm_dp_ps(vec, vec, 0x7F)));
 }
 
-/*struct simdfloat
-{
-   simdfloat(float a) {}
-   simdfloat() {}
-   simdfloat(__m128 a) {}
-   __m128 val;
-};
-
-simdfloat operator* (const simdfloat& a, const simdfloat& b)
-{
-   return _mm_mul_ps(a.val, b.val);
-}*/
 
 __forceinline int ClusteredLightCuller::_sphereOverlapsVoxelOptim(int x, int y, int z, float sphere_radius, const vec3& sphere_center, const ClusterInfo* cluster_infos)
-{
+{   
+   
    /*vec3 plane_normal = normalize(cluster_infos[_toFlatClusterIndex(x, y, z)].center_coord - sphere_center);
    vec3 plane_origin = sphere_center + sphere_radius*plane_normal;
    
@@ -255,6 +244,63 @@ __forceinline int ClusteredLightCuller::_sphereOverlapsVoxelOptim(int x, int y, 
 }
 
 
+bool _aabbOverlapsFrustum(vec3 aabb_center, vec3 aabb_extent, vec4 frustum_planes[5])
+{
+      for (int i_plane = 0; i_plane < 5; ++i_plane)
+      {
+         const vec4& frustum_plane = frustum_planes[i_plane];
+         vec3 plane_normal = frustum_plane.xyz;
+
+         float d = dot(aabb_center, plane_normal);
+         float r = dot(aabb_extent, abs(plane_normal));
+
+         if ((d + r) < -frustum_plane.w)
+         {
+            return false; // aabb completely outside
+         }          
+      }
+      
+      return true;
+}
+
+intAabb3 _convertClipSpaceAABBToVoxel(const Aabb3& clip_space_aabb, const ivec3& light_clusters_dims)
+{
+   intAabb3 voxels_overlapping_light;
+   voxels_overlapping_light.pmin.x = (int)clamp(floor(clip_space_aabb.pmin.x * light_clusters_dims.x), 0.0f, light_clusters_dims.x - 1.0f);
+   voxels_overlapping_light.pmin.y = (int)clamp(floor(clip_space_aabb.pmin.y * light_clusters_dims.y), 0.0f, light_clusters_dims.y - 1.0f);
+   voxels_overlapping_light.pmin.z = (int)clamp(floor(clip_space_aabb.pmin.z * light_clusters_dims.z), 0.0f, light_clusters_dims.z - 1.0f);
+   voxels_overlapping_light.pmax.x = (int)clamp(ceil(clip_space_aabb.pmax.x * light_clusters_dims.x), 0.0f, light_clusters_dims.x - 1.0f);
+   voxels_overlapping_light.pmax.y = (int)clamp(ceil(clip_space_aabb.pmax.y * light_clusters_dims.y), 0.0f, light_clusters_dims.y - 1.0f);
+   voxels_overlapping_light.pmax.z = (int)clamp(ceil(clip_space_aabb.pmax.z * light_clusters_dims.z), 0.0f, light_clusters_dims.z - 1.0f);
+
+   return voxels_overlapping_light;
+}
+
+vec3 projectOntoPlane(vec3 point, vec4 plane)
+{
+   float fact = dot(vec4(point, 1.0f), plane)/dot(vec3(plane.xyz), vec3(plane.xyz));
+   return point - plane.xyz * fact;
+}
+
+vec3 orthogonalVector(vec3 vect)
+{
+   vec3 magnitude = abs(vect);
+
+   if (magnitude.x < magnitude.y && magnitude.x < magnitude.z)
+   {
+      return normalize(cross(vec3(1.0, 0.0, 0.0), vect));
+   }
+   else if (magnitude.y < magnitude.x && magnitude.y < magnitude.z)
+   {
+      return normalize(cross(vec3(0.0, 1.0, 0.0), vect));
+   }
+   else
+   {
+      return normalize(cross(vec3(0.0, 0.0, 1.0), vect));
+   }
+}
+
+
 void ClusteredLightCuller::buildLightLists(const Scene& scene, RenderData& render_data)
 {
    for (int z = 0; z <= _light_clusters_dims.z - 1; z++)
@@ -264,6 +310,7 @@ void ClusteredLightCuller::buildLightLists(const Scene& scene, RenderData& rende
          for (int x = 0; x <= _light_clusters_dims.x - 1; x++)
          {
             _light_clusters[_toFlatClusterIndex(x, y, z)].point_lights.resize(0);
+            _light_clusters[_toFlatClusterIndex(x, y, z)].spot_lights.resize(0);
          }
       }
    }
@@ -276,6 +323,15 @@ void ClusteredLightCuller::buildLightLists(const Scene& scene, RenderData& rende
          {            
             _cluster_info[_toFlatClusterIndex(x, y, z)].center_coord = _clusterCorner(vec3(x, y, z) + vec3(0.5), _light_clusters_dims, render_data);
             _cluster_info[_toFlatClusterIndex(x, y, z)].corner_coord = _clusterCorner(vec3(x, y, z), _light_clusters_dims, render_data);
+
+            vec3 a = _clusterCorner(vec3(x, y, z), _light_clusters_dims, render_data);
+            vec3 b = _clusterCorner(vec3(x + 1, y + 1, z + 1), _light_clusters_dims, render_data);
+            
+            vec3 aabb_min = project(render_data.matrix_proj_view, _clusterCorner(vec3(x, y, z), _light_clusters_dims, render_data));
+            vec3 aabb_max = project(render_data.matrix_proj_view, _clusterCorner(vec3(x+1, y+1, z+1), _light_clusters_dims, render_data));
+
+            _cluster_info[_toFlatClusterIndex(x, y, z)].center_cs = 0.5f * (aabb_min + aabb_max);
+            _cluster_info[_toFlatClusterIndex(x, y, z)].extent_cs = 0.5f * (aabb_max - aabb_min);
          }
       }
    }
@@ -284,44 +340,83 @@ void ClusteredLightCuller::buildLightLists(const Scene& scene, RenderData& rende
    auto start = std::chrono::steady_clock::now();
    short light_index = -1;
    
+
+   for (const auto& light : scene.lights)
    {
-      for (const auto& light : scene.lights)
+      if (light.type != LightType::Sphere)
+         continue;
+
+      light_index++;
+
+      Aabb3 clip_space_aabb = _computeLightClipSpaceBoundingBox(scene, render_data, light);     
+      intAabb3 voxels_overlapping_light = _convertClipSpaceAABBToVoxel(clip_space_aabb, _light_clusters_dims);
+
+      vec3 sphere_center_in_vs = project(render_data.matrix_view_world, light.world_to_local_matrix[3]);     
+
+      for (int z = voxels_overlapping_light.pmin.z; z <= voxels_overlapping_light.pmax.z; z++)
       {
-         light_index++;
-
-         if (light.type == LightType::Sun)
-            continue;
-
-         Aabb3 clip_space_aabb = _computeLightClipSpaceBoundingBox(scene, render_data, light);
-         vec3 sphere_center_in_vs = project(render_data.matrix_view_world, light.world_to_local_matrix[3]);
-
-         intAabb3 voxels_overlapping_light;
-         voxels_overlapping_light.pmin.x = (int)clamp(floor(clip_space_aabb.pmin.x * _light_clusters_dims.x), 0.0f, _light_clusters_dims.x - 1.0f);
-         voxels_overlapping_light.pmin.y = (int)clamp(floor(clip_space_aabb.pmin.y * _light_clusters_dims.y), 0.0f, _light_clusters_dims.y - 1.0f);
-         voxels_overlapping_light.pmin.z = (int)clamp(floor(clip_space_aabb.pmin.z * _light_clusters_dims.z), 0.0f, _light_clusters_dims.z - 1.0f);
-         voxels_overlapping_light.pmax.x = (int)clamp(ceil(clip_space_aabb.pmax.x * _light_clusters_dims.x), 0.0f, _light_clusters_dims.x - 1.0f);
-         voxels_overlapping_light.pmax.y = (int)clamp(ceil(clip_space_aabb.pmax.y * _light_clusters_dims.y), 0.0f, _light_clusters_dims.y - 1.0f);
-         voxels_overlapping_light.pmax.z = (int)clamp(ceil(clip_space_aabb.pmax.z * _light_clusters_dims.z), 0.0f, _light_clusters_dims.z - 1.0f);
-
-         for (int z = voxels_overlapping_light.pmin.z; z <= voxels_overlapping_light.pmax.z; z++)
+         for (int y = voxels_overlapping_light.pmin.y; y <= voxels_overlapping_light.pmax.y; y++)
          {
-            for (int y = voxels_overlapping_light.pmin.y; y <= voxels_overlapping_light.pmax.y; y++)
-            {
-               for (int x = voxels_overlapping_light.pmin.x; x <= voxels_overlapping_light.pmax.x; x++)
-               {          
-                  /*if (!_sphereOverlapsVoxel(_settings, render_data, light.radius, vec3(sphere_center_in_vs), ivec3(x, y, z), _light_clusters_dims, render_data.frustum))
-                     continue;*/
+            for (int x = voxels_overlapping_light.pmin.x; x <= voxels_overlapping_light.pmax.x; x++)
+            {          
 
-                  if (!_sphereOverlapsVoxelOptim(x, y, z, light.radius, vec3(sphere_center_in_vs), _cluster_info.data()))
-                      continue;
+               if (!_sphereOverlapsVoxelOptim(x, y, z, light.radius, vec3(sphere_center_in_vs), _cluster_info.data()))
+                     continue;
 
-                  _light_clusters[_toFlatClusterIndex(x, y, z)].point_lights.push_back(light_index);
-               }
+               _light_clusters[_toFlatClusterIndex(x, y, z)].point_lights.push_back(light_index);
             }
          }
+      }
 
+   }
+ 
+
+   light_index = -1;
+   for (const auto& light : scene.lights)
+   {
+      if (light.type != LightType::Spot)
+         continue;
+
+      light_index++;
+
+      mat4 matrix_plane_clip_to_local = transpose(inverse(render_data.matrix_proj_world*toMat4(light.world_to_local_matrix)));
+
+      vec4 spot_planes_in_clip_space[5];
+      for (int i = 0; i < 5; ++i)
+      {
+         spot_planes_in_clip_space[i] = matrix_plane_clip_to_local * light.frustum_planes_in_local[i];
+      }
+
+
+      bool overlap = _aabbOverlapsFrustum(vec3(10.0, 10.0, 10.0), vec3(0.5, 0.5, 0.5), spot_planes_in_clip_space);
+
+      vec4 frustum_plane = spot_planes_in_clip_space[0];
+      vec3 start = projectOntoPlane(vec3(0.0, 0.0, -10.0), frustum_plane);
+      vec3 vecU = orthogonalVector(frustum_plane.xyz);
+      vec3 vecV = cross(vecU, vec3(frustum_plane.xyz));
+
+      for (int x = 0; x < 10; ++x)
+         for (int y = 0; y < 10; ++y)
+            render_data.points[x + 10 * y] = start - vecU*float(x) + vecV*float(y)*0.25f;
+
+      Aabb3 clip_space_aabb = Aabb3(vec3(0.0), vec3(1.0));
+      intAabb3 voxels_overlapping_light = _convertClipSpaceAABBToVoxel(clip_space_aabb, _light_clusters_dims);
+
+      for (int z = voxels_overlapping_light.pmin.z; z <= voxels_overlapping_light.pmax.z; z++)
+      {
+         for (int y = voxels_overlapping_light.pmin.y; y <= voxels_overlapping_light.pmax.y; y++)
+         {
+            for (int x = voxels_overlapping_light.pmin.x; x <= voxels_overlapping_light.pmax.x; x++)
+            {
+               if (!_aabbOverlapsFrustum(_cluster_info[_toFlatClusterIndex(x, y, z)].center_cs, _cluster_info[_toFlatClusterIndex(x, y, z)].extent_cs, spot_planes_in_clip_space))
+                  continue;
+
+               _light_clusters[_toFlatClusterIndex(x, y, z)].spot_lights.push_back(light_index);
+            }
+         }
       }
    }
+
 
    float duration = std::chrono::duration<float>(std::chrono::steady_clock::now() - start).count();
    std::cout << duration << std::endl;
@@ -349,18 +444,23 @@ void ClusteredLightCuller::drawClusterGrid(const RenderData& render_data, int in
    GLDevice::draw(*_debug_cluster_grid_vertex_source);
    //glDisable(GL_DEPTH_TEST);
  
-  /* mat4 debug_matrix_world_view = inverse(_debug_render_data.matrix_view_world);
+   mat4 debug_matrix_world_view = inverse(_debug_render_data.matrix_view_world);
    vec3* line_data = (vec3*)_debug_lines_buffer->map(GL_MAP_WRITE_BIT);
-   line_data = _drawCross(project(render_data.matrix_proj_world*debug_matrix_world_view, _debug_render_data.points[0]), line_data);
-   line_data = _drawCross(project(render_data.matrix_proj_world*debug_matrix_world_view, _debug_render_data.points[1]), line_data);
-   line_data = _drawCross(project(render_data.matrix_proj_world*debug_matrix_world_view, _debug_render_data.points[2]), line_data);
-   line_data = _drawCross(project(render_data.matrix_proj_world*debug_matrix_world_view, _debug_render_data.points[3]), line_data);
+
+
+   for (int i = 0; i < 100; ++i)
+   {
+      line_data = _drawCross(render_data.points[i], line_data);
+   }
+
    _debug_lines_buffer->unmap();
 
-   _debug_lines_source->setVertexCount(3*4);
+   _debug_lines_source->setVertexCount(100*4);
    GLDevice::bindProgram(*_debug_draw);
-   GLDevice::bindUniformMatrix4(0, mat4(1.0));
-   GLDevice::draw(*_debug_lines_source);*/
+   GLDevice::bindUniformMatrix4(0, render_data.matrix_proj_view);
+   GLDevice::draw(*_debug_lines_source);
+
+   glUseProgram(0);
    //glEnable(GL_DEPTH_TEST);
 }
 
@@ -374,7 +474,7 @@ void ClusteredLightCuller::debugUpdateClusteredGrid(RenderData& render_data)
    int* enabled_clusters = (int*)_debug_enabled_clusters->map(GL_MAP_WRITE_BIT);
    for (int i = 0; i <_light_clusters.size(); ++i)
    {
-      enabled_clusters[i] = !_light_clusters[i].point_lights.empty();
+      enabled_clusters[i] = !_light_clusters[i].spot_lights.empty();
    }
    _debug_enabled_clusters->unmap();
 
@@ -390,7 +490,8 @@ int ClusteredLightCuller::_toFlatClusterIndex(int x, int y, int z)
 struct ClusterListHead
 {
    unsigned int list_start_offset;
-   unsigned int point_light_count;
+   unsigned short point_light_count;
+   unsigned short spot_light_count;
 };
 
 void ClusteredLightCuller::_updateClustersGLData()
@@ -407,13 +508,19 @@ void ClusteredLightCuller::_updateClustersGLData()
 
       gpu_lists_head[i].list_start_offset = offset_into_data_buffer;
       gpu_lists_head[i].point_light_count = (unsigned int)cpu_cluster.point_lights.size();
+      gpu_lists_head[i].spot_light_count = (unsigned int)cpu_cluster.spot_lights.size();
 
       for (int j = 0; j < cpu_cluster.point_lights.size(); ++j)
       {
          gpu_lists_data[offset_into_data_buffer + j] = cpu_cluster.point_lights[j];
       }
-      
       offset_into_data_buffer += (unsigned int)cpu_cluster.point_lights.size();
+
+      for (int j = 0; j < cpu_cluster.spot_lights.size(); ++j)
+      {
+         gpu_lists_data[offset_into_data_buffer + j] = cpu_cluster.spot_lights[j];
+      }
+      offset_into_data_buffer += (unsigned int)cpu_cluster.spot_lights.size();      
    }
 
    _light_list_head->update(gpu_lists_head.get());
@@ -478,7 +585,7 @@ void ClusteredLightCuller::_initDebugData()
    _debug_cluster_grid_vertex_source->setVertexCount(_light_clusters_dims.x * _light_clusters_dims.y * _light_clusters_dims.z * 24);
    _debug_cluster_grid_vertex_source->setVertexAttribute(0, 3, GL_FLOAT, GLSLVecType::vec);
 
-   _debug_lines_buffer = createBuffer(sizeof(vec3) * 100, GL_MAP_WRITE_BIT);
+   _debug_lines_buffer = createBuffer(sizeof(vec3) * 400, GL_MAP_WRITE_BIT);
 
    _debug_lines_source = std::make_unique<GLVertexSource>();
    _debug_lines_source->setVertexBuffer(*_debug_lines_buffer);

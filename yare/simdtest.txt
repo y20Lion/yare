@@ -1,0 +1,115 @@
+
+_declspec(align(32))
+struct simdfloat
+{
+   simdfloat(float a) { _mm256_set1_ps(a); }
+   simdfloat() {}
+   simdfloat(__m256 a): val(a) {}
+
+   __m256 val;
+};
+
+typedef tvec3<simdfloat, highp>		simdvec3;
+
+__forceinline simdfloat operator* (const simdfloat& a, const simdfloat& b)
+{
+   return _mm256_mul_ps(a.val, b.val);
+}
+
+__forceinline simdfloat operator- (const simdfloat& a, const simdfloat& b)
+{
+   return _mm256_sub_ps(a.val, b.val);
+}
+
+__forceinline simdfloat operator+ (const simdfloat& a, const simdfloat& b)
+{
+   return _mm256_add_ps(a.val, b.val);
+}
+
+simdvec3 operator* (const simdfloat& a, const simdvec3& b)
+{
+   simdvec3 res;
+   res.x = a*b.x;
+   res.y = a*b.y;
+   res.z = a*b.z;
+
+   return res;
+}
+
+_declspec(align(32))
+struct simdint
+{
+   simdint(int a) { _mm256_set1_epi32(a); }
+   simdint() {}
+   simdint(__m256i a) : val(a) {}
+
+   __m256i val;
+};
+
+__forceinline simdint operator* (const simdint& a, const simdint& b)
+{
+   return _mm256_mul_epi32(a.val, b.val);
+}
+
+__forceinline simdint operator+ (const simdint& a, const simdint& b)
+{
+   return _mm256_add_epi32(a.val, b.val);
+}
+
+__forceinline simdvec3 loadSimdvec3(float* base, simdint index, int stride, int offset)
+{  
+   simdvec3 res;
+   res.x.val = _mm256_i32gather_ps(base + offset, index.val, 8);
+   res.y.val = _mm256_i32gather_ps(base + offset + 1, index.val, 8);
+   res.z.val = _mm256_i32gather_ps(base + offset + 2, index.val, 8);
+
+   return res;
+}
+
+__forceinline simdfloat dot(const simdvec3& a, const simdvec3& b)
+{
+   return a.x*b.x + a.y*b.y + a.z*b.z;
+}
+
+__forceinline simdint _flatIndex(simdint x, simdint y, simdint z, simdint line_size, simdint slice_size)
+{
+   return x + y * line_size + z * slice_size;
+}
+
+__forceinline int ClusteredLightCuller::_sphereOverlapsVoxelOptim(int x_, int y_, int z_, float sphere_radius_, const vec3& sphere_center_, const ClusterInfo* cluster_infos)
+{
+   simdint line_size = _light_clusters_dims.x;
+   simdint slice_size = _light_clusters_dims.x;
+
+   simdint x = _mm256_set_epi32(x_, x_ + 1, x_ + 1, x_, x_ + 1, x_ + 1, x_, x_);
+   simdint y = _mm256_set_epi32(y_, y_, y_ + 1, y_ + 1, y_, y_, y_ + 1, y_ + 1);
+   simdint z = _mm256_set_epi32(z_, z_, z_, z_, z_ + 1, z_ + 1, z_ + 1, z_ + 1);
+
+   simdint flat_index = _flatIndex(x, y, z, line_size, slice_size);
+
+   simdvec3 center_coord = loadSimdvec3((float*)cluster_infos, flat_index, 8, 4);
+
+   simdvec3 sphere_center;
+   sphere_center.x = sphere_center_.x;
+   sphere_center.y = sphere_center_.y;
+   sphere_center.z = sphere_center_.z;
+
+   simdvec3 plane_normal;// = normalize(center_coord - sphere_center);
+   simdvec3 plane_origin = sphere_center + simdfloat(sphere_radius_)*plane_normal;
+
+   simdvec3 corner_a = loadSimdvec3((float*)cluster_infos, _flatIndex(x, y, z, line_size, slice_size), 8, 0);
+   simdvec3 corner_b = loadSimdvec3((float*)cluster_infos, _flatIndex(x+1, y, z, line_size, slice_size), 8, 0);
+   simdvec3 corner_c = loadSimdvec3((float*)cluster_infos, _flatIndex(x+1, y+1, z, line_size, slice_size), 8, 0);
+   simdvec3 corner_d = loadSimdvec3((float*)cluster_infos, _flatIndex(x, y+1, z, line_size, slice_size), 8, 0);
+
+   simdvec3 corner_e = loadSimdvec3((float*)cluster_infos, _flatIndex(x, y, z+1, line_size, slice_size), 8, 0);
+   simdvec3 corner_f = loadSimdvec3((float*)cluster_infos, _flatIndex(x+1, y, z+1, line_size, slice_size), 8, 0);
+   simdvec3 corner_g = loadSimdvec3((float*)cluster_infos, _flatIndex(x+1, y+1, z+1, line_size, slice_size), 8, 0);
+   simdvec3 corner_h = loadSimdvec3((float*)cluster_infos, _flatIndex(x, y+1, z+1, line_size, slice_size), 8, 0);
+
+   simdfloat dot_plane = dot(plane_origin, plane_normal);
+
+
+
+   return true;
+}

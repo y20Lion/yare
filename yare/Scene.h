@@ -65,6 +65,8 @@ struct LightSpotData
    float angle_blend;
 };
 
+enum class ClippingPlane { Left = 0, Right = 1, Bottom = 2, Top = 3, Near = 4, Far = 5};
+
 struct Light
 {
    LightType type;
@@ -72,6 +74,8 @@ struct Light
    float strength;
    glm::mat4x3 world_to_local_matrix;
    float radius;
+
+   vec4 frustum_planes_in_local[5];
 
    union
    {
@@ -106,7 +110,7 @@ struct RenderData
    glm::mat4x4 matrix_view_world;
    Frustum frustum;
 
-   vec3 points[4];
+   vec3 points[100];
 };
 
 struct AOVolume

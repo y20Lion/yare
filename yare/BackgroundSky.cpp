@@ -3,6 +3,7 @@
 #include "BackgroundSky.h"
 #include "GLProgram.h"
 #include "RenderResources.h"
+#include "Scene.h"
 #include "GLDevice.h"
 
 namespace yare {
@@ -18,9 +19,10 @@ BackgroundSky::~BackgroundSky()
 
 }
 
-void BackgroundSky::render()
-{   
+void BackgroundSky::render(const RenderData& render_data)
+{    
    GLDevice::bindProgram(*_program);   
+   //GLDevice::bindUniformMatrix4(1, inverse(render_data.matrix_proj_world));
    GLDevice::draw(*_render_resources.fullscreen_triangle_source);
 }
 

@@ -613,7 +613,7 @@ void import3DY(const std::string& filename, const RenderEngine& render_engine, S
       readSDFVolume(root["SDFVolume"], filename, scene);
 
    readLights(root["Lights"], scene);
-   addRandomLights(scene);
+   //addRandomLights(scene);
 
    readEnvironment(render_engine, root["Environment"], scene);
    readActions(root["Actions"], scene);

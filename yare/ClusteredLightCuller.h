@@ -26,6 +26,7 @@ using namespace glm;
 struct Cluster
 {
    std::vector<short> point_lights;
+   std::vector<short> spot_lights;
 };
 
 _declspec(align(16))
@@ -35,6 +36,10 @@ struct ClusterInfo
    int padding;
    vec3 center_coord;
    int padding2;
+   vec3 center_cs;
+   int padding3;
+   vec3 extent_cs;
+   int padding4;
 };
 
 class ClusteredLightCuller
