@@ -4,6 +4,7 @@
 #include <algorithm>
 
 #include "GLFormats.h"
+#include "GLBuffer.h"
 
 namespace yare {
 
@@ -182,10 +183,12 @@ int GLTexture3D::readbackBufferSize() const
    return _width * _height * _depth * GLFormats::componentCount(format.first) * GLFormats::sizeOfType(format.second);
 }
 
-void GLTexture3D::update(void* data)
+void GLTexture3D::updateFromBuffer(const GLBuffer& buffer, std::int64_t buffer_start_offset)
 {
+   glBindBuffer(GL_PIXEL_UNPACK_BUFFER, buffer.id());   
    auto format = _getExternalFormatAndType(_internal_format, false);
-   glTextureSubImage3D(_texture_id, 0, 0, 0, 0, _width, _height, _depth, format.first, format.second, data);
+   glTextureSubImage3D(_texture_id, 0, 0, 0, 0, _width, _height, _depth, format.first, format.second, (void*)buffer_start_offset);
+   glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 }
 
 Uptr<GLTexture1D> createMipmappedTexture1D(int width, GLenum internal_format, void* pixels, bool pixels_in_bgr)

@@ -29,6 +29,7 @@ ClusteredLightCuller::ClusteredLightCuller(const RenderResources& render_resourc
    _light_clusters.resize(_light_clusters_dims.x * _light_clusters_dims.y * _light_clusters_dims.z);
    _cluster_info.resize((_light_clusters_dims.x+1) * (_light_clusters_dims.y+1) * (_light_clusters_dims.z+1));
 
+   _light_list_head_pbo = createDynamicBuffer(_light_clusters_dims.x* _light_clusters_dims.y* _light_clusters_dims.z*sizeof(uvec2));
    _light_list_head = createTexture3D(_light_clusters_dims.x, _light_clusters_dims.y, _light_clusters_dims.z, GL_RG32UI);
    _light_list_data = createDynamicBuffer(cMaxLightsPerCluster*sizeof(int) * _light_clusters_dims.x * _light_clusters_dims.y * _light_clusters_dims.z);
    //_light_list_data = createBuffer(cMaxLightsPerCluster * sizeof(int) * _light_clusters_dims.x * _light_clusters_dims.y * _light_clusters_dims.z, GL_MAP_WRITE_BIT);
@@ -497,8 +498,8 @@ struct ClusterListHead
 void ClusteredLightCuller::_updateClustersGLData()
 {
    int cluster_count = _light_clusters_dims.x * _light_clusters_dims.y * _light_clusters_dims.z;
-   
-   auto gpu_lists_head = std::make_unique<ClusterListHead[]>(cluster_count);
+ 
+   ClusterListHead* gpu_lists_head = (ClusterListHead*)_light_list_head_pbo->getUpdateSegmentPtr();
    int* gpu_lists_data = (int*)_light_list_data->getUpdateSegmentPtr();
 
    unsigned int offset_into_data_buffer = 0;
@@ -523,7 +524,6 @@ void ClusteredLightCuller::_updateClustersGLData()
       offset_into_data_buffer += (unsigned int)cpu_cluster.spot_lights.size();      
    }
 
-   _light_list_head->update(gpu_lists_head.get());
 }
 
 void ClusteredLightCuller::_initDebugData()
@@ -600,6 +600,11 @@ void ClusteredLightCuller::bindLightLists()
                      _light_list_data->getRenderSegmentOffset(), _light_list_data->segmentSize());
 
    GLDevice::bindTexture(BI_LIGHT_LIST_HEAD, *_light_list_head, *_rr.samplers.mipmap_clampToEdge);
+}
+
+void ClusteredLightCuller::updateLightListHeadTexture()
+{
+   _light_list_head->updateFromBuffer(*_light_list_head_pbo, _light_list_head_pbo->getRenderSegmentOffset());
 }
 
 }

@@ -5,7 +5,7 @@
 
 namespace yare {
 
-
+class GLBuffer;
 
 class GLTexture
 {
@@ -97,7 +97,7 @@ public:
    void readbackTexels(void* ptr, int level = 0) const;
    int readbackBufferSize() const;
 
-   void update(void* data);
+   void updateFromBuffer(const GLBuffer& buffer, std::int64_t buffer_start_offset);
 
    int width() const override { return _width; }
    int height() const override { return _height; }

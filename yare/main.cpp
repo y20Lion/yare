@@ -87,7 +87,7 @@ void createContexts(GLFWwindow** window_context, GLFWwindow** update_context)
    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
    glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
    *window_context = glfwCreateWindow(1500, 1000, "MyWindow", NULL, NULL);
-   *update_context = glfwCreateWindow(1, 1, "", NULL, *window_context);
+   //*update_context = glfwCreateWindow(1, 1, "", NULL, *window_context);
 
    glfwMakeContextCurrent(*window_context);
    glfwSwapInterval(1);
@@ -131,7 +131,7 @@ void bakeSDForAOVolume(char* file, RenderEngine& render_engine)
 float updateScene(RenderEngine* render_engine, int data_index, GLFWwindow* update_context);
 float renderScene(RenderEngine* render_engine, int data_index, AppGui* app_gui, GLFWwindow* render_context);
 
-//#define MULTITHREADED_RENDER
+#define MULTITHREADED_RENDER
 
 int main()
 {
@@ -211,15 +211,16 @@ float updateScene(RenderEngine* render_engine, int data_index, GLFWwindow* updat
 {
    auto start = std::chrono::steady_clock::now();
 
-#ifdef MULTITHREADED_RENDER   
+   // no more gl calls made in update
+/*#ifdef MULTITHREADED_RENDER   
    glfwMakeContextCurrent(update_context);
-#endif   
+#endif  */ 
 
    render_engine->updateScene(render_engine->scene()->render_data[data_index]);
 
-#ifdef MULTITHREADED_RENDER  
+/*#ifdef MULTITHREADED_RENDER  
    glfwMakeContextCurrent(nullptr);
-#endif 
+#endif */
 
    float update_duration = std::chrono::duration<float>(std::chrono::steady_clock::now() - start).count();
    return update_duration;   

@@ -67,7 +67,7 @@ struct LightSphereSSBO
    vec3 color;
    float size;
    glm::vec3 position;
-   int padding;
+   float radius;
 };
 
 struct LightSpotSSBO
@@ -77,7 +77,7 @@ struct LightSpotSSBO
    glm::vec3 position;
    float cos_half_angle;
    glm::vec3 direction;
-   int padding;
+   float radius;
 };
 
 struct LightRectangleSSBO
@@ -87,7 +87,7 @@ struct LightRectangleSSBO
    glm::vec3 position;
    float size_y;
    glm::vec3 direction_x;
-   int padding;
+   float radius;
    glm::vec3 direction_y;
    int padding1;
 };
@@ -176,6 +176,8 @@ void RenderEngine::renderScene(const RenderData& render_data)
    GLDevice::bindDefaultRasterizationState();
    glPatchParameteri(GL_PATCH_VERTICES, 3);
    
+   clustered_light_culler->updateLightListHeadTexture();
+
    _renderSurfaces(render_data);
    film_processor->developFilm();
         
@@ -364,6 +366,7 @@ void RenderEngine::_createSceneLightsBuffer()
             buffer_light->color = light.color*light.strength; // light power is stored in color (Watt)
             buffer_light->position = light.world_to_local_matrix[3];
             buffer_light->size = light.sphere.size;
+            buffer_light->radius = light.radius;
             sphere_data += sizeof(LightSphereSSBO);
             break;
          }
@@ -376,6 +379,7 @@ void RenderEngine::_createSceneLightsBuffer()
             buffer_light->direction_y = normalize(light.world_to_local_matrix[1]);
             buffer_light->size_x = light.rectangle.size_x;
             buffer_light->size_y = light.rectangle.size_y;
+            buffer_light->radius = light.radius;
             rectangle_data += sizeof(LightRectangleSSBO);
             break;
          }
@@ -396,6 +400,7 @@ void RenderEngine::_createSceneLightsBuffer()
             buffer_light->direction = light.world_to_local_matrix[2];
             buffer_light->cos_half_angle = cos(light.spot.angle / 2.0f);
             buffer_light->angle_smooth = light.spot.angle_blend;
+            buffer_light->radius = light.radius;
             spot_data += sizeof(LightSpotSSBO);
             break;
          }

@@ -34,7 +34,7 @@ struct SphereLight
    vec3 color;
    float size;
    vec3 position;
-   int padding;
+   float radius;
 };
 
 struct SpotLight
@@ -44,7 +44,7 @@ struct SpotLight
    vec3 position;
    float cos_half_angle;
    vec3 direction;
-   int padding;
+   float radius;
 };
 
 struct RectangleLight
@@ -54,7 +54,7 @@ struct RectangleLight
    vec3 position;
    float size_y;
    vec3 direction_x;
-   int padding0;
+   float radius;
    vec3 direction_y;
    int padding1;
 };

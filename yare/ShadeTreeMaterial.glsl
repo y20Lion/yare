@@ -186,8 +186,8 @@ vec3 pointLightIncidentRadiance(vec3 light_power, vec3 light_position)
 vec3 out_val = vec3(0);
 vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
 {
-   vec4 p = debug_proj_world*vec4(attr_position, 1.0);
-   p /= p.w;
+   /*vec4 p = debug_proj_world*vec4(attr_position, 1.0);
+   p /= p.w;*/
    
    vec2 current_ndc01_pos = (gl_FragCoord.xy - viewport.xy) / (viewport.zw);
    float z_eye_space = 2.0 * znear * zfar / (znear + zfar - (2.0*gl_FragCoord.z-1.0) * (zfar - znear));
@@ -216,7 +216,7 @@ vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
       SphereLight light = sphere_lights[light_index];
 
       vec3 light_dir = normalize(light.position - attr_position);
-      if (distance(attr_position, light.position) <= 4.0) // TODO pass radius
+      if (distance(attr_position, light.position) <= light.radius) // TODO pass radius
          irradiance += max(dot(light_dir, normal), 0.0) * pointLightIncidentRadiance(light.color, light.position);
    }
    start_offset += sphere_light_count;
@@ -234,6 +234,8 @@ vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
       irradiance += max(dot(light_dir, normal), 0.0) * pointLightIncidentRadiance(light.color, light.position) * spot_attenuation;
    }
    start_offset += spot_light_count;
+
+
    /*for (unsigned int i = 0; i < spot_lights.length(); ++i)
    {
       int light_index = light_list_data[start_offset + i];

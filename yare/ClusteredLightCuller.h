@@ -56,6 +56,7 @@ public:
    ivec3 clustersDimensions() const { return _light_clusters_dims; }
 
    void bindLightLists();
+   void updateLightListHeadTexture();
 
 private:
    int _toFlatClusterIndex(int x, int y, int z);
@@ -74,6 +75,7 @@ private:
    std::vector<ClusterInfo> _cluster_info;
 
    Uptr<GLTexture3D> _light_list_head;
+   Uptr<GLDynamicBuffer> _light_list_head_pbo;
    Uptr<GLDynamicBuffer> _light_list_data;
 
    
