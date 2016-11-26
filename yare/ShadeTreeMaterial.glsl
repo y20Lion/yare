@@ -122,9 +122,10 @@ float rectangleSolidAngle(vec3 p0, vec3 p1, vec3 p2, vec3 p3)
    return gamma0 + gamma1 + gamma2 + gamma3 - 2.0 * PI;
 }
 
-float rectangleLightIrradiance(vec3 light_pos, vec2 rec_size, vec3 plane_dir_x, vec3 plane_dir_y)
+float rectangleLightIrradiance(vec3 light_pos, vec2 rec_size, vec3 plane_dir_x, vec3 plane_dir_y, float light_radius)
 {   
-   vec3 light_dir = normalize(light_pos - attr_position);
+   float light_distance = length(light_pos - attr_position);
+   vec3 light_dir = (light_pos - attr_position)/light_distance;
    vec3 light_plane_normal = cross(plane_dir_x, plane_dir_y);
    
    float irradiance = 0.0;
@@ -145,8 +146,9 @@ float rectangleLightIrradiance(vec3 light_pos, vec2 rec_size, vec3 plane_dir_x, 
       irradiance += saturate(dot(normalize(p3 - attr_position), normal));
       irradiance += saturate(dot(light_dir, normal));
 
-      //irradiance *= rectangleSolidAngle(p0, p1, p2, p3) * 0.2;
-      irradiance = rectangleSolidAngle(p0, p1, p2, p3) * abs(dot(light_dir, normal));
+      float restrict_influence_factor = pow(saturate(1.0 - pow(light_distance / light_radius, 4.0)), 2.0);
+      irradiance *= rectangleSolidAngle(p0, p1, p2, p3) * 0.2 * restrict_influence_factor;
+      //irradiance = rectangleSolidAngle(p0, p1, p2, p3) * abs(dot(light_dir, normal));
    }
    return irradiance;
 }
@@ -177,10 +179,11 @@ float spotLightAttenuation(vec3 light_direction, float cos_spot_max_angle, vec3 
    return attenuation;
 }
 
-vec3 pointLightIncidentRadiance(vec3 light_power, vec3 light_position)
+vec3 pointLightIncidentRadiance(vec3 light_power, vec3 light_position, float light_radius)
 {
-   float light_distance = distance(light_position, attr_position);   
-   return light_power / (4 * PI*light_distance*light_distance);
+   float light_distance = distance(light_position, attr_position);
+   float restrict_influence_factor = pow(saturate(1.0 - pow(light_distance/light_radius, 4.0)), 2.0);
+   return light_power / (4 * PI*light_distance*light_distance) * restrict_influence_factor;
 }
 
 vec3 out_val = vec3(0);
@@ -217,8 +220,8 @@ vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
       SphereLight light = sphere_lights[light_index];
 
       vec3 light_dir = normalize(light.position - attr_position);
-      if (distance(attr_position, light.position) <= light.radius) // TODO pass radius
-         irradiance += max(dot(light_dir, normal), 0.0) * pointLightIncidentRadiance(light.color, light.position);
+      //if (distance(attr_position, light.position) <= light.radius) // TODO pass radius
+      irradiance += max(dot(light_dir, normal), 0.0) * pointLightIncidentRadiance(light.color, light.position, light.radius);
    }
    start_offset += sphere_light_count;
 
@@ -232,7 +235,7 @@ vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
 
       // we consider the interior of flashlight as if made of black albedo material.
       // This means that not all the light source power is redirected to the light cone, some is lost in the directions outside of the cone.
-      irradiance += max(dot(light_dir, normal), 0.0) * pointLightIncidentRadiance(light.color, light.position) * spot_attenuation;
+      irradiance += max(dot(light_dir, normal), 0.0) * pointLightIncidentRadiance(light.color, light.position, light.radius) * spot_attenuation;
    }
    start_offset += spot_light_count;
 
@@ -242,7 +245,7 @@ vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
       RectangleLight light = rectangle_lights[light_index];
 
       vec2 light_size = vec2(light.size_x, light.size_y);
-      irradiance += rectangleLightIrradiance(light.position, light_size, light.direction_x, light.direction_y) * light.color;
+      irradiance += rectangleLightIrradiance(light.position, light_size, light.direction_x, light.direction_y, light.radius) * light.color;
    }
 
    for (int i = 0; i < sun_lights.length(); ++i)
@@ -252,7 +255,7 @@ vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
    }
 
    vec3 env_irradiance = vec3(0);// texture(sky_diffuse_cubemap, normal).rgb*ssao;
-   return  (irradiance*5.0 + env_irradiance) * color / PI; // color/PI is the diffuse brdf constant value
+   return  (irradiance + env_irradiance) * color / PI; // color/PI is the diffuse brdf constant value
 }
 
 float DFactor(float alpha, float NoH)

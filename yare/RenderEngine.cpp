@@ -573,7 +573,7 @@ void RenderEngine::_computeLightsRadius()
       if (light.type == LightType::Sun)
          continue;
       
-      light.radius = 4.0f;// sqrtf(light.strength / (_settings.light_contribution_threshold * 4.0f * float(M_PI)));
+      light.radius =  sqrtf(light.strength / (_settings.light_contribution_threshold * 4.0f * float(M_PI)));
    }
 
    for (auto& light : _scene.lights)
@@ -592,10 +592,10 @@ void RenderEngine::_computeLightsRadius()
       else if (light.type == LightType::Rectangle)
       {
          removeScaling(light.world_to_local_matrix);
- 
+         light.radius = 5.0f;
          float depth = light.radius;
-         float width = 0.5f * light.radius;
-         float height = 0.5f * light.radius;
+         float width = light.radius;
+         float height = light.radius;
          light.rectangle.bounds_width  = width;
          light.rectangle.bounds_height = height;
          light.rectangle.bounds_depth  = depth;

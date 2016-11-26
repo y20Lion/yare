@@ -30,6 +30,22 @@ struct Cluster
    std::vector<short> rectangle_lights;
 };
 
+struct LightCoverage
+{
+   LightCoverage() {}
+   LightCoverage(unsigned short mask, unsigned short light_index) : mask(mask), light_index(light_index) {}
+
+   unsigned short mask : 4;
+   unsigned short light_index : 12;   
+};
+
+struct MacroCluster
+{
+   std::vector<LightCoverage> point_lights;
+   std::vector<LightCoverage> spot_lights;
+   std::vector<LightCoverage> rectangle_lights;
+};
+
 _declspec(align(16))
 struct ClusterInfo
 {
@@ -41,6 +57,23 @@ struct ClusterInfo
    int padding3;
    vec3 extent_cs;
    int padding4;
+};
+
+struct MacroClusterInfo
+{   
+   struct
+   {
+      vec4* x;
+      vec4* y;
+      vec4* z;
+   } center_cs;
+
+   struct
+   {
+      vec4* x;
+      vec4* y;
+      vec4* z;
+   } extent_cs;
 };
 
 class ClusteredLightCuller
@@ -61,9 +94,13 @@ public:
 
 private:
    int _toFlatClusterIndex(int x, int y, int z);
+   int _toFlatMacroClusterIndex(int x, int y, int z);
    void _updateClustersGLData();
    void _initDebugData();
    int _sphereOverlapsVoxelOptim(int x, int y, int z, float sphere_radius, const vec3& sphere_center, const ClusterInfo* cluster_infos);
+   void _injectSpotLightsIntoClusters(const Scene& scene, const RenderData& render_data);
+   void _injectRectangleLightsIntoClusters(const Scene& scene, const RenderData& render_data);
+   void _injectSphereLightsIntoClusters(const Scene& scene, const RenderData& render_data);
 
 public:
    RenderData _debug_render_data;
@@ -72,8 +109,10 @@ private:
    DISALLOW_COPY_AND_ASSIGN(ClusteredLightCuller)
    ivec3 _light_clusters_dims;
    
+   std::vector<MacroCluster> _macro_clusters;
    std::vector<Cluster> _light_clusters;
    std::vector<ClusterInfo> _cluster_info;
+   MacroClusterInfo _macro_cluster_info;
 
    Uptr<GLTexture3D> _light_list_head;
    Uptr<GLDynamicBuffer> _light_list_head_pbo;

@@ -583,12 +583,15 @@ void addRandomLights(Scene* scene)
    {
       Light light;      
       light.color = vec3(real_rand(), real_rand(), real_rand())+ vec3(0.05f);
-      light.type = LightType::Sphere;
+      
       light.strength = real_rand()*5.0f + 1.0f;
       light.world_to_local_matrix = mat4x3(1.0f);
       light.world_to_local_matrix[3] = vec3(real_rand()*5.0, real_rand()*5.0, real_rand());
-      light.sphere.size = 1.0;
-
+      
+      light.type = LightType::Spot;
+      //light.sphere.size = 1.0;
+      light.spot.angle = 1.0f;
+      light.spot.angle = 0.5f;
       scene->lights.push_back(light);
    }
 }
@@ -613,7 +616,7 @@ void import3DY(const std::string& filename, const RenderEngine& render_engine, S
       readSDFVolume(root["SDFVolume"], filename, scene);
 
    readLights(root["Lights"], scene);
-   //addRandomLights(scene);
+   addRandomLights(scene);
 
    readEnvironment(render_engine, root["Environment"], scene);
    readActions(root["Actions"], scene);

@@ -131,7 +131,7 @@ void bakeSDForAOVolume(char* file, RenderEngine& render_engine)
 float updateScene(RenderEngine* render_engine, int data_index, GLFWwindow* update_context);
 float renderScene(RenderEngine* render_engine, int data_index, AppGui* app_gui, GLFWwindow* render_context);
 
-#define MULTITHREADED_RENDER
+//#define MULTITHREADED_RENDER
 
 int main()
 {
