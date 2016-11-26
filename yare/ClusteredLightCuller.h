@@ -17,8 +17,11 @@ class GLProgram;
 class GLVertexSource;
 class Scene;
 class GLDynamicBuffer;
+class Aabb3;
 struct RenderData;
 struct RenderSettings;
+struct simdvec3;
+struct simdfloat;
 
 
 using namespace glm;
@@ -41,9 +44,7 @@ struct LightCoverage
 
 struct MacroCluster
 {
-   std::vector<LightCoverage> point_lights;
-   std::vector<LightCoverage> spot_lights;
-   std::vector<LightCoverage> rectangle_lights;
+   std::vector<LightCoverage> lights[3];
 };
 
 _declspec(align(16))
@@ -98,9 +99,12 @@ private:
    void _updateClustersGLData();
    void _initDebugData();
    int _sphereOverlapsVoxelOptim(int x, int y, int z, float sphere_radius, const vec3& sphere_center, const ClusterInfo* cluster_infos);
+
    void _injectSpotLightsIntoClusters(const Scene& scene, const RenderData& render_data);
    void _injectRectangleLightsIntoClusters(const Scene& scene, const RenderData& render_data);
    void _injectSphereLightsIntoClusters(const Scene& scene, const RenderData& render_data);
+   void _injectLightIntoClusters(const Aabb3& clip_space_aabb, unsigned short light_index, LightType light_type,
+                                 const simdvec3* light_clip_planes_xyz, const simdfloat* light_clip_planes_w, int num_light_clip_planes);
 
 public:
    RenderData _debug_render_data;

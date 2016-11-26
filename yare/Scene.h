@@ -41,7 +41,7 @@ struct SurfaceInstance
    Sptr<GLVertexSource> vertex_source_position_normal;
 };
 
-enum class LightType { Sphere = 0, Rectangle = 1, Sun = 2, Spot = 3 };
+enum class LightType { Sphere = 0, Rectangle = 1, Sun = 3, Spot = 2 };
 
 struct LightSphereData
 {
