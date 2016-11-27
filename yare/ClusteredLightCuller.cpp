@@ -30,7 +30,6 @@ ClusteredLightCuller::ClusteredLightCuller(const RenderResources& render_resourc
    , _settings(settings)
 {
    _light_clusters_dims = ivec3(24, 24, 32);
-   _light_clusters.resize(_light_clusters_dims.x * _light_clusters_dims.y * _light_clusters_dims.z);
    _cluster_info.resize((_light_clusters_dims.x + 1) * (_light_clusters_dims.y + 1) * (_light_clusters_dims.z + 1));
    int macro_cluster_count = _light_clusters_dims.x * _light_clusters_dims.y * _light_clusters_dims.z / 2 / 2;
    _macro_clusters.resize(macro_cluster_count);
@@ -41,11 +40,11 @@ ClusteredLightCuller::ClusteredLightCuller(const RenderResources& render_resourc
    _macro_cluster_info.extent_cs.x = (vec4*)_aligned_malloc(sizeof(vec4)*macro_cluster_count, 16);
    _macro_cluster_info.extent_cs.y = (vec4*)_aligned_malloc(sizeof(vec4)*macro_cluster_count, 16);
    _macro_cluster_info.extent_cs.z = (vec4*)_aligned_malloc(sizeof(vec4)*macro_cluster_count, 16);
-   //_aligned_malloc(sizeof(vec4)*macro_cluster_count), 16)
+
    _light_list_head_pbo = createDynamicBuffer(_light_clusters_dims.x* _light_clusters_dims.y* _light_clusters_dims.z * sizeof(uvec2));
    _light_list_head = createTexture3D(_light_clusters_dims.x, _light_clusters_dims.y, _light_clusters_dims.z, GL_RG32UI);
    _light_list_data = createDynamicBuffer(cMaxLightsPerCluster * sizeof(int) * _light_clusters_dims.x * _light_clusters_dims.y * _light_clusters_dims.z);
-   //_light_list_data = createBuffer(cMaxLightsPerCluster * sizeof(int) * _light_clusters_dims.x * _light_clusters_dims.y * _light_clusters_dims.z, GL_MAP_WRITE_BIT);
+ 
    _initDebugData();
 }
 
@@ -309,29 +308,6 @@ intAabb3 _convertClipSpaceAABBToVoxel(const Aabb3& clip_space_aabb, const ivec3&
    return voxels_overlapping_light;
 }
 
-/*vec3 projectOntoPlane(vec3 point, vec4 plane)
-{
-   float fact = dot(vec4(point, 1.0f), plane) / dot(vec3(plane.xyz), vec3(plane.xyz));
-   return point - plane.xyz * fact;
-}
-
-vec3 orthogonalVector(vec3 vect)
-{
-   vec3 magnitude = abs(vect);
-
-   if (magnitude.x < magnitude.y && magnitude.x < magnitude.z)
-   {
-      return normalize(cross(vec3(1.0, 0.0, 0.0), vect));
-   }
-   else if (magnitude.y < magnitude.x && magnitude.y < magnitude.z)
-   {
-      return normalize(cross(vec3(0.0, 1.0, 0.0), vect));
-   }
-   else
-   {
-      return normalize(cross(vec3(0.0, 0.0, 1.0), vect));
-   }
-}*/
 
 static mat4 _matrix_light_proj_local;
 
@@ -347,18 +323,7 @@ void _clusterCenterAndExtent(const RenderData& render_data, const ivec3& light_c
 
 void ClusteredLightCuller::buildLightLists(const Scene& scene, RenderData& render_data)
 {
-   for (int z = 0; z <= _light_clusters_dims.z - 1; z++)
-   {
-      for (int y = 0; y <= _light_clusters_dims.y - 1; y++)
-      {
-         for (int x = 0; x <= _light_clusters_dims.x - 1; x++)
-         {
-            _light_clusters[_toFlatClusterIndex(x, y, z)].point_lights.resize(0);
-            _light_clusters[_toFlatClusterIndex(x, y, z)].spot_lights.resize(0);
-            _light_clusters[_toFlatClusterIndex(x, y, z)].rectangle_lights.resize(0);
-         }
-      }
-   }
+   auto start = std::chrono::steady_clock::now();
 
    for (int z = 0; z <= _light_clusters_dims.z; z++)
    {
@@ -368,12 +333,6 @@ void ClusteredLightCuller::buildLightLists(const Scene& scene, RenderData& rende
          {
             _cluster_info[_toFlatClusterIndex(x, y, z)].center_coord = _clusterCorner(vec3(x, y, z) + vec3(0.5), _light_clusters_dims, render_data);
             _cluster_info[_toFlatClusterIndex(x, y, z)].corner_coord = _clusterCorner(vec3(x, y, z), _light_clusters_dims, render_data);
-
-            vec3 aabb_min = project(render_data.matrix_proj_view, _clusterCorner(vec3(x, y, z), _light_clusters_dims, render_data));
-            vec3 aabb_max = project(render_data.matrix_proj_view, _clusterCorner(vec3(x + 1, y + 1, z + 1), _light_clusters_dims, render_data));
-
-            _cluster_info[_toFlatClusterIndex(x, y, z)].center_cs = 0.5f * (aabb_min + aabb_max);
-            _cluster_info[_toFlatClusterIndex(x, y, z)].extent_cs = 0.5f * (aabb_max - aabb_min);
          }
       }
    }
@@ -399,13 +358,6 @@ void ClusteredLightCuller::buildLightLists(const Scene& scene, RenderData& rende
                _clusterCenterAndExtent(render_data, _light_clusters_dims, sub_x, sub_y, z, &cluster_center[i], &cluster_extent[i]);
             }
 
-            vec3 a = _cluster_info[_toFlatClusterIndex(2 * x, 2 * y, z)].center_cs;
-            vec3 b = _cluster_info[_toFlatClusterIndex(2 * x, 2 * y, z)].extent_cs;
-            if (a != cluster_center[0])
-            {
-               int lool = 0;
-            }
-
             _macro_cluster_info.center_cs.x[_toFlatMacroClusterIndex(x, y, z)] = vec4(cluster_center[0].x, cluster_center[1].x, cluster_center[2].x, cluster_center[3].x);
             _macro_cluster_info.center_cs.y[_toFlatMacroClusterIndex(x, y, z)] = vec4(cluster_center[0].y, cluster_center[1].y, cluster_center[2].y, cluster_center[3].y);
             _macro_cluster_info.center_cs.z[_toFlatMacroClusterIndex(x, y, z)] = vec4(cluster_center[0].z, cluster_center[1].z, cluster_center[2].z, cluster_center[3].z);
@@ -417,16 +369,13 @@ void ClusteredLightCuller::buildLightLists(const Scene& scene, RenderData& rende
       }
    }
 
-
-
-   auto start = std::chrono::steady_clock::now();
-
-   //_injectSphereLightsIntoClusters(scene, render_data);
-   _injectSpotLightsIntoClusters(scene, render_data);
-   _injectRectangleLightsIntoClusters(scene, render_data);
-
    float duration = std::chrono::duration<float>(std::chrono::steady_clock::now() - start).count();
    std::cout << duration*1000.0f << std::endl;
+   
+   _injectSphereLightsIntoClusters(scene, render_data);
+   _injectSpotLightsIntoClusters(scene, render_data);
+   _injectRectangleLightsIntoClusters(scene, render_data);
+   
    _updateClustersGLData();
 }
 
@@ -498,9 +447,9 @@ void ClusteredLightCuller::debugUpdateClusteredGrid(RenderData& render_data)
          unsigned int sphere_light_count = 0;
 
          enabled_clusters[_toFlatClusterIndex(sub_x, sub_y, sub_z)] = false;
-         for (int j = 0; j < cpu_cluster.lights[int(LightType::Spot)].size(); ++j)
+         for (int j = 0; j < cpu_cluster.lights[int(LightType::Sphere)].size(); ++j)
          {
-            if ((1 << sub_cluster) & cpu_cluster.lights[int(LightType::Spot)][j].mask)
+            if ((1 << sub_cluster) & cpu_cluster.lights[int(LightType::Sphere)][j].mask)
                enabled_clusters[_toFlatClusterIndex(sub_x, sub_y, sub_z)] = true;
          }
       }
@@ -508,6 +457,19 @@ void ClusteredLightCuller::debugUpdateClusteredGrid(RenderData& render_data)
    _debug_enabled_clusters->unmap();
 
 
+}
+
+void ClusteredLightCuller::bindLightLists()
+{
+   glBindBufferRange(GL_SHADER_STORAGE_BUFFER, BI_LIGHT_LIST_DATA_SSBO, _light_list_data->id(),
+                     _light_list_data->getRenderSegmentOffset(), _light_list_data->segmentSize());
+
+   GLDevice::bindTexture(BI_LIGHT_LIST_HEAD, *_light_list_head, *_rr.samplers.mipmap_clampToEdge);
+}
+
+void ClusteredLightCuller::updateLightListHeadTexture()
+{
+   _light_list_head->updateFromBuffer(*_light_list_head_pbo, _light_list_head_pbo->getRenderSegmentOffset());
 }
 
 
@@ -592,72 +554,75 @@ void ClusteredLightCuller::_updateClustersGLData()
    std::cout << "in " << duration*1000.0f << std::endl;
 }
 
-void ClusteredLightCuller::_initDebugData()
+void ClusteredLightCuller::_injectSphereLightsIntoClusters(const Scene& scene, const RenderData& render_data)
 {
-   _debug_draw_cluster_grid = createProgramFromFile("debug_clustered_shading.glsl");
-   _debug_draw = createProgramFromFile("debug_draw.glsl");
-   _debug_cluster_grid = createBuffer(_light_clusters_dims.x * _light_clusters_dims.y * _light_clusters_dims.z * sizeof(vec3) * 24, GL_MAP_WRITE_BIT);
-   _debug_enabled_clusters = createBuffer(_light_clusters_dims.x * _light_clusters_dims.y * _light_clusters_dims.z * sizeof(int), GL_MAP_WRITE_BIT);
-
-   vec3* vertices = (vec3*)_debug_cluster_grid->map(GL_MAP_WRITE_BIT);
-
-   vec3 scale;
-   scale.x = 1.0f / float(_light_clusters_dims.x);
-   scale.y = 1.0f / float(_light_clusters_dims.y);
-   scale.z = 1.0f / float(_light_clusters_dims.z);
-   for (int z = 0; z <= _light_clusters_dims.z - 1; z++)
+#if 0
+   unsigned short light_index = -1;
+   for (const auto& light : scene.lights)
    {
-      for (int y = 0; y <= _light_clusters_dims.y - 1; y++)
+      if (light.type != LightType::Sphere)
+         continue;
+
+      light_index++;
+
+      mat4 matrix_light_proj_local = render_data.matrix_proj_world*toMat4(light.world_to_local_matrix);
+      mat4 matrix_plane_clip_to_local = transpose(inverse(matrix_light_proj_local));
+
+      simdvec3 light_clip_planes_xyz[6];
+      simdfloat light_clipplanes_w[6];
+      for (int i = 0; i < 6; ++i)
       {
-         for (int x = 0; x <= _light_clusters_dims.x - 1; x++)
+         vec4 oobb_planes_in_clip_space = matrix_plane_clip_to_local * light.frustum_planes_in_local[i];
+         light_clip_planes_xyz[i] = simdvec3(oobb_planes_in_clip_space.xyz);
+         light_clipplanes_w[i] = simdfloat(oobb_planes_in_clip_space.w);
+      }
+
+      Aabb3 clip_space_aabb = _computeSphereClusterBounds(scene, render_data, light);
+
+      _injectLightIntoClusters(clip_space_aabb, light_index, LightType::Sphere, light_clip_planes_xyz, light_clipplanes_w, 6);
+   }
+#else
+   unsigned short light_index = -1;
+   for (const auto& light : scene.lights)
+   {
+      if (light.type != LightType::Sphere)
+         continue;
+
+      light_index++;
+      Aabb3 clip_space_aabb = _computeSphereClusterBounds(scene, render_data, light);
+      intAabb3 voxels_overlapping_light = _convertClipSpaceAABBToVoxel(clip_space_aabb, _light_clusters_dims);
+      voxels_overlapping_light.pmin.x = voxels_overlapping_light.pmin.x / 2;
+      voxels_overlapping_light.pmax.x = voxels_overlapping_light.pmax.x / 2;
+
+      voxels_overlapping_light.pmin.y = voxels_overlapping_light.pmin.y / 2;
+      voxels_overlapping_light.pmax.y = voxels_overlapping_light.pmax.y / 2;
+
+      vec3 sphere_center_in_vs = project(render_data.matrix_view_world, light.world_to_local_matrix[3]);
+
+      for (int z = voxels_overlapping_light.pmin.z; z <= voxels_overlapping_light.pmax.z; z++)
+      {
+         for (int y = voxels_overlapping_light.pmin.y; y <= voxels_overlapping_light.pmax.y; y++)
          {
-            vertices[0] = vec3(x, y, z) * scale;
-            vertices[1] = vec3(x + 1, y, z) * scale;
-            vertices[2] = vec3(x + 1, y, z) * scale;
-            vertices[3] = vec3(x + 1, y + 1, z) * scale;
-            vertices[4] = vec3(x + 1, y + 1, z) * scale;
-            vertices[5] = vec3(x, y + 1, z) * scale;
-            vertices[6] = vec3(x, y + 1, z) * scale;
-            vertices[7] = vec3(x, y, z) * scale;
-            vertices += 8;
+            for (int x = voxels_overlapping_light.pmin.x; x <= voxels_overlapping_light.pmax.x; x++)
+            {
+               int mask = 0;
+               for (int sub_cluster = 0; sub_cluster < 4; ++sub_cluster)
+               {
+                  int sub_x = 2 * x + (sub_cluster % 2);
+                  int sub_y = 2 * y + (sub_cluster / 2);
+                  int sub_z = z;
 
-            vertices[0] = vec3(x, y, z + 1) * scale;
-            vertices[1] = vec3(x + 1, y, z + 1) * scale;
-            vertices[2] = vec3(x + 1, y, z + 1) * scale;
-            vertices[3] = vec3(x + 1, y + 1, z + 1) * scale;
-            vertices[4] = vec3(x + 1, y + 1, z + 1) * scale;
-            vertices[5] = vec3(x, y + 1, z + 1) * scale;
-            vertices[6] = vec3(x, y + 1, z + 1) * scale;
-            vertices[7] = vec3(x, y, z + 1) * scale;
-            vertices += 8;
+                  int res = bool(_sphereOverlapsVoxelOptim(sub_x, sub_y, sub_z, light.radius, vec3(sphere_center_in_vs), _cluster_info.data()));
+                  mask |= res << sub_cluster;
+               }
 
-            vertices[0] = vec3(x, y, z) * scale;
-            vertices[1] = vec3(x, y, z + 1) * scale;
-            vertices[2] = vec3(x + 1, y, z) * scale;
-            vertices[3] = vec3(x + 1, y, z + 1) * scale;
-            vertices[4] = vec3(x + 1, y + 1, z) * scale;
-            vertices[5] = vec3(x + 1, y + 1, z + 1) * scale;
-            vertices[6] = vec3(x, y + 1, z) * scale;
-            vertices[7] = vec3(x, y + 1, z + 1) * scale;
-            vertices += 8;
+               if (mask != 0)
+                  _macro_clusters[_toFlatMacroClusterIndex(x, y, z)].lights[int(LightType::Sphere)].emplace_back(LightCoverage(mask, light_index));
+            }
          }
       }
    }
-   _debug_cluster_grid->unmap();
-
-   _debug_cluster_grid_vertex_source = std::make_unique<GLVertexSource>();
-   _debug_cluster_grid_vertex_source->setVertexBuffer(*_debug_cluster_grid);
-   _debug_cluster_grid_vertex_source->setPrimitiveType(GL_LINES);
-   _debug_cluster_grid_vertex_source->setVertexCount(_light_clusters_dims.x * _light_clusters_dims.y * _light_clusters_dims.z * 24);
-   _debug_cluster_grid_vertex_source->setVertexAttribute(0, 3, GL_FLOAT, GLSLVecType::vec);
-
-   _debug_lines_buffer = createBuffer(sizeof(vec3) * 400, GL_MAP_WRITE_BIT);
-
-   _debug_lines_source = std::make_unique<GLVertexSource>();
-   _debug_lines_source->setVertexBuffer(*_debug_lines_buffer);
-   _debug_lines_source->setPrimitiveType(GL_LINES);
-   _debug_lines_source->setVertexCount(100);
-   _debug_lines_source->setVertexAttribute(0, 3, GL_FLOAT, GLSLVecType::vec);
+#endif
 }
 
 void ClusteredLightCuller::_injectSpotLightsIntoClusters(const Scene& scene, const RenderData& render_data)
@@ -740,38 +705,6 @@ void ClusteredLightCuller::_injectRectangleLightsIntoClusters(const Scene& scene
    }
 }
 
-void ClusteredLightCuller::_injectSphereLightsIntoClusters(const Scene& scene, const RenderData& render_data)
-{
-   unsigned short light_index = -1;
-   for (const auto& light : scene.lights)
-   {
-      if (light.type != LightType::Sphere)
-         continue;
-
-      light_index++;
-
-      Aabb3 clip_space_aabb = _computeSphereClusterBounds(scene, render_data, light);
-      intAabb3 voxels_overlapping_light = _convertClipSpaceAABBToVoxel(clip_space_aabb, _light_clusters_dims);
-
-      vec3 sphere_center_in_vs = project(render_data.matrix_view_world, light.world_to_local_matrix[3]);
-
-      for (int z = voxels_overlapping_light.pmin.z; z <= voxels_overlapping_light.pmax.z; z++)
-      {
-         for (int y = voxels_overlapping_light.pmin.y; y <= voxels_overlapping_light.pmax.y; y++)
-         {
-            for (int x = voxels_overlapping_light.pmin.x; x <= voxels_overlapping_light.pmax.x; x++)
-            {
-
-               if (!_sphereOverlapsVoxelOptim(x, y, z, light.radius, vec3(sphere_center_in_vs), _cluster_info.data()))
-                  continue;
-
-               _light_clusters[_toFlatClusterIndex(x, y, z)].point_lights.push_back(light_index);
-            }
-         }
-      }
-   }
-}
-
 void ClusteredLightCuller::_injectLightIntoClusters(const Aabb3& clip_space_aabb, unsigned short light_index, LightType light_type,
                                                       const simdvec3* light_clip_planes_xyz, const simdfloat* light_clip_planes_w, int num_light_clip_planes)
 {
@@ -803,17 +736,74 @@ void ClusteredLightCuller::_injectLightIntoClusters(const Aabb3& clip_space_aabb
    }
 }
 
-void ClusteredLightCuller::bindLightLists()
+void ClusteredLightCuller::_initDebugData()
 {
-   glBindBufferRange(GL_SHADER_STORAGE_BUFFER, BI_LIGHT_LIST_DATA_SSBO, _light_list_data->id(),
-                     _light_list_data->getRenderSegmentOffset(), _light_list_data->segmentSize());
+   _debug_draw_cluster_grid = createProgramFromFile("debug_clustered_shading.glsl");
+   _debug_draw = createProgramFromFile("debug_draw.glsl");
+   _debug_cluster_grid = createBuffer(_light_clusters_dims.x * _light_clusters_dims.y * _light_clusters_dims.z * sizeof(vec3) * 24, GL_MAP_WRITE_BIT);
+   _debug_enabled_clusters = createBuffer(_light_clusters_dims.x * _light_clusters_dims.y * _light_clusters_dims.z * sizeof(int), GL_MAP_WRITE_BIT);
 
-   GLDevice::bindTexture(BI_LIGHT_LIST_HEAD, *_light_list_head, *_rr.samplers.mipmap_clampToEdge);
+   vec3* vertices = (vec3*)_debug_cluster_grid->map(GL_MAP_WRITE_BIT);
+
+   vec3 scale;
+   scale.x = 1.0f / float(_light_clusters_dims.x);
+   scale.y = 1.0f / float(_light_clusters_dims.y);
+   scale.z = 1.0f / float(_light_clusters_dims.z);
+   for (int z = 0; z <= _light_clusters_dims.z - 1; z++)
+   {
+      for (int y = 0; y <= _light_clusters_dims.y - 1; y++)
+      {
+         for (int x = 0; x <= _light_clusters_dims.x - 1; x++)
+         {
+            vertices[0] = vec3(x, y, z) * scale;
+            vertices[1] = vec3(x + 1, y, z) * scale;
+            vertices[2] = vec3(x + 1, y, z) * scale;
+            vertices[3] = vec3(x + 1, y + 1, z) * scale;
+            vertices[4] = vec3(x + 1, y + 1, z) * scale;
+            vertices[5] = vec3(x, y + 1, z) * scale;
+            vertices[6] = vec3(x, y + 1, z) * scale;
+            vertices[7] = vec3(x, y, z) * scale;
+            vertices += 8;
+
+            vertices[0] = vec3(x, y, z + 1) * scale;
+            vertices[1] = vec3(x + 1, y, z + 1) * scale;
+            vertices[2] = vec3(x + 1, y, z + 1) * scale;
+            vertices[3] = vec3(x + 1, y + 1, z + 1) * scale;
+            vertices[4] = vec3(x + 1, y + 1, z + 1) * scale;
+            vertices[5] = vec3(x, y + 1, z + 1) * scale;
+            vertices[6] = vec3(x, y + 1, z + 1) * scale;
+            vertices[7] = vec3(x, y, z + 1) * scale;
+            vertices += 8;
+
+            vertices[0] = vec3(x, y, z) * scale;
+            vertices[1] = vec3(x, y, z + 1) * scale;
+            vertices[2] = vec3(x + 1, y, z) * scale;
+            vertices[3] = vec3(x + 1, y, z + 1) * scale;
+            vertices[4] = vec3(x + 1, y + 1, z) * scale;
+            vertices[5] = vec3(x + 1, y + 1, z + 1) * scale;
+            vertices[6] = vec3(x, y + 1, z) * scale;
+            vertices[7] = vec3(x, y + 1, z + 1) * scale;
+            vertices += 8;
+         }
+      }
+   }
+   _debug_cluster_grid->unmap();
+
+   _debug_cluster_grid_vertex_source = std::make_unique<GLVertexSource>();
+   _debug_cluster_grid_vertex_source->setVertexBuffer(*_debug_cluster_grid);
+   _debug_cluster_grid_vertex_source->setPrimitiveType(GL_LINES);
+   _debug_cluster_grid_vertex_source->setVertexCount(_light_clusters_dims.x * _light_clusters_dims.y * _light_clusters_dims.z * 24);
+   _debug_cluster_grid_vertex_source->setVertexAttribute(0, 3, GL_FLOAT, GLSLVecType::vec);
+
+   _debug_lines_buffer = createBuffer(sizeof(vec3) * 400, GL_MAP_WRITE_BIT);
+
+   _debug_lines_source = std::make_unique<GLVertexSource>();
+   _debug_lines_source->setVertexBuffer(*_debug_lines_buffer);
+   _debug_lines_source->setPrimitiveType(GL_LINES);
+   _debug_lines_source->setVertexCount(100);
+   _debug_lines_source->setVertexAttribute(0, 3, GL_FLOAT, GLSLVecType::vec);
 }
 
-void ClusteredLightCuller::updateLightListHeadTexture()
-{
-   _light_list_head->updateFromBuffer(*_light_list_head_pbo, _light_list_head_pbo->getRenderSegmentOffset());
-}
+
 
 }

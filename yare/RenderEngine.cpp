@@ -578,7 +578,18 @@ void RenderEngine::_computeLightsRadius()
 
    for (auto& light : _scene.lights)
    {
-      if (light.type == LightType::Spot)
+      removeScaling(light.world_to_local_matrix);
+      
+      if (light.type == LightType::Sphere)
+      {
+         light.frustum_planes_in_local[0] = vec4(1.0, 0.0, 0.0, light.radius);
+         light.frustum_planes_in_local[1] = vec4(-1.0, 0.0, 0.0, light.radius);
+         light.frustum_planes_in_local[2] = vec4(0.0, 1.0, 0.0, light.radius);
+         light.frustum_planes_in_local[3] = vec4(0.0, -1.0, 0.0, light.radius);
+         light.frustum_planes_in_local[4] = vec4(0.0, 0.0, 1.0, light.radius);
+         light.frustum_planes_in_local[5] = vec4(0.0, 0.0, -1.0, light.radius);
+      }
+      else if (light.type == LightType::Spot)
       {
          light.radius = 9.0f;
          mat4 matrix_proj_spot = transpose(perspective(light.spot.angle, 1.0f, light.radius*0.1f, light.radius));
@@ -590,8 +601,7 @@ void RenderEngine::_computeLightsRadius()
          light.frustum_planes_in_local[int(ClippingPlane::Far)] = _normalizePlane(-matrix_proj_spot[2] + matrix_proj_spot[3]);         
       }
       else if (light.type == LightType::Rectangle)
-      {
-         removeScaling(light.world_to_local_matrix);
+      {         
          light.radius = 5.0f;
          float depth = light.radius;
          float width = light.radius;

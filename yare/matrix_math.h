@@ -73,4 +73,29 @@ inline void removeScaling(mat4x3& matrix)
    matrix[2] /= scale.z;
 }
 
+
+inline vec3 projectOntoPlane(vec3 point, vec4 plane)
+{
+   float fact = dot(vec4(point, 1.0f), plane) / dot(vec3(plane.xyz), vec3(plane.xyz));
+   return point - plane.xyz * fact;
+}
+
+inline vec3 orthogonalVector(vec3 vect)
+{
+   vec3 magnitude = abs(vect);
+
+   if (magnitude.x < magnitude.y && magnitude.x < magnitude.z)
+   {
+      return normalize(cross(vec3(1.0, 0.0, 0.0), vect));
+   }
+   else if (magnitude.y < magnitude.x && magnitude.y < magnitude.z)
+   {
+      return normalize(cross(vec3(0.0, 1.0, 0.0), vect));
+   }
+   else
+   {
+      return normalize(cross(vec3(0.0, 0.0, 1.0), vect));
+   }
+}
+
 }

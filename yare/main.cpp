@@ -191,8 +191,8 @@ int main()
       float update_duration = next_frame_scene_update_fence.get();
       // end of multithreaded section
 #else
-      float render_duration = renderScene(&render_engine, render_index, &app_gui, window);
       float update_duration = updateScene(&render_engine, render_index, update_context);
+      float render_duration = renderScene(&render_engine, render_index, &app_gui, window);      
 #endif
                   
       if ( (i++) % 60 == 0 )

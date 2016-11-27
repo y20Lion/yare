@@ -26,13 +26,6 @@ struct simdfloat;
 
 using namespace glm;
 
-struct Cluster
-{
-   std::vector<short> point_lights;
-   std::vector<short> spot_lights;
-   std::vector<short> rectangle_lights;
-};
-
 struct LightCoverage
 {
    LightCoverage() {}
@@ -54,10 +47,6 @@ struct ClusterInfo
    int padding;
    vec3 center_coord;
    int padding2;
-   vec3 center_cs;
-   int padding3;
-   vec3 extent_cs;
-   int padding4;
 };
 
 struct MacroClusterInfo
@@ -96,15 +85,16 @@ public:
 private:
    int _toFlatClusterIndex(int x, int y, int z);
    int _toFlatMacroClusterIndex(int x, int y, int z);
-   void _updateClustersGLData();
-   void _initDebugData();
+   void _updateClustersGLData();   
    int _sphereOverlapsVoxelOptim(int x, int y, int z, float sphere_radius, const vec3& sphere_center, const ClusterInfo* cluster_infos);
 
-   void _injectSpotLightsIntoClusters(const Scene& scene, const RenderData& render_data);
-   void _injectRectangleLightsIntoClusters(const Scene& scene, const RenderData& render_data);
    void _injectSphereLightsIntoClusters(const Scene& scene, const RenderData& render_data);
+   void _injectSpotLightsIntoClusters(const Scene& scene, const RenderData& render_data);
+   void _injectRectangleLightsIntoClusters(const Scene& scene, const RenderData& render_data);   
    void _injectLightIntoClusters(const Aabb3& clip_space_aabb, unsigned short light_index, LightType light_type,
                                  const simdvec3* light_clip_planes_xyz, const simdfloat* light_clip_planes_w, int num_light_clip_planes);
+
+   void _initDebugData();
 
 public:
    RenderData _debug_render_data;
@@ -114,7 +104,6 @@ private:
    ivec3 _light_clusters_dims;
    
    std::vector<MacroCluster> _macro_clusters;
-   std::vector<Cluster> _light_clusters;
    std::vector<ClusterInfo> _cluster_info;
    MacroClusterInfo _macro_cluster_info;
 
