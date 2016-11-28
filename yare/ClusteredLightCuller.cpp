@@ -320,7 +320,6 @@ void _clusterCenterAndExtent(const RenderData& render_data, const ivec3& light_c
    *extent = 0.5f * (aabb_max - aabb_min);
 }
 
-
 void ClusteredLightCuller::buildLightLists(const Scene& scene, RenderData& render_data)
 {
    auto start = std::chrono::steady_clock::now();

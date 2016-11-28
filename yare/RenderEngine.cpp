@@ -536,7 +536,6 @@ static Frustum _frustum(float fovy, float aspect, float znear, float zfar)
    return result;
 }
 
-
 void RenderEngine::_updateRenderMatrices(RenderData& render_data)
 {
    _scene.camera.frustum = _frustum(3.14f / 2.0f, render_resources->framebuffer_size.ratio(), 0.05f, 20.0f);
@@ -545,7 +544,7 @@ void RenderEngine::_updateRenderMatrices(RenderData& render_data)
    auto matrix_view_world = lookAt(_scene.camera.point_of_view.from, _scene.camera.point_of_view.to, _scene.camera.point_of_view.up);
 
    const Frustum& f = _scene.camera.frustum;
-   auto matrix_projection = frustum(f.left, f.right, f.bottom, f.top, f.near, f.far);
+   mat4 matrix_projection = frustum(f.left, f.right, f.bottom, f.top, f.near, f.far);
    render_data.matrix_proj_world = matrix_projection * matrix_view_world;
    render_data.matrix_view_world = matrix_view_world;
    render_data.matrix_view_proj = inverse(matrix_projection);

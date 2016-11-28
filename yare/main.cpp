@@ -21,6 +21,7 @@
 #include "Raytracer.h"
 #include "AppGui.h"
 
+
 using namespace yare;
 
 void __stdcall printGLDebugMessage(GLenum source, GLenum type, GLuint id, GLenum severity,
