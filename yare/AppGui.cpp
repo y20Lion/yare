@@ -48,6 +48,7 @@ AppGui::AppGui(GLFWwindow* window, RenderEngine* render_engine)
    gui->addVariable("x", render_engine->_settings.x)->setSpinnable(true);
    gui->addVariable("y", render_engine->_settings.y)->setSpinnable(true);
    gui->addVariable("z", render_engine->_settings.z)->setSpinnable(true);
+   gui->addVariable("z slices", render_engine->_settings.cluster_z_distribution_factor)->setSpinnable(true);
    addSliderVariable(gui, nanoguiWindow, "bias", &render_engine->_settings.bias, -5.0, 5.0);
    addSliderVariable(gui, nanoguiWindow, "bias2", &render_engine->_settings.bias, -5.0, 5.0);
 

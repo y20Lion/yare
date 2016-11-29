@@ -186,7 +186,15 @@ vec3 pointLightIncidentRadiance(vec3 light_power, vec3 light_position, float lig
    return light_power / (4 * PI*light_distance*light_distance) * restrict_influence_factor;
 }
 
-vec3 out_val = vec3(0);
+
+float convertCameraZtoClusterZ(float z_in_camera_space, float znear, float zfar)
+{
+   float z = (z_in_camera_space - znear) / (zfar - znear);
+   float cluster_z = pow(z, 1.0f / cluster_z_distribution_factor);
+
+   return clamp(cluster_z, 0.0f, 1.0f);
+}
+
 vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
 {
    /*vec4 p = debug_proj_world*vec4(attr_position, 1.0);
@@ -194,7 +202,7 @@ vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
    
    vec2 current_ndc01_pos = (gl_FragCoord.xy - viewport.xy) / (viewport.zw);
    float z_eye_space = 2.0 * znear * zfar / (znear + zfar - (2.0*gl_FragCoord.z-1.0) * (zfar - znear));
-   float cluster_z =  (z_eye_space-znear)/(zfar-znear);
+   float cluster_z = convertCameraZtoClusterZ(z_eye_space, znear, zfar);
 
    ivec3 current_cluster_coords = ivec3(light_clusters_dims * vec3(current_ndc01_pos, cluster_z));
    /*float z_eye_space = 2.0 * znear * zfar / (znear + zfar - p.z * (zfar - znear));
@@ -209,8 +217,6 @@ vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
    unsigned int sphere_light_count = cluster_data.y & 0x3FF;
    unsigned int spot_light_count = (cluster_data.y >> 10) & 0x3FF;
    unsigned int rectangle_light_count = (cluster_data.y >> 20) & 0x3FF;
-
-   out_val = vec3(cluster_z);
 
    vec3 irradiance = vec3(0.0);
    

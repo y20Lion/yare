@@ -95,6 +95,12 @@ private:
                                  const simdvec3* light_clip_planes_xyz, const simdfloat* light_clip_planes_w, int num_light_clip_planes);
 
    void _initDebugData();
+   float _convertClusterZtoCameraZ(float cluster_z, float znear, float zfar);
+   float _convertCameraZtoClusterZ(float z_in_camera_space, float znear, float zfar);
+   Aabb3 _computeConvexMeshClusterBounds(const RenderData& render_data, const mat4& matrix_light_proj_local, vec3* vertices_in_local, int num_vertices);
+   Aabb3 _computeSphereClusterBounds(const Scene& scene, const RenderData& render_data, const Light& light);
+   vec3 _clusterCorner(const vec3 ndc_coords, const vec3& cluster_dims, const RenderData& render_data);
+   void _clusterCenterAndExtent(const RenderData& render_data, const ivec3& light_clusters_dims, int x, int y, int z, vec3* center, vec3* extent);
 
 public:
    RenderData _debug_render_data;

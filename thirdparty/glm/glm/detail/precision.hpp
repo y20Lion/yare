@@ -20,12 +20,17 @@ namespace glm
 			aligned = aligned_highp,
 #		endif
 
-		/*highp = packed_highp,
-		mediump = packed_mediump,
-		lowp = packed_lowp,*/
-      highp = aligned_highp,
-      mediump = aligned_mediump,
-      lowp = aligned_lowp,
+#if GLM_HAS_ALIGNED_TYPE && defined(GLM_FORCE_ALIGNED)
+         highp = aligned_highp,
+         mediump = aligned_mediump,
+         lowp = aligned_lowp,
+#else
+         highp = packed_highp,
+		   mediump = packed_mediump,
+		   lowp = packed_lowp,
+#endif
+
+      
 		packed = packed_highp,
 
 #		if GLM_HAS_ALIGNED_TYPE && defined(GLM_FORCE_ALIGNED)

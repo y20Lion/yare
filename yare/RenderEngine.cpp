@@ -59,7 +59,7 @@ struct SceneUniforms
    float zfar;
    ivec4 viewport;
    float tessellation_edges_per_screen_height;
-
+   float cluster_distribution_factor;
 };
 
 struct LightSphereSSBO
@@ -507,6 +507,7 @@ void RenderEngine::_updateUniformBuffers(const RenderData& render_data, float ti
    scene_uniforms->proj_coeff_11 = render_data.matrix_proj_view[1][1];
    float tessellation_pixels_per_edge = 30.0;
    scene_uniforms->tessellation_edges_per_screen_height = render_resources->framebuffer_size.height / tessellation_pixels_per_edge;
+   scene_uniforms->cluster_distribution_factor = _settings.cluster_z_distribution_factor;
 
    if (_scene.ao_volume)
    {
@@ -538,7 +539,7 @@ static Frustum _frustum(float fovy, float aspect, float znear, float zfar)
 
 void RenderEngine::_updateRenderMatrices(RenderData& render_data)
 {
-   _scene.camera.frustum = _frustum(3.14f / 2.0f, render_resources->framebuffer_size.ratio(), 0.05f, 20.0f);
+   _scene.camera.frustum = _frustum(3.14f / 2.0f, render_resources->framebuffer_size.ratio(), 0.05f, 200.0f);
    render_data.frustum = _scene.camera.frustum;
 
    auto matrix_view_world = lookAt(_scene.camera.point_of_view.from, _scene.camera.point_of_view.to, _scene.camera.point_of_view.up);

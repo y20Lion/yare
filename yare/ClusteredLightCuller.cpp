@@ -19,7 +19,7 @@
 #include "RenderEngine.h"
 #include "simd.h"
 
-#define OPTIM
+#define USE_CHEAP_SPHERE_INJECTION
 
 namespace yare {
 
@@ -124,74 +124,9 @@ void sphereBoundsForAxis(const vec3& axis, const vec3& sphere_center, float sphe
    bounds_cs[1].z = bounds_az[1].y;
 }
 
-static Aabb3 _computeConvexMeshClusterBounds(const RenderData& render_data, const mat4& matrix_light_proj_local, vec3* vertices_in_local, int num_vertices)
-{
-   float znear = render_data.frustum.near;
-   float zfar = render_data.frustum.far;
-
-   Aabb3 res;
-   for (int i = 0; i < num_vertices; ++i)
-   {
-      vec4 vec_hs = matrix_light_proj_local * vec4(vertices_in_local[i], 1.0f);
-      vec3 vertex_in_clip_space = vec_hs.xyz / vec3(vec_hs.w);
-      if (vec_hs.w < 0.0f)
-      {
-         vertex_in_clip_space.x = -signOfFloat(vertex_in_clip_space.x);
-         vertex_in_clip_space.y = -signOfFloat(vertex_in_clip_space.y);
-      }
-
-      float z_eye_space = 2.0 * znear * zfar / (znear + zfar - vertex_in_clip_space.z * (zfar - znear));
-      float cluster_z = (z_eye_space - znear) / (zfar - znear);
-
-      res.extend(vec3(vertex_in_clip_space.xy, cluster_z));
-   }
-
-   res.pmin.xy = (res.pmin.xy + vec2(1.0f)) * 0.5f;
-   res.pmax.xy = (res.pmax.xy + vec2(1.0f)) * 0.5f;
-
-   return res;
-}
 
 
-static Aabb3 _computeSphereClusterBounds(const Scene& scene, const RenderData& render_data, const Light& light)
-{
-   vec3 sphere_center_in_vs = project(render_data.matrix_view_world, light.world_to_local_matrix[3]);
-   float znear = render_data.frustum.near;
-   float zfar = render_data.frustum.far;
-   float znear_in_vs = -znear;
-
-   float z_light_min = (-sphere_center_in_vs.z) - light.radius;
-   float z_light_max = (-sphere_center_in_vs.z) + light.radius;
-
-   vec3 left_right[2];
-   vec3 bottom_top[2];
-   sphereBoundsForAxis(vec3(1, 0, 0), sphere_center_in_vs, light.radius, znear_in_vs, left_right);
-   sphereBoundsForAxis(vec3(0, 1, 0), sphere_center_in_vs, light.radius, znear_in_vs, bottom_top);
-
-   const mat4& matrix_proj_view = render_data.matrix_proj_view;
-
-   Aabb3 res;
-   res.pmin = vec3(project(matrix_proj_view, left_right[0]).x, project(matrix_proj_view, bottom_top[0]).y, clamp((z_light_min - znear) / (zfar - znear), 0.0f, 1.0f));
-   res.pmax = vec3(project(matrix_proj_view, left_right[1]).x, project(matrix_proj_view, bottom_top[1]).y, clamp((z_light_max - znear) / (zfar - znear), 0.0f, 1.0f));
-
-   res.pmin.xy = (res.pmin.xy + vec2(1.0f)) * 0.5f;
-   res.pmax.xy = (res.pmax.xy + vec2(1.0f)) * 0.5f;
-
-   return res;
-}
-
-vec3 _clusterCorner(const vec3 ndc_coords, const vec3& cluster_dims, const RenderData& render_data)
-{
-   float z = mix(-render_data.frustum.near, -render_data.frustum.far, ndc_coords.z / cluster_dims.z);
-
-   float ratio = -z / render_data.frustum.near;
-   float x = mix(render_data.frustum.left, render_data.frustum.right, ndc_coords.x / cluster_dims.x) * ratio;
-   float y = mix(render_data.frustum.bottom, render_data.frustum.top, ndc_coords.y / cluster_dims.y) * ratio;
-
-   return vec3(x, y, z);
-}
-
-bool _sphereOverlapsVoxel(const RenderSettings& settings, RenderData& render_data, float sphere_radius, const vec3& sphere_center, const ivec3& cluster_coords, const ivec3& cluster_dims, const Frustum& frustum)
+/*bool _sphereOverlapsVoxel(const RenderSettings& settings, RenderData& render_data, float sphere_radius, const vec3& sphere_center, const ivec3& cluster_coords, const ivec3& cluster_dims, const Frustum& frustum)
 {
    vec3 cluster_center = _clusterCorner(vec3(cluster_coords) + vec3(0.5f), cluster_dims, render_data);
 
@@ -211,7 +146,7 @@ bool _sphereOverlapsVoxel(const RenderSettings& settings, RenderData& render_dat
    intersection |= (dot(_clusterCorner(vec3(cluster_coords) + vec3(1, 0, 1), cluster_dims, render_data) - plane_origin, plane_normal) < 0);
 
    return intersection;
-}
+}*/
 
 __forceinline int _overlap(__m128 sse_plane_normal, __m128 sse_dot_plane, __m128* corner_a, __m128* corner_b, __m128* corner_c, __m128* corner_d)
 {
@@ -311,19 +246,11 @@ intAabb3 _convertClipSpaceAABBToVoxel(const Aabb3& clip_space_aabb, const ivec3&
 
 static mat4 _matrix_light_proj_local;
 
-void _clusterCenterAndExtent(const RenderData& render_data, const ivec3& light_clusters_dims, int x, int y, int z, vec3* center, vec3* extent)
-{
-   vec3 aabb_min = project(render_data.matrix_proj_view, _clusterCorner(vec3(x, y, z), light_clusters_dims, render_data));
-   vec3 aabb_max = project(render_data.matrix_proj_view, _clusterCorner(vec3(x + 1, y + 1, z + 1), light_clusters_dims, render_data));
-
-   *center = 0.5f * (aabb_min + aabb_max);
-   *extent = 0.5f * (aabb_max - aabb_min);
-}
-
 void ClusteredLightCuller::buildLightLists(const Scene& scene, RenderData& render_data)
 {
    auto start = std::chrono::steady_clock::now();
 
+#ifndef USE_CHEAP_SPHERE_INJECTION
    for (int z = 0; z <= _light_clusters_dims.z; z++)
    {
       for (int y = 0; y <= _light_clusters_dims.y; y++)
@@ -335,6 +262,7 @@ void ClusteredLightCuller::buildLightLists(const Scene& scene, RenderData& rende
          }
       }
    }
+#endif
 
    for (int z = 0; z < _light_clusters_dims.z; z++)
    {
@@ -345,7 +273,17 @@ void ClusteredLightCuller::buildLightLists(const Scene& scene, RenderData& rende
             _macro_clusters[_toFlatMacroClusterIndex(x, y, z)].lights[0].resize(0);
             _macro_clusters[_toFlatMacroClusterIndex(x, y, z)].lights[1].resize(0);
             _macro_clusters[_toFlatMacroClusterIndex(x, y, z)].lights[2].resize(0);
-
+         }
+      }
+   }
+   
+   
+   for (int z = 0; z < _light_clusters_dims.z; z++)
+   {
+      for (int y = 0; y < (_light_clusters_dims.y / 2); y++)
+      {
+         for (int x = 0; x < (_light_clusters_dims.x / 2); x++)
+         {
             vec3 cluster_center[4];
             vec3 cluster_extent[4];
 
@@ -555,7 +493,7 @@ void ClusteredLightCuller::_updateClustersGLData()
 
 void ClusteredLightCuller::_injectSphereLightsIntoClusters(const Scene& scene, const RenderData& render_data)
 {
-#if 0
+#ifdef USE_CHEAP_SPHERE_INJECTION
    unsigned short light_index = -1;
    for (const auto& light : scene.lights)
    {
@@ -801,6 +739,99 @@ void ClusteredLightCuller::_initDebugData()
    _debug_lines_source->setPrimitiveType(GL_LINES);
    _debug_lines_source->setVertexCount(100);
    _debug_lines_source->setVertexAttribute(0, 3, GL_FLOAT, GLSLVecType::vec);
+}
+
+
+float ClusteredLightCuller::_convertClusterZtoCameraZ(float cluster_z, float znear, float zfar)
+{
+   float z = pow(cluster_z, _settings.cluster_z_distribution_factor);
+
+   return -mix(znear, zfar, z);
+}
+
+float ClusteredLightCuller::_convertCameraZtoClusterZ(float z_in_camera_space, float znear, float zfar)
+{
+   float z = (z_in_camera_space - znear) / (zfar - znear);
+   float cluster_z = pow(z, 1 / _settings.cluster_z_distribution_factor);
+
+   return clamp(cluster_z, 0.0f, 1.0f);
+}
+
+Aabb3 ClusteredLightCuller::_computeConvexMeshClusterBounds(const RenderData& render_data, const mat4& matrix_light_proj_local, vec3* vertices_in_local, int num_vertices)
+{
+   float znear = render_data.frustum.near;
+   float zfar = render_data.frustum.far;
+
+   Aabb3 res;
+   for (int i = 0; i < num_vertices; ++i)
+   {
+      vec4 vec_hs = matrix_light_proj_local * vec4(vertices_in_local[i], 1.0f);
+      vec3 vertex_in_clip_space = vec_hs.xyz / vec3(vec_hs.w);
+      if (vec_hs.w < 0.0f)
+      {
+         vertex_in_clip_space.x = -signOfFloat(vertex_in_clip_space.x);
+         vertex_in_clip_space.y = -signOfFloat(vertex_in_clip_space.y);
+      }
+
+      float z_eye_space = 2.0f * znear * zfar / (znear + zfar - vertex_in_clip_space.z * (zfar - znear));
+      float cluster_z = _convertCameraZtoClusterZ(z_eye_space, znear, zfar);
+
+      res.extend(vec3(vertex_in_clip_space.xy, cluster_z));
+   }
+
+   res.pmin.xy = (res.pmin.xy + vec2(1.0f)) * 0.5f;
+   res.pmax.xy = (res.pmax.xy + vec2(1.0f)) * 0.5f;
+
+   return res;
+}
+
+
+Aabb3 ClusteredLightCuller::_computeSphereClusterBounds(const Scene& scene, const RenderData& render_data, const Light& light)
+{
+   vec3 sphere_center_in_vs = project(render_data.matrix_view_world, light.world_to_local_matrix[3]);
+   float znear = render_data.frustum.near;
+   float zfar = render_data.frustum.far;
+   float znear_in_vs = -znear;
+
+   float z_light_min = (-sphere_center_in_vs.z) - light.radius;
+   float z_light_max = (-sphere_center_in_vs.z) + light.radius;
+
+   vec3 left_right[2];
+   vec3 bottom_top[2];
+   sphereBoundsForAxis(vec3(1, 0, 0), sphere_center_in_vs, light.radius, znear_in_vs, left_right);
+   sphereBoundsForAxis(vec3(0, 1, 0), sphere_center_in_vs, light.radius, znear_in_vs, bottom_top);
+
+   const mat4& matrix_proj_view = render_data.matrix_proj_view;
+
+   Aabb3 res;
+   res.pmin = vec3(project(matrix_proj_view, left_right[0]).x, project(matrix_proj_view, bottom_top[0]).y, _convertCameraZtoClusterZ(z_light_min, znear, zfar));
+   res.pmax = vec3(project(matrix_proj_view, left_right[1]).x, project(matrix_proj_view, bottom_top[1]).y, _convertCameraZtoClusterZ(z_light_max, znear, zfar));
+
+   res.pmin.xy = (res.pmin.xy + vec2(1.0f)) * 0.5f;
+   res.pmax.xy = (res.pmax.xy + vec2(1.0f)) * 0.5f;
+
+   return res;
+}
+
+vec3 ClusteredLightCuller::_clusterCorner(const vec3 ndc_coords, const vec3& cluster_dims, const RenderData& render_data)
+{
+   float z = _convertClusterZtoCameraZ(ndc_coords.z / cluster_dims.z, render_data.frustum.near, render_data.frustum.far);
+
+   float ratio = -z / render_data.frustum.near;
+   float x = mix(render_data.frustum.left, render_data.frustum.right, ndc_coords.x / cluster_dims.x) * ratio;
+   float y = mix(render_data.frustum.bottom, render_data.frustum.top, ndc_coords.y / cluster_dims.y) * ratio;
+
+   return vec3(x, y, z);
+}
+
+
+void ClusteredLightCuller::_clusterCenterAndExtent(const RenderData& render_data, const ivec3& light_clusters_dims, int x, int y, int z, vec3* center, vec3* extent)
+{
+   vec3 aabb_min = project(render_data.matrix_proj_view, _clusterCorner(vec3(x, y, z), light_clusters_dims, render_data));
+   vec3 aabb_max = project(render_data.matrix_proj_view, _clusterCorner(vec3(x + 1, y + 1, z + 1), light_clusters_dims, render_data));
+
+   *center = 0.5f * (aabb_min + aabb_max);
+   *extent = 0.5f * (aabb_max - aabb_min);
 }
 
 

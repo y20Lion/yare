@@ -16,6 +16,14 @@ layout(std430, binding = 1) buffer EnabledClustersSSBO
 
 out vec3 color;
 
+
+float convertClusterZtoCameraZ(float cluster_z, float znear, float zfar)
+{
+   float z = pow(cluster_z, cluster_z_distribution_factor);
+
+   return mix(znear, zfar, z);
+}
+
 void main()
 {
    int cluster_id = gl_VertexID / 24;
@@ -24,7 +32,7 @@ void main()
       float n = znear_far.x;
       float f = znear_far.y;
       
-      float eye_space_depth = mix(znear_far.x, znear_far.y, position.z);
+      float eye_space_depth = convertClusterZtoCameraZ(position.z, znear_far.x, znear_far.y);
       float A = -(f+n)/(f-n);
       float B = -(2.0*f*n)/(f-n);
       float clip_space_depth = (-A*eye_space_depth + B) / eye_space_depth ;
