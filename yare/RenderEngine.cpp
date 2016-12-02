@@ -573,7 +573,7 @@ void RenderEngine::_computeLightsRadius()
       if (light.type == LightType::Sun)
          continue;
       
-      light.radius =  sqrtf(light.strength / (_settings.light_contribution_threshold * 4.0f * float(M_PI)));
+      light.radius = 20.0f;// sqrtf(light.strength / (_settings.light_contribution_threshold * 4.0f * float(M_PI)));
    }
 
    for (auto& light : _scene.lights)

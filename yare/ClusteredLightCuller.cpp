@@ -246,9 +246,47 @@ intAabb3 _convertClipSpaceAABBToVoxel(const Aabb3& clip_space_aabb, const ivec3&
 
 static mat4 _matrix_light_proj_local;
 
+
+__forceinline simdfloat _convertClusterZtoCameraZ(simdfloat cluster_z, simdfloat znear, simdfloat zfar, int cluster_z_distribution_factor)
+{
+   simdfloat z = cluster_z;
+   for (int i = 0; i < cluster_z_distribution_factor - 1; ++i)
+      z = z*cluster_z;//pow(cluster_z, simdfloat(3.0f));
+
+   return -mix(znear, zfar, z);
+}
+
+__forceinline simdvec3 _clusterCorner(const simdvec3 ndc_coords, const simdvec3& cluster_dims, const simdfrustum& frustum, int cluster_z_distribution_factor)
+{
+   simdfloat z = _convertClusterZtoCameraZ(ndc_coords.z * cluster_dims.z, frustum.near, frustum.far, cluster_z_distribution_factor);
+
+   simdfloat ratio = -z / frustum.near;
+   simdfloat x = mix(frustum.left, frustum.right, ndc_coords.x * cluster_dims.x) * ratio;
+   simdfloat y = mix(frustum.bottom, frustum.top, ndc_coords.y * cluster_dims.y) * ratio;
+
+   return simdvec3(x, y, z);
+}
+
+__forceinline simdvec3 _project(const simdmat4& matrix, const simdvec3& point)
+{
+   simdvec4 vec_hs = matrix * simdvec4(point.x, point.y, point.z, simdfloat(1.0f));
+   return simdvec3(vec_hs.x, vec_hs.y, vec_hs.z) / simdvec3(vec_hs.w);
+}
+
+__forceinline void _clusterCenterAndExtent2(const simdfrustum& frustum, const simdmat4& matrix_proj_view, const simdvec3& light_clusters_dims,
+                                            simdfloat x, simdfloat y, simdfloat z, simdvec3* center, simdvec3* extent, int cluster_z_distribution_factor)
+{
+   simdvec3 aabb_min = _project(matrix_proj_view, _clusterCorner(simdvec3(x, y, z), light_clusters_dims, frustum, cluster_z_distribution_factor));
+   simdvec3 aabb_max = _project(matrix_proj_view, _clusterCorner(simdvec3(x + simdfloat(1.0f), y + simdfloat(1.0f), z + simdfloat(1.0f)), light_clusters_dims, frustum, cluster_z_distribution_factor));
+
+   *center = simdfloat(0.5f) * (aabb_min + aabb_max);
+   *extent = simdfloat(0.5f) * (aabb_max - aabb_min);
+}
+
+
 void ClusteredLightCuller::buildLightLists(const Scene& scene, RenderData& render_data)
 {
-   auto start = std::chrono::steady_clock::now();
+   
 
 #ifndef USE_CHEAP_SPHERE_INJECTION
    for (int z = 0; z <= _light_clusters_dims.z; z++)
@@ -278,12 +316,50 @@ void ClusteredLightCuller::buildLightLists(const Scene& scene, RenderData& rende
    }
    
    
+   simdfrustum frustum;
+   frustum.left   = simdfloat(render_data.frustum.left);
+   frustum.right  = simdfloat(render_data.frustum.right);
+   frustum.bottom = simdfloat(render_data.frustum.bottom);
+   frustum.top    = simdfloat(render_data.frustum.top);
+   frustum.near   = simdfloat(render_data.frustum.near);
+   frustum.far    = simdfloat(render_data.frustum.far);
+
+   simdmat4 matrix_proj_view(render_data.matrix_proj_view);
+   vec3 temp = 1.0f/vec3(_light_clusters_dims);
+   simdvec3 light_clusters_dims(temp);   
+
    for (int z = 0; z < _light_clusters_dims.z; z++)
    {
       for (int y = 0; y < (_light_clusters_dims.y / 2); y++)
       {
          for (int x = 0; x < (_light_clusters_dims.x / 2); x++)
          {
+            simdfloat x_, y_, z_;
+            x_.load(2.0f*x+1.0f, 2.0f*x, 2.0f*x+1.0f, 2.0f*x);
+            y_.load(2.0f*y+1.0f, 2.0f*y+1.0f, 2.0f*y, 2.0f*y);
+            z_.load(float(z), float(z), float(z), float(z));
+
+            simdvec3 center, extent;
+            _clusterCenterAndExtent2(frustum, matrix_proj_view, light_clusters_dims, x_, y_, z_, &center, &extent, (int)_settings.cluster_z_distribution_factor);
+
+            int index = _toFlatMacroClusterIndex(x, y, z);
+            _mm_store_ps((float*)&_macro_cluster_info.center_cs.x[index], center.x.val);
+            _mm_store_ps((float*)&_macro_cluster_info.center_cs.y[index], center.y.val);
+            _mm_store_ps((float*)&_macro_cluster_info.center_cs.z[index], center.z.val);
+
+            _mm_store_ps((float*)&_macro_cluster_info.extent_cs.x[index], extent.x.val);
+            _mm_store_ps((float*)&_macro_cluster_info.extent_cs.y[index], extent.y.val);
+            _mm_store_ps((float*)&_macro_cluster_info.extent_cs.z[index], extent.z.val);
+         }
+      }
+   }
+   /*for (int z = 0; z < _light_clusters_dims.z; z++)
+   {
+      for (int y = 0; y < (_light_clusters_dims.y / 2); y++)
+      {
+         for (int x = 0; x < (_light_clusters_dims.x / 2); x++)
+         {          
+            
             vec3 cluster_center[4];
             vec3 cluster_extent[4];
 
@@ -304,16 +380,17 @@ void ClusteredLightCuller::buildLightLists(const Scene& scene, RenderData& rende
             _macro_cluster_info.extent_cs.z[_toFlatMacroClusterIndex(x, y, z)] = vec4(cluster_extent[0].z, cluster_extent[1].z, cluster_extent[2].z, cluster_extent[3].z);
          }
       }
-   }
+   }*/
 
-   float duration = std::chrono::duration<float>(std::chrono::steady_clock::now() - start).count();
-   std::cout << duration*1000.0f << std::endl;
-   
+   auto start = std::chrono::steady_clock::now();
+      
    _injectSphereLightsIntoClusters(scene, render_data);
    _injectSpotLightsIntoClusters(scene, render_data);
    _injectRectangleLightsIntoClusters(scene, render_data);
-   
+   float duration = std::chrono::duration<float>(std::chrono::steady_clock::now() - start).count();
+   //std::cout << duration*1000.0f << std::endl;
    _updateClustersGLData();
+   
 }
 
 vec3* _drawCross(const vec3& center, vec3* buffer)
@@ -488,7 +565,7 @@ void ClusteredLightCuller::_updateClustersGLData()
    }
 
    float duration = std::chrono::duration<float>(std::chrono::steady_clock::now() - start).count();
-   std::cout << "in " << duration*1000.0f << std::endl;
+   //std::cout << "in " << duration*1000.0f << std::endl;
 }
 
 void ClusteredLightCuller::_injectSphereLightsIntoClusters(const Scene& scene, const RenderData& render_data)
@@ -833,7 +910,5 @@ void ClusteredLightCuller::_clusterCenterAndExtent(const RenderData& render_data
    *center = 0.5f * (aabb_min + aabb_max);
    *extent = 0.5f * (aabb_max - aabb_min);
 }
-
-
 
 }
