@@ -573,7 +573,10 @@ void RenderEngine::_computeLightsRadius()
       if (light.type == LightType::Sun)
          continue;
       
-      light.radius = 20.0f;// sqrtf(light.strength / (_settings.light_contribution_threshold * 4.0f * float(M_PI)));
+      if (light.type == LightType::Rectangle)      
+         light.radius = sqrtf(light.strength*light.rectangle.size_x*light.rectangle.size_y / (_settings.light_contribution_threshold * 4.0f * float(M_PI)));
+      else
+         light.radius = sqrtf(light.strength / (_settings.light_contribution_threshold * 4.0f * float(M_PI)));
    }
 
    for (auto& light : _scene.lights)
@@ -590,8 +593,7 @@ void RenderEngine::_computeLightsRadius()
          light.frustum_planes_in_local[5] = vec4(0.0, 0.0, -1.0, light.radius);
       }
       else if (light.type == LightType::Spot)
-      {
-         light.radius = 9.0f;
+      { 
          mat4 matrix_proj_spot = transpose(perspective(light.spot.angle, 1.0f, light.radius*0.1f, light.radius));
 
          light.frustum_planes_in_local[int(ClippingPlane::Left)] = _normalizePlane(matrix_proj_spot[0] + matrix_proj_spot[3]);
@@ -601,19 +603,18 @@ void RenderEngine::_computeLightsRadius()
          light.frustum_planes_in_local[int(ClippingPlane::Far)] = _normalizePlane(-matrix_proj_spot[2] + matrix_proj_spot[3]);         
       }
       else if (light.type == LightType::Rectangle)
-      {         
-         light.radius = 5.0f;
+      {
          float depth = light.radius;
-         float width = light.radius;
-         float height = light.radius;
-         light.rectangle.bounds_width  = width;
-         light.rectangle.bounds_height = height;
+         float half_width = light.radius;
+         float half_height = light.radius;
+         light.rectangle.bounds_width  = half_width;
+         light.rectangle.bounds_height = half_height;
          light.rectangle.bounds_depth  = depth;
                   
-         light.frustum_planes_in_local[0] = vec4(1.0, 0.0, 0.0, width);
-         light.frustum_planes_in_local[1] = vec4(-1.0, 0.0, 0.0, width);
-         light.frustum_planes_in_local[2] = vec4(0.0, 1.0, 0.0, height);
-         light.frustum_planes_in_local[3] = vec4(0.0, -1.0, 0.0, height);
+         light.frustum_planes_in_local[0] = vec4(1.0, 0.0, 0.0, half_width);
+         light.frustum_planes_in_local[1] = vec4(-1.0, 0.0, 0.0, half_width);
+         light.frustum_planes_in_local[2] = vec4(0.0, 1.0, 0.0, half_height);
+         light.frustum_planes_in_local[3] = vec4(0.0, -1.0, 0.0, half_height);
          light.frustum_planes_in_local[4] = vec4(0.0, 0.0, 1.0, depth);
          light.frustum_planes_in_local[5] = vec4(0.0, 0.0, -1.0, 0.0);
       } 

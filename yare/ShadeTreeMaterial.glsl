@@ -237,6 +237,17 @@ vec3 pointLightIncidentRadiance(vec3 light_power, vec3 light_position, float lig
    return light_power / (4 * PI*light_distance*light_distance) * restrict_influence_factor;
 }
 
+vec3 pointLightIrradiance(vec3 light_power, vec3 light_position, float light_radius)
+{
+   vec3 light_dir = (light_position - attr_position);
+   float light_distance_sqr = dot(light_dir, light_dir);
+   float rcp_light_distance_sqr = 1.0f / light_distance_sqr;
+   light_dir *= rcp_light_distance_sqr;
+
+   float restrict_influence_factor = pow(saturate(1.0 - pow(light_distance_sqr /(light_radius*light_radius), 2.0)), 2.0);
+   return saturate(dot(light_dir, normal)) *light_power / (4 * PI)*rcp_light_distance_sqr * restrict_influence_factor;
+}
+
 vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
 {   
    unsigned int start_offset = cluster_light_lists.start_offset;
@@ -247,9 +258,7 @@ vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
       int light_index = light_list_data[start_offset + i];
       SphereLight light = sphere_lights[light_index];
 
-      vec3 light_dir = normalize(light.position - attr_position);
-      //if (distance(attr_position, light.position) <= light.radius) // TODO pass radius
-      irradiance += max(dot(light_dir, normal), 0.0) * pointLightIncidentRadiance(light.color, light.position, light.radius);
+      irradiance += pointLightIrradiance(light.color, light.position, light.radius);
    }
    start_offset += cluster_light_lists.sphere_light_count;
 
@@ -263,7 +272,7 @@ vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
 
       // we consider the interior of flashlight as if made of black albedo material.
       // This means that not all the light source power is redirected to the light cone, some is lost in the directions outside of the cone.
-      irradiance += max(dot(light_dir, normal), 0.0) * pointLightIncidentRadiance(light.color, light.position, light.radius) * spot_attenuation;
+      irradiance += pointLightIrradiance(light.color, light.position, light.radius) * spot_attenuation;
    }
    start_offset += cluster_light_lists.spot_light_count;
 
@@ -318,8 +327,9 @@ float evalMicrofacetGGX(float alpha, vec3 N, vec3 V, vec3 L)
    float HoV = saturate(dot(H, V));
    float NoH = saturate(dot(N, H));
 
-   return DFactor(alpha, NoH) * GSmithFactor(alpha, NoV, NoL)/ (4.0*NoV); 
-   // The NoL at the denominator is cancelled out by the cos factor when evaluation the brdf
+   return DFactor(alpha, NoH) * GSmithFactor(alpha, NoV, NoL)/ (4.0*NoV);
+
+   // The NoL at the denominator is cancelled out by the cos factor when evaluating the brdf
 }
 
 vec3 importanceSampleDirGGX(vec2 Xi, float Roughness, vec3 N)
@@ -384,6 +394,14 @@ vec3 importanceSampleSkyCubemap(float roughness, vec3 N, vec3 V)
    return env_radiance / num_samples;
 }
 
+vec3 linePlaneIntersection(vec3 plane_origin, vec3 plane_normal, vec3 line_origin, vec3 line_direction)
+{
+   float d = dot((plane_origin - line_origin), plane_normal) / (dot(line_direction, plane_normal));
+   return line_origin + line_direction * d;
+}
+
+vec3 out_val;
+
 vec3 evalGlossyBSDF(vec3 color, vec3 normal, float roughness)
 {
    roughness = max(roughness, 0.001);
@@ -420,39 +438,24 @@ vec3 evalGlossyBSDF(vec3 color, vec3 normal, float roughness)
    }
    start_offset += cluster_light_lists.spot_light_count;
 
-
-   /*for (int i = 0; i < lights.length(); ++i)
+   for (unsigned int i = 0; i < cluster_light_lists.rectangle_light_count; ++i)
    {
-      Light light = lights[i];
-      if (light.type == LIGHT_SPHERE)
-      {
-         vec3 light_position = light.data[0].xyz;
-         float light_size = light.data[0].w;
-         vec3 light_vector = light_position - attr_position;
+      int light_index = light_list_data[start_offset + i];
+      RectangleLight light = rectangle_lights[light_index];
 
-         vec3 reflection_vector = reflect(-view_vector, normal);
-         vec3 center_to_ray =  dot(light_vector, reflection_vector)*reflection_vector - light_vector;
-         vec3 closest_point = light_vector + center_to_ray * saturate(light_size / length(center_to_ray));
-         vec3 light_dir = normalize(closest_point);
-         float alpha_prime = saturate(roughness+light_size / (length(light_vector) * 3.0));
-         float renormalization_factor = (roughness*roughness) / (alpha_prime*alpha_prime);
+      vec3 reflection_vector = normalize(reflect(-view_vector, normal));
+      vec3 light_plane_normal = cross(light.direction_x, light.direction_y);
 
-         exit_radiance += renormalization_factor* evalMicrofacetGGX(roughness, normal, view_vector, light_dir) * pointLightIncidentRadiance(light.color, closest_point+ attr_position);
-      }
-      else if (light.type == LIGHT_SUN)
-      {
-         vec3 light_vector = light.data[0].xyz;
-         exit_radiance += evalMicrofacetGGX(roughness, normal, view_vector, light_vector) * light.color;
-      }
-      else if (light.type == LIGHT_SPOT)
-      {
-         vec3 light_position = light.data[0].xyz;
-         vec3 light_vector = normalize(light_position - attr_position);         
-         float spot_attenuation = spotLightAttenuation(light_vector, light.data[0].w, light.data[1].xyz, light.data[1].w);
-         
-         exit_radiance += evalMicrofacetGGX(roughness, normal, view_vector, light_vector) * pointLightIncidentRadiance(light.color, light_position) * spot_attenuation;
-      }
-   }   */
+      vec3 intersection = linePlaneIntersection(light.position, light_plane_normal, attr_position, reflection_vector);
+      float intersection_x = clamp(dot(intersection - light.position, light.direction_x), -light.size_x*0.5, light.size_x*0.5);
+      float intersection_y = clamp(dot(intersection - light.position, light.direction_y) , -light.size_y*0.5, light.size_y*0.5);
+
+      vec3 closest_point = light.position + intersection_x*light.direction_x + intersection_y*light.direction_y; 
+      vec3 light_dir = normalize(closest_point - attr_position);
+
+      exit_radiance += evalMicrofacetGGX(roughness, normal, view_vector, light_dir) * pointLightIncidentRadiance(light.color, closest_point, light.radius);
+   }
+   start_offset += cluster_light_lists.rectangle_light_count;
 
    for (int i = 0; i < sun_lights.length(); ++i)
    {
@@ -639,4 +642,6 @@ float raymarchSDF(vec3 dir, vec3 start)
     //shading_result.rgb = vec3(abs(distance));
     
     //shading_result.rgb = vec3(int(out_val*light_clusters_dims)/20.0);
+
+   // shading_result.rgb = out_val;
  }

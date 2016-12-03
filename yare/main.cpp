@@ -20,6 +20,8 @@
 #include "GLDevice.h"
 #include "Raytracer.h"
 #include "AppGui.h"
+#include "RenderResources.h"
+#include "GLGPUTimer.h"
 
 
 using namespace yare;
@@ -91,7 +93,7 @@ void createContexts(GLFWwindow** window_context, GLFWwindow** update_context)
    //*update_context = glfwCreateWindow(1, 1, "", NULL, *window_context);
 
    glfwMakeContextCurrent(*window_context);
-   glfwSwapInterval(1);
+   glfwSwapInterval(0);
 
    glEnable(GL_DEBUG_OUTPUT);
    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
@@ -132,7 +134,7 @@ void bakeSDForAOVolume(char* file, RenderEngine& render_engine)
 float updateScene(RenderEngine* render_engine, int data_index, GLFWwindow* update_context);
 float renderScene(RenderEngine* render_engine, int data_index, AppGui* app_gui, GLFWwindow* render_context);
 
-//#define MULTITHREADED_RENDER
+#define MULTITHREADED_RENDER
 
 int main()
 {
@@ -234,6 +236,7 @@ float renderScene(RenderEngine* render_engine, int data_index, AppGui* app_gui, 
    render_engine->renderScene(render_engine->scene()->render_data[data_index]);
    //render_engine.presentDebugTexture();  
    app_gui->drawWidgets();
+   //std::cout << "r:" << render_engine->render_resources->material_pass_timer->elapsedTimeInMs() << std::endl;
   
    glfwSwapBuffers(window);
 

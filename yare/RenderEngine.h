@@ -19,7 +19,7 @@ class ClusteredLightCuller;
 struct RenderSettings
 {
    float cluster_z_distribution_factor = 2.0f;
-   float light_contribution_threshold = 0.01f;
+   float light_contribution_threshold = 0.05f;
    float bias = 0.0f;
    int x = 16;
    int y = 16;

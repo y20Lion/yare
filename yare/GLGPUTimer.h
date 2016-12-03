@@ -6,7 +6,7 @@
 
 namespace yare {
 
-static const int QUERY_COUNT = 3;
+static const int QUERY_COUNT = 5;
 enum class TimerResult { CurrentFrame, PreviousFrame };
 
 
