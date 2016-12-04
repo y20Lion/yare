@@ -42,7 +42,7 @@ namespace GLDevice
    void bindProgram(const GLProgram& program);
    void bindVertexSource(const GLVertexSource& vertex_source);
    void bindTexture(int texture_unit, const GLTexture& texture, const GLSampler& sampler);
-   void bindImage(int image_unit, const GLTexture2D& texture, GLenum access);
+   void bindImage(int image_unit, const GLTexture& texture, GLenum access);
 
    void bindDepthStencilState(const GLDepthStencilState& state);
    void bindDefaultDepthStencilState();

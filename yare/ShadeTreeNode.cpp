@@ -620,9 +620,9 @@ const NodeEvaluatedOutputs& CurveRgbNode::evaluate(const ShadeTreeParams& params
    std::string glsl_green_curve = _toGLSLVarName(name, "GreenCurve");
    std::string glsl_blue_curve = _toGLSLVarName(name, "BlueCurve");
 
-   evaluation.addTexture(params.texture_binding_slot_start, "sampler1D", glsl_red_curve, red_curve.get(), params.samplers->bilinear_clampToEdge.get());
-   evaluation.addTexture(params.texture_binding_slot_start, "sampler1D", glsl_green_curve, green_curve.get(), params.samplers->bilinear_clampToEdge.get());
-   evaluation.addTexture(params.texture_binding_slot_start, "sampler1D", glsl_blue_curve, blue_curve.get(), params.samplers->bilinear_clampToEdge.get());
+   evaluation.addTexture(params.texture_binding_slot_start, "sampler1D", glsl_red_curve, red_curve.get(), params.samplers->linear_clampToEdge.get());
+   evaluation.addTexture(params.texture_binding_slot_start, "sampler1D", glsl_green_curve, green_curve.get(), params.samplers->linear_clampToEdge.get());
+   evaluation.addTexture(params.texture_binding_slot_start, "sampler1D", glsl_blue_curve, blue_curve.get(), params.samplers->linear_clampToEdge.get());
    std::string node_glsl_code = string_format_str("vec3 %s = evalCurveRgb(%s, %s, %s, %s, %s);\n",
                                               glsl_out_color, glsl_color, glsl_fac, glsl_red_curve, glsl_green_curve, glsl_blue_curve);
 

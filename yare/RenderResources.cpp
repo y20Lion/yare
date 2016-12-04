@@ -46,7 +46,7 @@ Samplers createSamplers()
    sampler_desc.wrap_mode_u = GL_CLAMP_TO_EDGE;
    sampler_desc.wrap_mode_v = GL_CLAMP_TO_EDGE;
    sampler_desc.wrap_mode_w = GL_CLAMP_TO_EDGE;
-   samplers.bilinear_clampToEdge = createSampler(sampler_desc);
+   samplers.linear_clampToEdge = createSampler(sampler_desc);
 
    sampler_desc.min_filter = GL_NEAREST;
    sampler_desc.mag_filter = GL_NEAREST;

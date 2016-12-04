@@ -66,6 +66,7 @@ void main()
 #include "glsl_global_defines.h"
 %s
 #include "scene_uniforms.glsl"
+#include "lighting_uniforms.glsl"
 #include "common.glsl"
 #include "common_node_mix.glsl"
 
@@ -97,16 +98,6 @@ vec3 tangent = normalize(attr_tangent);
 vec3 view_vector = normalize(eye_position - attr_position);
 float ssao = 1.0;
 
-struct ClusterLightLists
-{
-   unsigned int start_offset;
-   unsigned int sphere_light_count;
-   unsigned int spot_light_count;
-   unsigned int rectangle_light_count;
-} cluster_light_lists;
-
-
-
 float convertCameraZtoClusterZ(float z_in_camera_space, float znear, float zfar)
 {
    float z = (z_in_camera_space - znear) / (zfar - znear);
@@ -115,15 +106,21 @@ float convertCameraZtoClusterZ(float z_in_camera_space, float znear, float zfar)
    return clamp(cluster_z, 0.0f, 1.0f);
 }
 
-void fetchCurrentClusterLightLists()
+vec3 positionInFrustumAlignedVolumeTextures()
 {
-   /*vec4 p = debug_proj_world*vec4(attr_position, 1.0);
-   p /= p.w;*/
    vec2 current_ndc01_pos = (gl_FragCoord.xy - viewport.xy) / (viewport.zw);
    float z_eye_space = 2.0 * znear * zfar / (znear + zfar - (2.0*gl_FragCoord.z - 1.0) * (zfar - znear));
    float cluster_z = convertCameraZtoClusterZ(z_eye_space, znear, zfar);
 
-   ivec3 current_cluster_coords = ivec3(light_clusters_dims * vec3(current_ndc01_pos, cluster_z));
+   return vec3(current_ndc01_pos, cluster_z);
+}
+
+void fetchCurrentClusterLightLists(vec3 pos_in_frustum)
+{
+   /*vec4 p = debug_proj_world*vec4(attr_position, 1.0);
+   p /= p.w;*/
+
+   ivec3 current_cluster_coords = ivec3(light_clusters_dims * pos_in_frustum);
    /*float z_eye_space = 2.0 * znear * zfar / (znear + zfar - p.z * (zfar - znear));
    float cluster_z = (z_eye_space - znear) / (zfar - znear);
 
@@ -624,24 +621,33 @@ float raymarchSDF(vec3 dir, vec3 start)
 }
 #endif
 
- void main()
- {    
-    fetchCurrentClusterLightLists();
-    fetchAmbientOcclusion();
+void main()
+{    
+   vec3 pos_in_frustum = positionInFrustumAlignedVolumeTextures();
+   
+   fetchCurrentClusterLightLists(pos_in_frustum);
+   fetchAmbientOcclusion();
 
-    %s
-       //shading_result.rgb = vec3(ssao);
+   %s
+
+   vec4 fog_info = texture(fog_volume, pos_in_frustum);
+   float fog_transmittance = fog_info.a;
+   vec3 fog_in_scattering = fog_info.rgb;
+
+   shading_result.rgb =  shading_result.rgb * fog_transmittance + fog_in_scattering;
+   
+      //shading_result.rgb = vec3(ssao);
 
 #ifdef USE_SDF_VOLUME
-    float theta = time;    
-    vec3 light_dir = vec3(cos(time), sin(time), 0.5);
-    shading_result.rgb = vec3(raymarchSDF(normalize(light_dir), attr_position))*max(dot(light_dir,normal), 0.0);
+   float theta = time;    
+   vec3 light_dir = vec3(cos(time), sin(time), 0.5);
+   shading_result.rgb = vec3(raymarchSDF(normalize(light_dir), attr_position))*max(dot(light_dir,normal), 0.0);
 #endif
-   /* vec3 uvw2 = (attr_position - sdf_volume_bound_min) / sdf_volume_size;
-    float distance = texture(sdf_volume, uvw2).r;*/
-    //shading_result.rgb = vec3(abs(distance));
+/* vec3 uvw2 = (attr_position - sdf_volume_bound_min) / sdf_volume_size;
+   float distance = texture(sdf_volume, uvw2).r;*/
+   //shading_result.rgb = vec3(abs(distance));
     
-    //shading_result.rgb = vec3(int(out_val*light_clusters_dims)/20.0);
+   //shading_result.rgb = vec3(int(out_val*light_clusters_dims)/20.0);
 
-   // shading_result.rgb = out_val;
- }
+// shading_result.rgb = out_val;
+}

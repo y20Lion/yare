@@ -48,9 +48,11 @@ void bindTexture(int texture_unit, const GLTexture& texture, const GLSampler& sa
    glBindSamplers(texture_unit, 1, &sampler_id);
 }
 
-void bindImage(int image_unit, const GLTexture2D& texture, GLenum access)
+void bindImage(int image_unit, const GLTexture& texture, GLenum access)
 {
-   glBindImageTexture(image_unit, texture.id(), 0, false, 0, access, texture.internalFormat());
+   const GLTexture3D* texture3d = dynamic_cast<const GLTexture3D*>(&texture);
+   bool bind_as_layered = (texture3d != nullptr);
+   glBindImageTexture(image_unit, texture.id(), 0, bind_as_layered, 0, access, texture.internalFormat());   
 }
 
 void bindDepthStencilState(const GLDepthStencilState& state)

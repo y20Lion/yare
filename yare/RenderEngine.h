@@ -15,6 +15,7 @@ struct ImageSize;
 class FilmPostProcessor;
 class SSAORenderer;
 class ClusteredLightCuller;
+class VolumetricFog;
 
 struct RenderSettings
 {
@@ -45,6 +46,7 @@ public:
    Uptr<FilmPostProcessor> film_processor;
    Uptr<SSAORenderer> ssao_renderer;
    Uptr<ClusteredLightCuller> clustered_light_culler;
+   Uptr<VolumetricFog> volumetric_fog;
 
    RenderSettings _settings;
    

@@ -7,6 +7,7 @@
 #define BI_AO_VOLUME 13
 #define BI_SDF_VOLUME 14
 #define BI_LIGHT_LIST_HEAD 15
+#define BI_FOG_VOLUME 16
 
 // uniforms buffers
 #define BI_SCENE_UNIFORMS 1

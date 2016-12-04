@@ -31,6 +31,7 @@
 #include "stl_helpers.h"
 #include "SSAORenderer.h"
 #include "ClusteredLightCuller.h"
+#include "VolumetricFog.h"
 
 namespace yare {
 
@@ -110,6 +111,7 @@ RenderEngine::RenderEngine(const ImageSize& framebuffer_size)
    , film_processor(new FilmPostProcessor(*render_resources))
    , ssao_renderer(new SSAORenderer(*render_resources))
    , clustered_light_culler(new ClusteredLightCuller(*render_resources, _settings))
+   , volumetric_fog(new VolumetricFog(*render_resources))
 {    
    _z_pass_render_program = createProgramFromFile("z_pass_render.glsl");
 }
@@ -189,8 +191,8 @@ void RenderEngine::presentDebugTexture()
 {
    glViewport(0, 0, 1024, 1024);  
    GLDevice::bindProgram(*render_resources->present_texture);
-   //GLDevice::bindTexture(BI_INPUT_TEXTURE, *cubemap_converter->_parallel_reduce_result, *render_resources->sampler_bilinear_clampToEdge);
-   //GLDevice::bindTexture(BI_INPUT_TEXTURE, *_scene.sky_latlong, *render_resources->sampler_bilinear_clampToEdge);
+   //GLDevice::bindTexture(BI_INPUT_TEXTURE, *cubemap_converter->_parallel_reduce_result, *render_resources->sampler_linear_clampToEdge);
+   //GLDevice::bindTexture(BI_INPUT_TEXTURE, *_scene.sky_latlong, *render_resources->sampler_linear_clampToEdge);
    GLDevice::draw(*render_resources->fullscreen_triangle_source);
 }
 
@@ -240,6 +242,7 @@ void RenderEngine::_bindSceneUniforms()
                      _scene_uniforms->getRenderSegmentOffset(), _scene_uniforms->segmentSize());
 
    clustered_light_culler->bindLightLists();
+   volumetric_fog->bindFogVolume();
 }
 
 void RenderEngine::_bindSurfaceUniforms(int suface_index, const SurfaceInstance& surface)
@@ -264,6 +267,8 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
    
    _bindSceneUniforms();   
    
+   volumetric_fog->render(render_data);
+
    // Z Pass   
    render_resources->z_pass_timer->start();
    GLDevice::bindFramebuffer(render_resources->main_framebuffer.get(), 1);
@@ -286,6 +291,8 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
    auto& ssao_texture = render_resources->ssao_framebuffer->attachedTexture(GL_COLOR_ATTACHMENT0);
    GLDevice::bindTexture(BI_SSAO_TEXTURE, ssao_texture, *render_resources->samplers.nearest_clampToEdge);
         
+   volumetric_fog->computeMemBarrier();
+
    // Material Pass
    render_resources->material_pass_timer->start();
    GLDevice::bindFramebuffer(render_resources->main_framebuffer.get(), 0);

@@ -19,7 +19,7 @@ struct Samplers
 {
    Uptr<GLSampler> mipmap_repeat;
    Uptr<GLSampler> mipmap_clampToEdge;   
-   Uptr<GLSampler> bilinear_clampToEdge;
+   Uptr<GLSampler> linear_clampToEdge;
    Uptr<GLSampler> nearest_clampToEdge;
 };
 

@@ -19,12 +19,14 @@ public:
     virtual int height() const { return 1; };
     virtual int depth() const { return 1; };
     int levelCount() const { return _level_count;  }
+    GLenum internalFormat() const { return _internal_format; }
 
     void buildMipmaps();
 
 protected:    
     GLuint _texture_id;
     GLuint _level_count;
+    GLenum _internal_format;
 };
 
 struct GLTexture1DDesc
@@ -43,11 +45,9 @@ public:
    virtual ~GLTexture1D();
    DISALLOW_COPY_AND_ASSIGN(GLTexture1D)
 
-   int width() const override { return _width; }
-   GLenum internalFormat() const { return _internal_format; }
+   int width() const override { return _width; } 
 
 private:
-   GLenum _internal_format;
    int _width;   
 };
 
@@ -71,11 +71,9 @@ public:
    int readbackBufferSize() const;
 
    int width() const override { return _width;  }
-   int height() const override { return _height;  }
-   GLenum internalFormat() const { return _internal_format;  }
+   int height() const override { return _height;  } 
 
 private:
-   GLenum _internal_format;
    int _width, _height;   
 };
 
@@ -102,10 +100,8 @@ public:
    int width() const override { return _width; }
    int height() const override { return _height; }
    int depth() const override { return _depth; }
-   GLenum internalFormat() const { return _internal_format; }
 
 private:
-   GLenum _internal_format;
    int _width, _height, _depth;   
 };
 

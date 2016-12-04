@@ -70,7 +70,7 @@ void FilmPostProcessor::_downscaleSceneTexture()
    auto& halfsize_texture0 = (GLTexture2D&)_rr.halfsize_postprocess_fbo->attachedTexture(GL_COLOR_ATTACHMENT0);
    glMemoryBarrier(GL_ALL_BARRIER_BITS);
    GLDevice::bindProgram(*_downscale_program);
-   GLDevice::bindTexture(BI_INPUT_TEXTURE, scene_texture, *_rr.samplers.bilinear_clampToEdge);
+   GLDevice::bindTexture(BI_INPUT_TEXTURE, scene_texture, *_rr.samplers.linear_clampToEdge);
    GLDevice::bindImage(BI_OUTPUT_IMAGE, halfsize_texture0, GL_WRITE_ONLY);
    glDispatchCompute(_rr.framebuffer_size.width / 2, _rr.framebuffer_size.height / 2, 1);
    glMemoryBarrier(GL_ALL_BARRIER_BITS);
@@ -114,7 +114,7 @@ void FilmPostProcessor::_computeBloom()
 
    glUniform1f(BI_BLOOM_THRESHOLD, 10.0f);
    _rr.halfsize_postprocess_fbo->setDrawColorBuffer(1);
-   GLDevice::bindTexture(BI_INPUT_TEXTURE, halfsize_texture0, *_rr.samplers.bilinear_clampToEdge);
+   GLDevice::bindTexture(BI_INPUT_TEXTURE, halfsize_texture0, *_rr.samplers.linear_clampToEdge);
    GLDevice::draw(*_rr.fullscreen_triangle_source);
    
    
@@ -122,27 +122,27 @@ void FilmPostProcessor::_computeBloom()
 
    glUniform1i(BI_KERNEL_SIZE, 0);
    _rr.halfsize_postprocess_fbo->setDrawColorBuffer(0);
-   GLDevice::bindTexture(BI_INPUT_TEXTURE, halfsize_texture1, *_rr.samplers.bilinear_clampToEdge);
+   GLDevice::bindTexture(BI_INPUT_TEXTURE, halfsize_texture1, *_rr.samplers.linear_clampToEdge);
    GLDevice::draw(*_rr.fullscreen_triangle_source);
 
    glUniform1i(BI_KERNEL_SIZE, 1);
    _rr.halfsize_postprocess_fbo->setDrawColorBuffer(1);
-   GLDevice::bindTexture(BI_INPUT_TEXTURE, halfsize_texture0, *_rr.samplers.bilinear_clampToEdge);
+   GLDevice::bindTexture(BI_INPUT_TEXTURE, halfsize_texture0, *_rr.samplers.linear_clampToEdge);
    GLDevice::draw(*_rr.fullscreen_triangle_source);
 
    glUniform1i(BI_KERNEL_SIZE, 2);
    _rr.halfsize_postprocess_fbo->setDrawColorBuffer(0);
-   GLDevice::bindTexture(BI_INPUT_TEXTURE, halfsize_texture1, *_rr.samplers.bilinear_clampToEdge);
+   GLDevice::bindTexture(BI_INPUT_TEXTURE, halfsize_texture1, *_rr.samplers.linear_clampToEdge);
    GLDevice::draw(*_rr.fullscreen_triangle_source);
 
    glUniform1i(BI_KERNEL_SIZE, 2);
    _rr.halfsize_postprocess_fbo->setDrawColorBuffer(1);
-   GLDevice::bindTexture(BI_INPUT_TEXTURE, halfsize_texture0, *_rr.samplers.bilinear_clampToEdge);
+   GLDevice::bindTexture(BI_INPUT_TEXTURE, halfsize_texture0, *_rr.samplers.linear_clampToEdge);
    GLDevice::draw(*_rr.fullscreen_triangle_source);
 
    glUniform1i(BI_KERNEL_SIZE, 3);
    _rr.halfsize_postprocess_fbo->setDrawColorBuffer(0);
-   GLDevice::bindTexture(BI_INPUT_TEXTURE, halfsize_texture1, *_rr.samplers.bilinear_clampToEdge);
+   GLDevice::bindTexture(BI_INPUT_TEXTURE, halfsize_texture1, *_rr.samplers.linear_clampToEdge);
    GLDevice::draw(*_rr.fullscreen_triangle_source);
    _timer.stop();
 
@@ -205,8 +205,8 @@ void FilmPostProcessor::_presentFinalImage()
    
    GLDevice::bindProgram(*_tone_mapping);
    glUniform1f(BI_BLOOM_THRESHOLD, 10.0f);
-   GLDevice::bindTexture(BI_SCENE_TEXTURE, scene_texture, *_rr.samplers.bilinear_clampToEdge);
-   GLDevice::bindTexture(BI_BLOOM_TEXTURE, halfsize_texture, *_rr.samplers.bilinear_clampToEdge);
+   GLDevice::bindTexture(BI_SCENE_TEXTURE, scene_texture, *_rr.samplers.linear_clampToEdge);
+   GLDevice::bindTexture(BI_BLOOM_TEXTURE, halfsize_texture, *_rr.samplers.linear_clampToEdge);
    GLDevice::draw(*_rr.fullscreen_triangle_source);   
 }
 

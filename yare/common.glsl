@@ -14,11 +14,6 @@ float linearRgbToGray(vec3 color)
 #define saturate(v) clamp(v, 0.0, 1.0)
 #define SQR(x) ((x)*(x))
 
-#define LIGHT_SPHERE    0
-#define LIGHT_RECTANGLE 1
-#define LIGHT_SUN       2
-#define LIGHT_SPOT      3
-
 vec3 rgbToHsv(vec3 rgb)
 {
    float cmax, cmin, h, s, v, cdelta;

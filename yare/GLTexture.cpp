@@ -71,9 +71,9 @@ void GLTexture::buildMipmaps()
 }
 
 GLTexture1D::GLTexture1D(const GLTexture1DDesc& desc)
-   : _width(desc.width)
-   , _internal_format(desc.internal_format)
+   : _width(desc.width) 
 {
+   _internal_format = desc.internal_format;
    _level_count = desc.mipmapped ? GLFormats::mipmapLevelCount(desc.width, desc.width) : 1;
 
    glCreateTextures(GL_TEXTURE_1D, 1, &_texture_id);
@@ -101,8 +101,8 @@ GLTexture1D::~GLTexture1D()
 GLTexture2D::GLTexture2D(const GLTexture2DDesc& desc)
    : _height(desc.height)
    , _width(desc.width)
-   , _internal_format(desc.internal_format)
 {
+   _internal_format = desc.internal_format;
    _level_count = desc.mipmapped ? GLFormats::mipmapLevelCount(desc.width, desc.height) : 1;
 
     glCreateTextures(GL_TEXTURE_2D, 1, &_texture_id);
@@ -144,8 +144,8 @@ GLTexture3D::GLTexture3D(const GLTexture3DDesc& desc)
    : _height(desc.height)
    , _width(desc.width)
    , _depth(desc.depth)
-   , _internal_format(desc.internal_format)
 {
+   _internal_format = desc.internal_format;
    _level_count = desc.mipmapped ? GLFormats::mipmapLevelCount(desc.width, desc.height) : 1;
 
    glCreateTextures(GL_TEXTURE_3D, 1, &_texture_id);
@@ -189,6 +189,31 @@ void GLTexture3D::updateFromBuffer(const GLBuffer& buffer, std::int64_t buffer_s
    auto format = _getExternalFormatAndType(_internal_format, false);
    glTextureSubImage3D(_texture_id, 0, 0, 0, 0, _width, _height, _depth, format.first, format.second, (void*)buffer_start_offset);
    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+}
+
+GLTextureCubemap::GLTextureCubemap(const GLTextureCubemapDesc& desc)
+   : _width(desc.width)
+{
+   _internal_format = desc.internal_format;
+   _level_count = desc.mipmapped ? GLFormats::mipmapLevelCount(desc.width, desc.width) : 1;
+   glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &_texture_id);
+   glTextureStorage2D(_texture_id, _level_count, desc.internal_format, desc.width, desc.width);
+
+   if (desc.mipmapped)
+   {
+      glTextureParameteri(_texture_id, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+      glTextureParameteri(_texture_id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glTextureParameteri(_texture_id, GL_TEXTURE_MAX_ANISOTROPY_EXT, 16);
+   }
+   else
+   {
+      glTextureParameteri(_texture_id, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTextureParameteri(_texture_id, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+   }
+}
+
+GLTextureCubemap::~GLTextureCubemap()
+{
 }
 
 Uptr<GLTexture1D> createMipmappedTexture1D(int width, GLenum internal_format, void* pixels, bool pixels_in_bgr)
@@ -267,30 +292,6 @@ Uptr<GLTexture3D> createTexture3D(int width, int height, int depth, GLenum inter
    return std::make_unique<GLTexture3D>(desc);
 }
 
-
-GLTextureCubemap::GLTextureCubemap(const GLTextureCubemapDesc& desc)
-   : _width(desc.width)
-{
-   _level_count = desc.mipmapped ? GLFormats::mipmapLevelCount(desc.width, desc.width) : 1;
-   glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &_texture_id);
-   glTextureStorage2D(_texture_id, _level_count, desc.internal_format, desc.width, desc.width);
-   
-   if (desc.mipmapped)
-   {
-      glTextureParameteri(_texture_id, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-      glTextureParameteri(_texture_id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-      glTextureParameteri(_texture_id, GL_TEXTURE_MAX_ANISOTROPY_EXT, 16);         
-   }
-   else
-   {
-      glTextureParameteri(_texture_id, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-      glTextureParameteri(_texture_id, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-   }
-}
-
-GLTextureCubemap::~GLTextureCubemap()
-{
-}
 
 Uptr<GLTextureCubemap> createMipmappedTextureCubemap(int width, GLenum internal_format)
 {
