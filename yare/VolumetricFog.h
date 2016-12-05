@@ -24,7 +24,9 @@ public:
 private:
    DISALLOW_COPY_AND_ASSIGN(VolumetricFog)
    Uptr<GLProgram> _fog_accumulate_program;
+   Uptr<GLProgram> _fog_lighting_program;
    Uptr<GLTexture3D> _fog_volume;
+   Uptr<GLTexture3D> _inscattering_extinction_volume;
    ivec3 _fog_volume_size;
    const RenderResources& _rr;
 };
