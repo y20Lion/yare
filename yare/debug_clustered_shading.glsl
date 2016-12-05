@@ -7,32 +7,32 @@ layout(location = 0) in vec3 position;
 
 layout(location = 0) uniform mat4 captured_matrix_world_proj;
 layout(location = 1) uniform vec2 znear_far;
-layout(location = 2) uniform int debug_cluster;
+layout(location = 2) uniform int debug_froxel;
 
-layout(std430, binding = 1) buffer EnabledClustersSSBO
+layout(std430, binding = 1) buffer EnabledFroxelsSSBO
 {
-   bool enabled_clusters[];
+   bool enabled_froxels[];
 };
 
 out vec3 color;
 
 
-float convertClusterZtoCameraZ(float cluster_z, float znear, float zfar)
+float convertFroxelZtoCameraZ(float froxel_z, float znear, float zfar)
 {
-   float z = pow(cluster_z, cluster_z_distribution_factor);
+   float z = pow(froxel_z, froxel_z_distribution_factor);
 
    return mix(znear, zfar, z);
 }
 
 void main()
 {
-   int cluster_id = gl_VertexID / 24;
-   if (enabled_clusters[cluster_id])
+   int froxel_id = gl_VertexID / 24;
+   if (enabled_froxels[froxel_id])
    {
       float n = znear_far.x;
       float f = znear_far.y;
       
-      float eye_space_depth = convertClusterZtoCameraZ(position.z, znear_far.x, znear_far.y);
+      float eye_space_depth = convertFroxelZtoCameraZ(position.z, znear_far.x, znear_far.y);
       float A = -(f+n)/(f-n);
       float B = -(2.0*f*n)/(f-n);
       float clip_space_depth = (-A*eye_space_depth + B) / eye_space_depth ;
@@ -43,7 +43,7 @@ void main()
    else
       gl_Position = vec4(-10.0f, -10.0f, -10.0f, 1.0f);
 
-   color = (cluster_id == debug_cluster) ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+   color = (froxel_id == debug_froxel) ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
 }
 
 ~~~~~~~~~~~~~~~~~~ FragmentShader ~~~~~~~~~~~~~~~~~~~~~~

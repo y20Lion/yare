@@ -98,39 +98,39 @@ vec3 tangent = normalize(attr_tangent);
 vec3 view_vector = normalize(eye_position - attr_position);
 float ssao = 1.0;
 
-float convertCameraZtoClusterZ(float z_in_camera_space, float znear, float zfar)
+float convertCameraZtoFroxelZ(float z_in_camera_space, float znear, float zfar)
 {
    float z = (z_in_camera_space - znear) / (zfar - znear);
-   float cluster_z = pow(z, 1.0f / cluster_z_distribution_factor);
+   float froxel_z = pow(z, 1.0f / froxel_z_distribution_factor);
 
-   return clamp(cluster_z, 0.0f, 1.0f);
+   return clamp(froxel_z, 0.0f, 1.0f);
 }
 
 vec3 positionInFrustumAlignedVolumeTextures()
 {
    vec2 current_ndc01_pos = (gl_FragCoord.xy - viewport.xy) / (viewport.zw);
    float z_eye_space = 2.0 * znear * zfar / (znear + zfar - (2.0*gl_FragCoord.z - 1.0) * (zfar - znear));
-   float cluster_z = convertCameraZtoClusterZ(z_eye_space, znear, zfar);
+   float froxel_z = convertCameraZtoFroxelZ(z_eye_space, znear, zfar);
 
-   return vec3(current_ndc01_pos, cluster_z);
+   return vec3(current_ndc01_pos, froxel_z);
 }
 
-void fetchCurrentClusterLightLists(vec3 pos_in_frustum)
+void fetchCurrentFroxelLightLists(vec3 pos_in_frustum)
 {
    /*vec4 p = debug_proj_world*vec4(attr_position, 1.0);
    p /= p.w;*/
 
-   ivec3 current_cluster_coords = ivec3(light_clusters_dims * pos_in_frustum);
+   ivec3 current_froxel_coords = ivec3(light_froxels_dims * pos_in_frustum);
    /*float z_eye_space = 2.0 * znear * zfar / (znear + zfar - p.z * (zfar - znear));
-   float cluster_z = (z_eye_space - znear) / (zfar - znear);
+   float froxel_z = (z_eye_space - znear) / (zfar - znear);
 
-   ivec3 current_cluster_coords = ivec3(light_clusters_dims * vec3((p.xy+1.0)*0.5, cluster_z));*/
+   ivec3 current_froxel_coords = ivec3(light_froxels_dims * vec3((p.xy+1.0)*0.5, froxel_z));*/
 
-   uvec2 cluster_data = texelFetch(light_list_head, current_cluster_coords, 0).xy;
-   cluster_light_lists.start_offset = cluster_data.x;
-   cluster_light_lists.sphere_light_count = cluster_data.y & 0x3FF;
-   cluster_light_lists.spot_light_count = (cluster_data.y >> 10) & 0x3FF;
-   cluster_light_lists.rectangle_light_count = (cluster_data.y >> 20) & 0x3FF;
+   uvec2 froxel_data = texelFetch(light_list_head, current_froxel_coords, 0).xy;
+   froxel_light_lists.start_offset = froxel_data.x;
+   froxel_light_lists.sphere_light_count = froxel_data.y & 0x3FF;
+   froxel_light_lists.spot_light_count = (froxel_data.y >> 10) & 0x3FF;
+   froxel_light_lists.rectangle_light_count = (froxel_data.y >> 20) & 0x3FF;
 }
 
 void fetchAmbientOcclusion()
@@ -247,19 +247,19 @@ vec3 pointLightIrradiance(vec3 light_power, vec3 light_position, float light_rad
 
 vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
 {   
-   unsigned int start_offset = cluster_light_lists.start_offset;
+   unsigned int start_offset = froxel_light_lists.start_offset;
    vec3 irradiance = vec3(0.0);
    
-   for (unsigned int i = 0; i < cluster_light_lists.sphere_light_count; ++i)
+   for (unsigned int i = 0; i < froxel_light_lists.sphere_light_count; ++i)
    {
       int light_index = light_list_data[start_offset + i];
       SphereLight light = sphere_lights[light_index];
 
       irradiance += pointLightIrradiance(light.color, light.position, light.radius);
    }
-   start_offset += cluster_light_lists.sphere_light_count;
+   start_offset += froxel_light_lists.sphere_light_count;
 
-   for (unsigned int i = 0; i < cluster_light_lists.spot_light_count; ++i)
+   for (unsigned int i = 0; i < froxel_light_lists.spot_light_count; ++i)
    {
       int light_index = light_list_data[start_offset + i];
       SpotLight light = spot_lights[light_index];
@@ -271,9 +271,9 @@ vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
       // This means that not all the light source power is redirected to the light cone, some is lost in the directions outside of the cone.
       irradiance += pointLightIrradiance(light.color, light.position, light.radius) * spot_attenuation;
    }
-   start_offset += cluster_light_lists.spot_light_count;
+   start_offset += froxel_light_lists.spot_light_count;
 
-   for (unsigned int i = 0; i < cluster_light_lists.rectangle_light_count; ++i)
+   for (unsigned int i = 0; i < froxel_light_lists.rectangle_light_count; ++i)
    {
       int light_index = light_list_data[start_offset + i];
       RectangleLight light = rectangle_lights[light_index];
@@ -281,7 +281,7 @@ vec3 evalDiffuseBSDF(vec3 color, vec3 normal)
       vec2 light_size = vec2(light.size_x, light.size_y);
       irradiance += rectangleLightIrradiance(light.position, light_size, light.direction_x, light.direction_y, light.radius) * light.color;
    }
-   start_offset += cluster_light_lists.rectangle_light_count;
+   start_offset += froxel_light_lists.rectangle_light_count;
 
    for (int i = 0; i < sun_lights.length(); ++i)
    {
@@ -402,10 +402,10 @@ vec3 out_val;
 vec3 evalGlossyBSDF(vec3 color, vec3 normal, float roughness)
 {
    roughness = max(roughness, 0.001);
-   unsigned int start_offset = cluster_light_lists.start_offset;
+   unsigned int start_offset = froxel_light_lists.start_offset;
    vec3 exit_radiance = vec3(0.0);
 
-   for (unsigned int i = 0; i < cluster_light_lists.sphere_light_count; ++i)
+   for (unsigned int i = 0; i < froxel_light_lists.sphere_light_count; ++i)
    {
       int light_index = light_list_data[start_offset + i];
       SphereLight light = sphere_lights[light_index];
@@ -421,9 +421,9 @@ vec3 evalGlossyBSDF(vec3 color, vec3 normal, float roughness)
 
       exit_radiance += renormalization_factor* evalMicrofacetGGX(roughness, normal, view_vector, light_dir) * pointLightIncidentRadiance(light.color, closest_point+ attr_position, light.radius);
    }
-   start_offset += cluster_light_lists.sphere_light_count;
+   start_offset += froxel_light_lists.sphere_light_count;
    
-   for (unsigned int i = 0; i < cluster_light_lists.spot_light_count; ++i)
+   for (unsigned int i = 0; i < froxel_light_lists.spot_light_count; ++i)
    {
       int light_index = light_list_data[start_offset + i];
       SpotLight light = spot_lights[light_index];
@@ -433,9 +433,9 @@ vec3 evalGlossyBSDF(vec3 color, vec3 normal, float roughness)
 
       exit_radiance += evalMicrofacetGGX(roughness, normal, view_vector, light_vector) * pointLightIncidentRadiance(light.color, light.position, light.radius) * spot_attenuation;
    }
-   start_offset += cluster_light_lists.spot_light_count;
+   start_offset += froxel_light_lists.spot_light_count;
 
-   for (unsigned int i = 0; i < cluster_light_lists.rectangle_light_count; ++i)
+   for (unsigned int i = 0; i < froxel_light_lists.rectangle_light_count; ++i)
    {
       int light_index = light_list_data[start_offset + i];
       RectangleLight light = rectangle_lights[light_index];
@@ -452,7 +452,7 @@ vec3 evalGlossyBSDF(vec3 color, vec3 normal, float roughness)
 
       exit_radiance += evalMicrofacetGGX(roughness, normal, view_vector, light_dir) * pointLightIncidentRadiance(light.color, closest_point, light.radius);
    }
-   start_offset += cluster_light_lists.rectangle_light_count;
+   start_offset += froxel_light_lists.rectangle_light_count;
 
    for (int i = 0; i < sun_lights.length(); ++i)
    {
@@ -625,7 +625,7 @@ void main()
 {    
    vec3 pos_in_frustum = positionInFrustumAlignedVolumeTextures();
    
-   fetchCurrentClusterLightLists(pos_in_frustum);
+   fetchCurrentFroxelLightLists(pos_in_frustum);
    fetchAmbientOcclusion();
 
    %s
@@ -647,7 +647,7 @@ void main()
    float distance = texture(sdf_volume, uvw2).r;*/
    //shading_result.rgb = vec3(abs(distance));
     
-   //shading_result.rgb = vec3(int(out_val*light_clusters_dims)/20.0);
+   //shading_result.rgb = vec3(int(out_val*light_froxels_dims)/20.0);
 
 // shading_result.rgb = out_val;
 }

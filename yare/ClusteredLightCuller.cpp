@@ -23,40 +23,40 @@
 
 namespace yare {
 
-static int cMaxLightsPerCluster = 100;
+static int cMaxLightsPerFroxel = 100;
 
 ClusteredLightCuller::ClusteredLightCuller(const RenderResources& render_resources, const RenderSettings& settings)
    : _rr(render_resources)
    , _settings(settings)
 {
-   _light_clusters_dims = ivec3(24, 24, 32);
-   _cluster_info.resize((_light_clusters_dims.x + 1) * (_light_clusters_dims.y + 1) * (_light_clusters_dims.z + 1));
-   int macro_cluster_count = _light_clusters_dims.x * _light_clusters_dims.y * _light_clusters_dims.z / 2 / 2;
-   _macro_clusters.resize(macro_cluster_count);
-   _macro_cluster_info.center_cs.x = (vec4*)_aligned_malloc(sizeof(vec4)*macro_cluster_count, 16);
-   _macro_cluster_info.center_cs.y = (vec4*)_aligned_malloc(sizeof(vec4)*macro_cluster_count, 16);
-   _macro_cluster_info.center_cs.z = (vec4*)_aligned_malloc(sizeof(vec4)*macro_cluster_count, 16);
+   _froxels_dims = ivec3(24, 24, 32);
+   _froxel_info.resize((_froxels_dims.x + 1) * (_froxels_dims.y + 1) * (_froxels_dims.z + 1));
+   int macro_froxel_count = _froxels_dims.x * _froxels_dims.y * _froxels_dims.z / 2 / 2;
+   _macro_froxel.resize(macro_froxel_count);
+   _macro_froxel_info.center_cs.x = (vec4*)_aligned_malloc(sizeof(vec4)*macro_froxel_count, 16);
+   _macro_froxel_info.center_cs.y = (vec4*)_aligned_malloc(sizeof(vec4)*macro_froxel_count, 16);
+   _macro_froxel_info.center_cs.z = (vec4*)_aligned_malloc(sizeof(vec4)*macro_froxel_count, 16);
 
-   _macro_cluster_info.extent_cs.x = (vec4*)_aligned_malloc(sizeof(vec4)*macro_cluster_count, 16);
-   _macro_cluster_info.extent_cs.y = (vec4*)_aligned_malloc(sizeof(vec4)*macro_cluster_count, 16);
-   _macro_cluster_info.extent_cs.z = (vec4*)_aligned_malloc(sizeof(vec4)*macro_cluster_count, 16);
+   _macro_froxel_info.extent_cs.x = (vec4*)_aligned_malloc(sizeof(vec4)*macro_froxel_count, 16);
+   _macro_froxel_info.extent_cs.y = (vec4*)_aligned_malloc(sizeof(vec4)*macro_froxel_count, 16);
+   _macro_froxel_info.extent_cs.z = (vec4*)_aligned_malloc(sizeof(vec4)*macro_froxel_count, 16);
 
-   _light_list_head_pbo = createDynamicBuffer(_light_clusters_dims.x* _light_clusters_dims.y* _light_clusters_dims.z * sizeof(uvec2));
-   _light_list_head = createTexture3D(_light_clusters_dims.x, _light_clusters_dims.y, _light_clusters_dims.z, GL_RG32UI);
-   _light_list_data = createDynamicBuffer(cMaxLightsPerCluster * sizeof(int) * _light_clusters_dims.x * _light_clusters_dims.y * _light_clusters_dims.z);
+   _light_list_head_pbo = createDynamicBuffer(_froxels_dims.x* _froxels_dims.y* _froxels_dims.z * sizeof(uvec2));
+   _light_list_head = createTexture3D(_froxels_dims.x, _froxels_dims.y, _froxels_dims.z, GL_RG32UI);
+   _light_list_data = createDynamicBuffer(cMaxLightsPerFroxel * sizeof(int) * _froxels_dims.x * _froxels_dims.y * _froxels_dims.z);
  
    _initDebugData();
 }
 
 ClusteredLightCuller::~ClusteredLightCuller()
 {
-   _aligned_free(_macro_cluster_info.center_cs.x);
-   _aligned_free(_macro_cluster_info.center_cs.y);
-   _aligned_free(_macro_cluster_info.center_cs.z);
+   _aligned_free(_macro_froxel_info.center_cs.x);
+   _aligned_free(_macro_froxel_info.center_cs.y);
+   _aligned_free(_macro_froxel_info.center_cs.z);
 
-   _aligned_free(_macro_cluster_info.extent_cs.x);
-   _aligned_free(_macro_cluster_info.extent_cs.y);
-   _aligned_free(_macro_cluster_info.extent_cs.z);
+   _aligned_free(_macro_froxel_info.extent_cs.x);
+   _aligned_free(_macro_froxel_info.extent_cs.y);
+   _aligned_free(_macro_froxel_info.extent_cs.z);
 }
 
 struct intAabb3
@@ -125,25 +125,24 @@ void sphereBoundsForAxis(const vec3& axis, const vec3& sphere_center, float sphe
 }
 
 
-
-/*bool _sphereOverlapsVoxel(const RenderSettings& settings, RenderData& render_data, float sphere_radius, const vec3& sphere_center, const ivec3& cluster_coords, const ivec3& cluster_dims, const Frustum& frustum)
+/*bool _sphereOverlapsVoxel(const RenderSettings& settings, RenderData& render_data, float sphere_radius, const vec3& sphere_center, const ivec3& froxel_coords, const ivec3& froxel_dims, const Frustum& frustum)
 {
-   vec3 cluster_center = _clusterCorner(vec3(cluster_coords) + vec3(0.5f), cluster_dims, render_data);
+   vec3 froxel_center = _froxelCorner(vec3(froxel_coords) + vec3(0.5f), froxel_dims, render_data);
 
-   vec3 plane_normal = normalize(cluster_center - sphere_center);
+   vec3 plane_normal = normalize(froxel_center - sphere_center);
    vec3 plane_origin = sphere_center + sphere_radius*plane_normal;
 
 
    bool intersection = false;
-   intersection |= (dot(_clusterCorner(vec3(cluster_coords) + vec3(0, 0, 0), cluster_dims, render_data) - plane_origin, plane_normal) < 0);
-   intersection |= (dot(_clusterCorner(vec3(cluster_coords) + vec3(0, 1, 0), cluster_dims, render_data) - plane_origin, plane_normal) < 0);
-   intersection |= (dot(_clusterCorner(vec3(cluster_coords) + vec3(1, 1, 0), cluster_dims, render_data) - plane_origin, plane_normal) < 0);
-   intersection |= (dot(_clusterCorner(vec3(cluster_coords) + vec3(1, 0, 0), cluster_dims, render_data) - plane_origin, plane_normal) < 0);
+   intersection |= (dot(_froxelCorner(vec3(froxel_coords) + vec3(0, 0, 0), froxel_dims, render_data) - plane_origin, plane_normal) < 0);
+   intersection |= (dot(_froxelCorner(vec3(froxel_coords) + vec3(0, 1, 0), froxel_dims, render_data) - plane_origin, plane_normal) < 0);
+   intersection |= (dot(_froxelCorner(vec3(froxel_coords) + vec3(1, 1, 0), froxel_dims, render_data) - plane_origin, plane_normal) < 0);
+   intersection |= (dot(_froxelCorner(vec3(froxel_coords) + vec3(1, 0, 0), froxel_dims, render_data) - plane_origin, plane_normal) < 0);
 
-   intersection |= (dot(_clusterCorner(vec3(cluster_coords) + vec3(0, 0, 1), cluster_dims, render_data) - plane_origin, plane_normal) < 0);
-   intersection |= (dot(_clusterCorner(vec3(cluster_coords) + vec3(0, 1, 1), cluster_dims, render_data) - plane_origin, plane_normal) < 0);
-   intersection |= (dot(_clusterCorner(vec3(cluster_coords) + vec3(1, 1, 1), cluster_dims, render_data) - plane_origin, plane_normal) < 0);
-   intersection |= (dot(_clusterCorner(vec3(cluster_coords) + vec3(1, 0, 1), cluster_dims, render_data) - plane_origin, plane_normal) < 0);
+   intersection |= (dot(_froxelCorner(vec3(froxel_coords) + vec3(0, 0, 1), froxel_dims, render_data) - plane_origin, plane_normal) < 0);
+   intersection |= (dot(_froxelCorner(vec3(froxel_coords) + vec3(0, 1, 1), froxel_dims, render_data) - plane_origin, plane_normal) < 0);
+   intersection |= (dot(_froxelCorner(vec3(froxel_coords) + vec3(1, 1, 1), froxel_dims, render_data) - plane_origin, plane_normal) < 0);
+   intersection |= (dot(_froxelCorner(vec3(froxel_coords) + vec3(1, 0, 1), froxel_dims, render_data) - plane_origin, plane_normal) < 0);
 
    return intersection;
 }*/
@@ -173,46 +172,32 @@ __forceinline __m128 _normalize(__m128 vec)
 }
 
 
-__forceinline int ClusteredLightCuller::_sphereOverlapsVoxelOptim(int x, int y, int z, float sphere_radius, const vec3& sphere_center, const ClusterInfo* cluster_infos)
+__forceinline int ClusteredLightCuller::_sphereOverlapsFroxel(int x, int y, int z, float sphere_radius, const vec3& sphere_center, const FroxelInfo* froxel_infos)
 {
-
-   /*vec3 plane_normal = normalize(cluster_infos[_toFlatClusterIndex(x, y, z)].center_coord - sphere_center);
-   vec3 plane_origin = sphere_center + sphere_radius*plane_normal;
-
-   float dot_plane = dot(plane_origin, plane_normal);
-
-   bool intersection = false;
-   intersection |= (dot(cluster_infos[_toFlatClusterIndex(x + 0, y + 0, z + 1)].corner_coord , plane_normal) - dot_plane < 0);
-   intersection |= (dot(cluster_infos[_toFlatClusterIndex(x + 1, y + 0, z + 1)].corner_coord , plane_normal) - dot_plane < 0);
-   intersection |= (dot(cluster_infos[_toFlatClusterIndex(x + 1, y + 1, z + 1)].corner_coord , plane_normal) - dot_plane < 0);
-   intersection |= (dot(cluster_infos[_toFlatClusterIndex(x + 0, y + 1, z + 1)].corner_coord , plane_normal) - dot_plane < 0);*/
-   /*vec3 plane_normal = normalize(cluster_infos[_toFlatClusterIndex(x, y, z)].center_coord - sphere_center);
-   vec3 plane_origin = sphere_center + sphere_radius*plane_normal;*/
-
-   __m128* center_coord = (__m128*)&cluster_infos[_toFlatClusterIndex(x, y, z)].center_coord;
+   __m128* center_coord = (__m128*)&froxel_infos[_toFlatFroxelIndex(x, y, z)].center_coord;
    __m128 sse_sphere_center = _mm_set_ps(1.0, sphere_center.z, sphere_center.y, sphere_center.x);
    __m128 sse_plane_normal = _normalize(_mm_sub_ps(*center_coord, sse_sphere_center));
 
    __m128 plane_origin = _mm_add_ps(sse_sphere_center, _mm_mul_ps(_mm_set1_ps(sphere_radius), sse_plane_normal));
    __m128 sse_dot_plane = _mm_dp_ps(plane_origin, sse_plane_normal, 0x70 | 0xF);
 
-   __m128* corner_a = (__m128*)&cluster_infos[_toFlatClusterIndex(x + 0, y + 0, z + 0)].corner_coord;
-   __m128* corner_b = (__m128*)&cluster_infos[_toFlatClusterIndex(x + 1, y + 0, z + 0)].corner_coord;
-   __m128* corner_c = (__m128*)&cluster_infos[_toFlatClusterIndex(x + 1, y + 1, z + 0)].corner_coord;
-   __m128* corner_d = (__m128*)&cluster_infos[_toFlatClusterIndex(x + 0, y + 1, z + 0)].corner_coord;
+   __m128* corner_a = (__m128*)&froxel_infos[_toFlatFroxelIndex(x + 0, y + 0, z + 0)].corner_coord;
+   __m128* corner_b = (__m128*)&froxel_infos[_toFlatFroxelIndex(x + 1, y + 0, z + 0)].corner_coord;
+   __m128* corner_c = (__m128*)&froxel_infos[_toFlatFroxelIndex(x + 1, y + 1, z + 0)].corner_coord;
+   __m128* corner_d = (__m128*)&froxel_infos[_toFlatFroxelIndex(x + 0, y + 1, z + 0)].corner_coord;
 
    if (_overlap(sse_plane_normal, sse_dot_plane, corner_a, corner_b, corner_c, corner_d))
       return 1;
 
-   corner_a = (__m128*)&cluster_infos[_toFlatClusterIndex(x + 0, y + 0, z + 1)].corner_coord;
-   corner_b = (__m128*)&cluster_infos[_toFlatClusterIndex(x + 1, y + 0, z + 1)].corner_coord;
-   corner_c = (__m128*)& cluster_infos[_toFlatClusterIndex(x + 1, y + 1, z + 1)].corner_coord;
-   corner_d = (__m128*)& cluster_infos[_toFlatClusterIndex(x + 0, y + 1, z + 1)].corner_coord;
+   corner_a = (__m128*)&froxel_infos[_toFlatFroxelIndex(x + 0, y + 0, z + 1)].corner_coord;
+   corner_b = (__m128*)&froxel_infos[_toFlatFroxelIndex(x + 1, y + 0, z + 1)].corner_coord;
+   corner_c = (__m128*)& froxel_infos[_toFlatFroxelIndex(x + 1, y + 1, z + 1)].corner_coord;
+   corner_d = (__m128*)& froxel_infos[_toFlatFroxelIndex(x + 0, y + 1, z + 1)].corner_coord;
 
    return (_overlap(sse_plane_normal, sse_dot_plane, corner_a, corner_b, corner_c, corner_d));
 }
 
-__forceinline int _aabbOverlapsFrustumOptim(simdvec3 aabb_center, simdvec3 aabb_extent, const simdvec3* frustum_planes_xyz, const simdfloat* frustum_planes_w, int num_planes)
+__forceinline int _aabbOverlapsFroxel(simdvec3 aabb_center, simdvec3 aabb_extent, const simdvec3* frustum_planes_xyz, const simdfloat* frustum_planes_w, int num_planes)
 {
    simdbool test = true;
    for (int i_plane = 0; i_plane < num_planes; ++i_plane)
@@ -230,39 +215,39 @@ __forceinline int _aabbOverlapsFrustumOptim(simdvec3 aabb_center, simdvec3 aabb_
 }
 
 
-intAabb3 _convertClipSpaceAABBToVoxel(const Aabb3& clip_space_aabb, const ivec3& light_clusters_dims)
+intAabb3 _convertFroxelNormalizedAABBToIntegerAABB(const Aabb3& clip_space_aabb, const ivec3& light_froxels_dims)
 {
-   intAabb3 voxels_overlapping_light;
-   voxels_overlapping_light.pmin.x = (int)clamp(floor(clip_space_aabb.pmin.x * light_clusters_dims.x), 0.0f, light_clusters_dims.x - 1.0f);
-   voxels_overlapping_light.pmin.y = (int)clamp(floor(clip_space_aabb.pmin.y * light_clusters_dims.y), 0.0f, light_clusters_dims.y - 1.0f);
-   voxels_overlapping_light.pmin.z = (int)clamp(floor(clip_space_aabb.pmin.z * light_clusters_dims.z), 0.0f, light_clusters_dims.z - 1.0f);
-   voxels_overlapping_light.pmax.x = (int)clamp(ceil(clip_space_aabb.pmax.x * light_clusters_dims.x), 0.0f, light_clusters_dims.x - 1.0f);
-   voxels_overlapping_light.pmax.y = (int)clamp(ceil(clip_space_aabb.pmax.y * light_clusters_dims.y), 0.0f, light_clusters_dims.y - 1.0f);
-   voxels_overlapping_light.pmax.z = (int)clamp(ceil(clip_space_aabb.pmax.z * light_clusters_dims.z), 0.0f, light_clusters_dims.z - 1.0f);
+   intAabb3 froxels_overlapping_light;
+   froxels_overlapping_light.pmin.x = (int)clamp(floor(clip_space_aabb.pmin.x * light_froxels_dims.x), 0.0f, light_froxels_dims.x - 1.0f);
+   froxels_overlapping_light.pmin.y = (int)clamp(floor(clip_space_aabb.pmin.y * light_froxels_dims.y), 0.0f, light_froxels_dims.y - 1.0f);
+   froxels_overlapping_light.pmin.z = (int)clamp(floor(clip_space_aabb.pmin.z * light_froxels_dims.z), 0.0f, light_froxels_dims.z - 1.0f);
+   froxels_overlapping_light.pmax.x = (int)clamp(ceil(clip_space_aabb.pmax.x * light_froxels_dims.x), 0.0f, light_froxels_dims.x - 1.0f);
+   froxels_overlapping_light.pmax.y = (int)clamp(ceil(clip_space_aabb.pmax.y * light_froxels_dims.y), 0.0f, light_froxels_dims.y - 1.0f);
+   froxels_overlapping_light.pmax.z = (int)clamp(ceil(clip_space_aabb.pmax.z * light_froxels_dims.z), 0.0f, light_froxels_dims.z - 1.0f);
 
-   return voxels_overlapping_light;
+   return froxels_overlapping_light;
 }
 
 
 static mat4 _matrix_light_proj_local;
 
 
-__forceinline simdfloat _convertClusterZtoCameraZ(simdfloat cluster_z, simdfloat znear, simdfloat zfar, int cluster_z_distribution_factor)
+__forceinline simdfloat _convertFroxelZtoCameraZ(simdfloat froxel_z, simdfloat znear, simdfloat zfar, int froxel_z_distribution_factor)
 {
-   simdfloat z = cluster_z;
-   for (int i = 0; i < cluster_z_distribution_factor - 1; ++i)
-      z = z*cluster_z;//pow(cluster_z, simdfloat(3.0f));
+   simdfloat z = froxel_z;
+   for (int i = 0; i < froxel_z_distribution_factor - 1; ++i)
+      z = z*froxel_z;//pow(froxel_z, simdfloat(3.0f));
 
    return -mix(znear, zfar, z);
 }
 
-__forceinline simdvec3 _clusterCorner(const simdvec3 ndc_coords, const simdvec3& cluster_dims, const simdfrustum& frustum, int cluster_z_distribution_factor)
+__forceinline simdvec3 _froxelCorner(const simdvec3 ndc_coords, const simdvec3& froxel_dims, const simdfrustum& frustum, int froxel_z_distribution_factor)
 {
-   simdfloat z = _convertClusterZtoCameraZ(ndc_coords.z * cluster_dims.z, frustum.near, frustum.far, cluster_z_distribution_factor);
+   simdfloat z = _convertFroxelZtoCameraZ(ndc_coords.z * froxel_dims.z, frustum.near, frustum.far, froxel_z_distribution_factor);
 
    simdfloat ratio = -z / frustum.near;
-   simdfloat x = mix(frustum.left, frustum.right, ndc_coords.x * cluster_dims.x) * ratio;
-   simdfloat y = mix(frustum.bottom, frustum.top, ndc_coords.y * cluster_dims.y) * ratio;
+   simdfloat x = mix(frustum.left, frustum.right, ndc_coords.x * froxel_dims.x) * ratio;
+   simdfloat y = mix(frustum.bottom, frustum.top, ndc_coords.y * froxel_dims.y) * ratio;
 
    return simdvec3(x, y, z);
 }
@@ -273,11 +258,11 @@ __forceinline simdvec3 _project(const simdmat4& matrix, const simdvec3& point)
    return simdvec3(vec_hs.x, vec_hs.y, vec_hs.z) / simdvec3(vec_hs.w);
 }
 
-__forceinline void _clusterCenterAndExtent2(const simdfrustum& frustum, const simdmat4& matrix_proj_view, const simdvec3& light_clusters_dims,
-                                            simdfloat x, simdfloat y, simdfloat z, simdvec3* center, simdvec3* extent, int cluster_z_distribution_factor)
+__forceinline void _computeFroxelCenterAndExtent(const simdfrustum& frustum, const simdmat4& matrix_proj_view, const simdvec3& light_froxels_dims,
+                                            simdfloat x, simdfloat y, simdfloat z, simdvec3* center, simdvec3* extent, int froxel_z_distribution_factor)
 {
-   simdvec3 aabb_min = _project(matrix_proj_view, _clusterCorner(simdvec3(x, y, z), light_clusters_dims, frustum, cluster_z_distribution_factor));
-   simdvec3 aabb_max = _project(matrix_proj_view, _clusterCorner(simdvec3(x + simdfloat(1.0f), y + simdfloat(1.0f), z + simdfloat(1.0f)), light_clusters_dims, frustum, cluster_z_distribution_factor));
+   simdvec3 aabb_min = _project(matrix_proj_view, _froxelCorner(simdvec3(x, y, z), light_froxels_dims, frustum, froxel_z_distribution_factor));
+   simdvec3 aabb_max = _project(matrix_proj_view, _froxelCorner(simdvec3(x + simdfloat(1.0f), y + simdfloat(1.0f), z + simdfloat(1.0f)), light_froxels_dims, frustum, froxel_z_distribution_factor));
 
    *center = simdfloat(0.5f) * (aabb_min + aabb_max);
    *extent = simdfloat(0.5f) * (aabb_max - aabb_min);
@@ -289,28 +274,28 @@ void ClusteredLightCuller::buildLightLists(const Scene& scene, RenderData& rende
    
 
 #ifndef USE_CHEAP_SPHERE_INJECTION
-   for (int z = 0; z <= _light_clusters_dims.z; z++)
+   for (int z = 0; z <= _froxels_dims.z; z++)
    {
-      for (int y = 0; y <= _light_clusters_dims.y; y++)
+      for (int y = 0; y <= _froxels_dims.y; y++)
       {
-         for (int x = 0; x <= _light_clusters_dims.x; x++)
+         for (int x = 0; x <= _froxels_dims.x; x++)
          {
-            _cluster_info[_toFlatClusterIndex(x, y, z)].center_coord = _clusterCorner(vec3(x, y, z) + vec3(0.5), _light_clusters_dims, render_data);
-            _cluster_info[_toFlatClusterIndex(x, y, z)].corner_coord = _clusterCorner(vec3(x, y, z), _light_clusters_dims, render_data);
+            _froxel_info[_toFlatFroxelIndex(x, y, z)].center_coord = _froxelCorner(vec3(x, y, z) + vec3(0.5), _froxels_dims, render_data);
+            _froxel_info[_toFlatFroxelIndex(x, y, z)].corner_coord = _froxelCorner(vec3(x, y, z), _froxels_dims, render_data);
          }
       }
    }
 #endif
 
-   for (int z = 0; z < _light_clusters_dims.z; z++)
+   for (int z = 0; z < _froxels_dims.z; z++)
    {
-      for (int y = 0; y < (_light_clusters_dims.y / 2); y++)
+      for (int y = 0; y < (_froxels_dims.y / 2); y++)
       {
-         for (int x = 0; x < (_light_clusters_dims.x / 2); x++)
+         for (int x = 0; x < (_froxels_dims.x / 2); x++)
          {
-            _macro_clusters[_toFlatMacroClusterIndex(x, y, z)].lights[0].resize(0);
-            _macro_clusters[_toFlatMacroClusterIndex(x, y, z)].lights[1].resize(0);
-            _macro_clusters[_toFlatMacroClusterIndex(x, y, z)].lights[2].resize(0);
+            _macro_froxel[_toFlatMacroFroxelIndex(x, y, z)].lights[0].resize(0);
+            _macro_froxel[_toFlatMacroFroxelIndex(x, y, z)].lights[1].resize(0);
+            _macro_froxel[_toFlatMacroFroxelIndex(x, y, z)].lights[2].resize(0);
          }
       }
    }
@@ -325,14 +310,14 @@ void ClusteredLightCuller::buildLightLists(const Scene& scene, RenderData& rende
    frustum.far    = simdfloat(render_data.frustum.far);
 
    simdmat4 matrix_proj_view(render_data.matrix_proj_view);
-   vec3 temp = 1.0f/vec3(_light_clusters_dims);
-   simdvec3 light_clusters_dims(temp);   
+   vec3 temp = 1.0f/vec3(_froxels_dims);
+   simdvec3 light_froxels_dims(temp);   
 
-   for (int z = 0; z < _light_clusters_dims.z; z++)
+   for (int z = 0; z < _froxels_dims.z; z++)
    {
-      for (int y = 0; y < (_light_clusters_dims.y / 2); y++)
+      for (int y = 0; y < (_froxels_dims.y / 2); y++)
       {
-         for (int x = 0; x < (_light_clusters_dims.x / 2); x++)
+         for (int x = 0; x < (_froxels_dims.x / 2); x++)
          {
             simdfloat x_, y_, z_;
             x_.load(2.0f*x+1.0f, 2.0f*x, 2.0f*x+1.0f, 2.0f*x);
@@ -340,56 +325,29 @@ void ClusteredLightCuller::buildLightLists(const Scene& scene, RenderData& rende
             z_.load(float(z), float(z), float(z), float(z));
 
             simdvec3 center, extent;
-            _clusterCenterAndExtent2(frustum, matrix_proj_view, light_clusters_dims, x_, y_, z_, &center, &extent, (int)_settings.cluster_z_distribution_factor);
+            _computeFroxelCenterAndExtent(frustum, matrix_proj_view, light_froxels_dims, x_, y_, z_, &center, &extent, (int)_settings.froxel_z_distribution_factor);
 
-            int index = _toFlatMacroClusterIndex(x, y, z);
-            _mm_store_ps((float*)&_macro_cluster_info.center_cs.x[index], center.x.val);
-            _mm_store_ps((float*)&_macro_cluster_info.center_cs.y[index], center.y.val);
-            _mm_store_ps((float*)&_macro_cluster_info.center_cs.z[index], center.z.val);
+            int index = _toFlatMacroFroxelIndex(x, y, z);
+            _mm_store_ps((float*)&_macro_froxel_info.center_cs.x[index], center.x.val);
+            _mm_store_ps((float*)&_macro_froxel_info.center_cs.y[index], center.y.val);
+            _mm_store_ps((float*)&_macro_froxel_info.center_cs.z[index], center.z.val);
 
-            _mm_store_ps((float*)&_macro_cluster_info.extent_cs.x[index], extent.x.val);
-            _mm_store_ps((float*)&_macro_cluster_info.extent_cs.y[index], extent.y.val);
-            _mm_store_ps((float*)&_macro_cluster_info.extent_cs.z[index], extent.z.val);
+            _mm_store_ps((float*)&_macro_froxel_info.extent_cs.x[index], extent.x.val);
+            _mm_store_ps((float*)&_macro_froxel_info.extent_cs.y[index], extent.y.val);
+            _mm_store_ps((float*)&_macro_froxel_info.extent_cs.z[index], extent.z.val);
          }
       }
    }
-   /*for (int z = 0; z < _light_clusters_dims.z; z++)
-   {
-      for (int y = 0; y < (_light_clusters_dims.y / 2); y++)
-      {
-         for (int x = 0; x < (_light_clusters_dims.x / 2); x++)
-         {          
-            
-            vec3 cluster_center[4];
-            vec3 cluster_extent[4];
-
-            for (int i = 0; i < 4; ++i)
-            {
-               int sub_x = 2 * x + (i % 2);
-               int sub_y = 2 * y + (i / 2);
-
-               _clusterCenterAndExtent(render_data, _light_clusters_dims, sub_x, sub_y, z, &cluster_center[i], &cluster_extent[i]);
-            }
-
-            _macro_cluster_info.center_cs.x[_toFlatMacroClusterIndex(x, y, z)] = vec4(cluster_center[0].x, cluster_center[1].x, cluster_center[2].x, cluster_center[3].x);
-            _macro_cluster_info.center_cs.y[_toFlatMacroClusterIndex(x, y, z)] = vec4(cluster_center[0].y, cluster_center[1].y, cluster_center[2].y, cluster_center[3].y);
-            _macro_cluster_info.center_cs.z[_toFlatMacroClusterIndex(x, y, z)] = vec4(cluster_center[0].z, cluster_center[1].z, cluster_center[2].z, cluster_center[3].z);
-
-            _macro_cluster_info.extent_cs.x[_toFlatMacroClusterIndex(x, y, z)] = vec4(cluster_extent[0].x, cluster_extent[1].x, cluster_extent[2].x, cluster_extent[3].x);
-            _macro_cluster_info.extent_cs.y[_toFlatMacroClusterIndex(x, y, z)] = vec4(cluster_extent[0].y, cluster_extent[1].y, cluster_extent[2].y, cluster_extent[3].y);
-            _macro_cluster_info.extent_cs.z[_toFlatMacroClusterIndex(x, y, z)] = vec4(cluster_extent[0].z, cluster_extent[1].z, cluster_extent[2].z, cluster_extent[3].z);
-         }
-      }
-   }*/
 
    auto start = std::chrono::steady_clock::now();
       
-   _injectSphereLightsIntoClusters(scene, render_data);
-   _injectSpotLightsIntoClusters(scene, render_data);
-   _injectRectangleLightsIntoClusters(scene, render_data);
+   _injectSphereLightsIntoFroxels(scene, render_data);
+   _injectSpotLightsIntoFroxels(scene, render_data);
+   _injectRectangleLightsIntoFroxels(scene, render_data);
+
    float duration = std::chrono::duration<float>(std::chrono::steady_clock::now() - start).count();
    //std::cout << duration*1000.0f << std::endl;
-   _updateClustersGLData();
+   _updateFroxelsGLData();
    
 }
 
@@ -404,14 +362,14 @@ vec3* _drawCross(const vec3& center, vec3* buffer)
    return buffer;
 }
 
-void ClusteredLightCuller::drawClusterGrid(const RenderData& render_data, int index)
+void ClusteredLightCuller::drawFroxelGrid(const RenderData& render_data, int index)
 {
-   GLDevice::bindProgram(*_debug_draw_cluster_grid);
+   GLDevice::bindProgram(*_debug_draw_froxel_grid);
    GLDevice::bindUniformMatrix4(0, glm::inverse(_debug_render_data.matrix_proj_world));
    glUniform2f(1, _debug_render_data.frustum.near, _debug_render_data.frustum.far);
    glUniform1i(2, index);
-   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, _debug_enabled_clusters->id());
-   GLDevice::draw(*_debug_cluster_grid_vertex_source);
+   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, _debug_enabled_froxels->id());
+   GLDevice::draw(*_debug_froxel_grid_vertex_source);
    //glDisable(GL_DEPTH_TEST);
 
    mat4 debug_matrix_world_view = inverse(_debug_render_data.matrix_view_world);
@@ -434,41 +392,41 @@ void ClusteredLightCuller::drawClusterGrid(const RenderData& render_data, int in
    //glEnable(GL_DEPTH_TEST);
 }
 
-void ClusteredLightCuller::debugUpdateClusteredGrid(RenderData& render_data)
+void ClusteredLightCuller::debugUpdateFroxeledGrid(RenderData& render_data)
 {
    _debug_render_data = render_data;
 
 
-   _updateClustersGLData();
+   _updateFroxelsGLData();
 
-   int* enabled_clusters = (int*)_debug_enabled_clusters->map(GL_MAP_WRITE_BIT);
-   for (int i = 0; i <_macro_clusters.size(); ++i)
+   int* enabled_froxels = (int*)_debug_enabled_froxels->map(GL_MAP_WRITE_BIT);
+   for (int i = 0; i <_macro_froxel.size(); ++i)
    {
-      const auto& cpu_cluster = _macro_clusters[i];
-      for (int sub_cluster = 0; sub_cluster < 4; sub_cluster++)
+      const auto& cpu_froxel = _macro_froxel[i];
+      for (int sub_froxel = 0; sub_froxel < 4; sub_froxel++)
       {
-         int macro_z = i / (_light_clusters_dims.y * _light_clusters_dims.x / 4);
-         int slice_flat = i % (_light_clusters_dims.y * _light_clusters_dims.x / 4);
-         int macro_y = slice_flat / (_light_clusters_dims.x / 2);
-         int macro_x = slice_flat % (_light_clusters_dims.x / 2);
+         int macro_z = i / (_froxels_dims.y * _froxels_dims.x / 4);
+         int slice_flat = i % (_froxels_dims.y * _froxels_dims.x / 4);
+         int macro_y = slice_flat / (_froxels_dims.x / 2);
+         int macro_x = slice_flat % (_froxels_dims.x / 2);
 
-         int sub_x = 2 * macro_x + (sub_cluster % 2);
-         int sub_y = 2 * macro_y + (sub_cluster / 2);
+         int sub_x = 2 * macro_x + (sub_froxel % 2);
+         int sub_y = 2 * macro_y + (sub_froxel / 2);
          int sub_z = macro_z;
 
          unsigned int rectangle_light_count = 0;
          unsigned int spot_light_count = 0;
          unsigned int sphere_light_count = 0;
 
-         enabled_clusters[_toFlatClusterIndex(sub_x, sub_y, sub_z)] = false;
-         for (int j = 0; j < cpu_cluster.lights[int(LightType::Sphere)].size(); ++j)
+         enabled_froxels[_toFlatFroxelIndex(sub_x, sub_y, sub_z)] = false;
+         for (int j = 0; j < cpu_froxel.lights[int(LightType::Sphere)].size(); ++j)
          {
-            if ((1 << sub_cluster) & cpu_cluster.lights[int(LightType::Sphere)][j].mask)
-               enabled_clusters[_toFlatClusterIndex(sub_x, sub_y, sub_z)] = true;
+            if ((1 << sub_froxel) & cpu_froxel.lights[int(LightType::Sphere)][j].mask)
+               enabled_froxels[_toFlatFroxelIndex(sub_x, sub_y, sub_z)] = true;
          }
       }
    }
-   _debug_enabled_clusters->unmap();
+   _debug_enabled_froxels->unmap();
 
 
 }
@@ -487,76 +445,76 @@ void ClusteredLightCuller::updateLightListHeadTexture()
 }
 
 
-int ClusteredLightCuller::_toFlatClusterIndex(int x, int y, int z)
+int ClusteredLightCuller::_toFlatFroxelIndex(int x, int y, int z)
 {
-   return x + y*_light_clusters_dims.x + z*(_light_clusters_dims.x*_light_clusters_dims.y);
+   return x + y*_froxels_dims.x + z*(_froxels_dims.x*_froxels_dims.y);
 }
 
-int ClusteredLightCuller::_toFlatMacroClusterIndex(int x, int y, int z)
+int ClusteredLightCuller::_toFlatMacroFroxelIndex(int x, int y, int z)
 {
-   return x + y*(_light_clusters_dims.x / 2) + z*(_light_clusters_dims.x*_light_clusters_dims.y / 4);
+   return x + y*(_froxels_dims.x / 2) + z*(_froxels_dims.x*_froxels_dims.y / 4);
 }
 
-struct ClusterListHead
+struct FroxelListHead
 {
    unsigned int list_start_offset;
    unsigned int light_counts;
 };
 
-void ClusteredLightCuller::_updateClustersGLData()
+void ClusteredLightCuller::_updateFroxelsGLData()
 {
    auto start = std::chrono::steady_clock::now();
 
-   ClusterListHead* gpu_lists_head = (ClusterListHead*)_light_list_head_pbo->getUpdateSegmentPtr();
+   FroxelListHead* gpu_lists_head = (FroxelListHead*)_light_list_head_pbo->getUpdateSegmentPtr();
    int* gpu_lists_data = (int*)_light_list_data->getUpdateSegmentPtr();
 
    unsigned int offset_into_data_buffer = 0;
-   int macro_cluster_count = _light_clusters_dims.x * _light_clusters_dims.y * _light_clusters_dims.z / 4;
-   for (int i = 0; i < macro_cluster_count; ++i)
+   int macro_froxel_count = _froxels_dims.x * _froxels_dims.y * _froxels_dims.z / 4;
+   for (int i = 0; i < macro_froxel_count; ++i)
    {
-      const auto& cpu_cluster = _macro_clusters[i];
+      const auto& cpu_froxel = _macro_froxel[i];
 
-      for (int sub_cluster = 0; sub_cluster < 4; sub_cluster++)
+      for (int sub_froxel = 0; sub_froxel < 4; sub_froxel++)
       {
-         int macro_z = i / (_light_clusters_dims.y * _light_clusters_dims.x / 4);
-         int slice_flat = i % (_light_clusters_dims.y * _light_clusters_dims.x / 4);
-         int macro_y = slice_flat / (_light_clusters_dims.x / 2);
-         int macro_x = slice_flat % (_light_clusters_dims.x / 2);
+         int macro_z = i / (_froxels_dims.y * _froxels_dims.x / 4);
+         int slice_flat = i % (_froxels_dims.y * _froxels_dims.x / 4);
+         int macro_y = slice_flat / (_froxels_dims.x / 2);
+         int macro_x = slice_flat % (_froxels_dims.x / 2);
 
-         int sub_x = 2 * macro_x + (sub_cluster % 2);
-         int sub_y = 2 * macro_y + (sub_cluster / 2);
+         int sub_x = 2 * macro_x + (sub_froxel % 2);
+         int sub_y = 2 * macro_y + (sub_froxel / 2);
          int sub_z = macro_z;
 
-         gpu_lists_head[_toFlatClusterIndex(sub_x, sub_y, sub_z)].list_start_offset = offset_into_data_buffer;
+         gpu_lists_head[_toFlatFroxelIndex(sub_x, sub_y, sub_z)].list_start_offset = offset_into_data_buffer;
          unsigned int rectangle_light_count = 0;
          unsigned int spot_light_count = 0;
          unsigned int sphere_light_count = 0;
 
-         const auto& sphere_lights = cpu_cluster.lights[int(LightType::Sphere)];
+         const auto& sphere_lights = cpu_froxel.lights[int(LightType::Sphere)];
          for (int j = 0; j < sphere_lights.size(); ++j)
          {
-            if ((1 << sub_cluster) & sphere_lights[j].mask)
+            if ((1 << sub_froxel) & sphere_lights[j].mask)
                gpu_lists_data[offset_into_data_buffer + sphere_light_count++] = sphere_lights[j].light_index;
          }
          offset_into_data_buffer += sphere_light_count;
 
-         const auto& spot_lights = cpu_cluster.lights[int(LightType::Spot)];
+         const auto& spot_lights = cpu_froxel.lights[int(LightType::Spot)];
          for (int j = 0; j < spot_lights.size(); ++j)
          {
-            if ((1 << sub_cluster) & spot_lights[j].mask)
+            if ((1 << sub_froxel) & spot_lights[j].mask)
                gpu_lists_data[offset_into_data_buffer + spot_light_count++] = spot_lights[j].light_index;
          }
          offset_into_data_buffer += spot_light_count;
 
-         const auto& rectangle_lights = cpu_cluster.lights[int(LightType::Rectangle)];
+         const auto& rectangle_lights = cpu_froxel.lights[int(LightType::Rectangle)];
          for (int j = 0; j < rectangle_lights.size(); ++j)
          {
-            if ((1 << sub_cluster) & rectangle_lights[j].mask)
+            if ((1 << sub_froxel) & rectangle_lights[j].mask)
                gpu_lists_data[offset_into_data_buffer + rectangle_light_count++] = rectangle_lights[j].light_index;
          }
          offset_into_data_buffer += rectangle_light_count;
 
-         gpu_lists_head[_toFlatClusterIndex(sub_x, sub_y, sub_z)].light_counts =
+         gpu_lists_head[_toFlatFroxelIndex(sub_x, sub_y, sub_z)].light_counts =
             (unsigned int(sphere_light_count) & 0x3FF)
             | ((unsigned int(spot_light_count) & 0x3FF) << 10)
             | ((unsigned int(rectangle_light_count) & 0x3FF) << 20);
@@ -568,7 +526,7 @@ void ClusteredLightCuller::_updateClustersGLData()
    //std::cout << "in " << duration*1000.0f << std::endl;
 }
 
-void ClusteredLightCuller::_injectSphereLightsIntoClusters(const Scene& scene, const RenderData& render_data)
+void ClusteredLightCuller::_injectSphereLightsIntoFroxels(const Scene& scene, const RenderData& render_data)
 {
 #ifdef USE_CHEAP_SPHERE_INJECTION
    unsigned short light_index = -1;
@@ -591,9 +549,9 @@ void ClusteredLightCuller::_injectSphereLightsIntoClusters(const Scene& scene, c
          light_clipplanes_w[i] = simdfloat(oobb_planes_in_clip_space.w);
       }
 
-      Aabb3 clip_space_aabb = _computeSphereClusterBounds(scene, render_data, light);
+      Aabb3 clip_space_aabb = _computeSphereFroxelBounds(scene, render_data, light);
 
-      _injectLightIntoClusters(clip_space_aabb, light_index, LightType::Sphere, light_clip_planes_xyz, light_clipplanes_w, 6);
+      _injectLightIntoFroxels(clip_space_aabb, light_index, LightType::Sphere, light_clip_planes_xyz, light_clipplanes_w, 6);
    }
 #else
    unsigned short light_index = -1;
@@ -603,8 +561,8 @@ void ClusteredLightCuller::_injectSphereLightsIntoClusters(const Scene& scene, c
          continue;
 
       light_index++;
-      Aabb3 clip_space_aabb = _computeSphereClusterBounds(scene, render_data, light);
-      intAabb3 voxels_overlapping_light = _convertClipSpaceAABBToVoxel(clip_space_aabb, _light_clusters_dims);
+      Aabb3 clip_space_aabb = _computeSphereFroxelBounds(scene, render_data, light);
+      intAabb3 voxels_overlapping_light = _convertFroxelNormalizedAABBToIntegerAABB(clip_space_aabb, _froxels_dims);
       voxels_overlapping_light.pmin.x = voxels_overlapping_light.pmin.x / 2;
       voxels_overlapping_light.pmax.x = voxels_overlapping_light.pmax.x / 2;
 
@@ -620,18 +578,18 @@ void ClusteredLightCuller::_injectSphereLightsIntoClusters(const Scene& scene, c
             for (int x = voxels_overlapping_light.pmin.x; x <= voxels_overlapping_light.pmax.x; x++)
             {
                int mask = 0;
-               for (int sub_cluster = 0; sub_cluster < 4; ++sub_cluster)
+               for (int sub_froxel = 0; sub_froxel < 4; ++sub_froxel)
                {
-                  int sub_x = 2 * x + (sub_cluster % 2);
-                  int sub_y = 2 * y + (sub_cluster / 2);
+                  int sub_x = 2 * x + (sub_froxel % 2);
+                  int sub_y = 2 * y + (sub_froxel / 2);
                   int sub_z = z;
 
-                  int res = bool(_sphereOverlapsVoxelOptim(sub_x, sub_y, sub_z, light.radius, vec3(sphere_center_in_vs), _cluster_info.data()));
-                  mask |= res << sub_cluster;
+                  int res = bool(_sphereOverlapsFroxel(sub_x, sub_y, sub_z, light.radius, vec3(sphere_center_in_vs), _froxel_info.data()));
+                  mask |= res << sub_froxel;
                }
 
                if (mask != 0)
-                  _macro_clusters[_toFlatMacroClusterIndex(x, y, z)].lights[int(LightType::Sphere)].emplace_back(LightCoverage(mask, light_index));
+                  _macro_froxel[_toFlatMacroFroxelIndex(x, y, z)].lights[int(LightType::Sphere)].emplace_back(LightCoverage(mask, light_index));
             }
          }
       }
@@ -639,7 +597,7 @@ void ClusteredLightCuller::_injectSphereLightsIntoClusters(const Scene& scene, c
 #endif
 }
 
-void ClusteredLightCuller::_injectSpotLightsIntoClusters(const Scene& scene, const RenderData& render_data)
+void ClusteredLightCuller::_injectSpotLightsIntoFroxels(const Scene& scene, const RenderData& render_data)
 {
    unsigned short light_index = -1;
    for (const auto& light : scene.lights)
@@ -671,13 +629,13 @@ void ClusteredLightCuller::_injectSpotLightsIntoClusters(const Scene& scene, con
       pyramid_vertices[3] = vec3(-w, -w, -l);
       pyramid_vertices[4] = vec3(w, -w, -l);
 
-      Aabb3 clip_space_aabb = _computeConvexMeshClusterBounds(render_data, matrix_light_proj_local, pyramid_vertices, 5);
+      Aabb3 clip_space_aabb = _computeConvexMeshFroxelBounds(render_data, matrix_light_proj_local, pyramid_vertices, 5);
 
-      _injectLightIntoClusters(clip_space_aabb, light_index, LightType::Spot, frustum_planes_xyz, frustum_planes_w, 5);
+      _injectLightIntoFroxels(clip_space_aabb, light_index, LightType::Spot, frustum_planes_xyz, frustum_planes_w, 5);
    }
 }
 
-void ClusteredLightCuller::_injectRectangleLightsIntoClusters(const Scene& scene, const RenderData& render_data)
+void ClusteredLightCuller::_injectRectangleLightsIntoFroxels(const Scene& scene, const RenderData& render_data)
 {
    unsigned short light_index = -1;
    for (const auto& light : scene.lights)
@@ -713,16 +671,16 @@ void ClusteredLightCuller::_injectRectangleLightsIntoClusters(const Scene& scene
       oobb_vertices[6] = vec3(-w, -h, -d);
       oobb_vertices[7] = vec3(w, -h, -d);
 
-      Aabb3 clip_space_aabb = _computeConvexMeshClusterBounds(render_data, matrix_light_proj_local, oobb_vertices, 8);
+      Aabb3 clip_space_aabb = _computeConvexMeshFroxelBounds(render_data, matrix_light_proj_local, oobb_vertices, 8);
 
-      _injectLightIntoClusters(clip_space_aabb, light_index, LightType::Rectangle, light_clip_planes_xyz, light_clipplanes_w, 6);
+      _injectLightIntoFroxels(clip_space_aabb, light_index, LightType::Rectangle, light_clip_planes_xyz, light_clipplanes_w, 6);
    }
 }
 
-void ClusteredLightCuller::_injectLightIntoClusters(const Aabb3& clip_space_aabb, unsigned short light_index, LightType light_type,
+void ClusteredLightCuller::_injectLightIntoFroxels(const Aabb3& clip_space_aabb, unsigned short light_index, LightType light_type,
                                                       const simdvec3* light_clip_planes_xyz, const simdfloat* light_clip_planes_w, int num_light_clip_planes)
 {
-   intAabb3 voxels_overlapping_light = _convertClipSpaceAABBToVoxel(clip_space_aabb, _light_clusters_dims);
+   intAabb3 voxels_overlapping_light = _convertFroxelNormalizedAABBToIntegerAABB(clip_space_aabb, _froxels_dims);
    voxels_overlapping_light.pmin.x = voxels_overlapping_light.pmin.x / 2;
    voxels_overlapping_light.pmax.x = voxels_overlapping_light.pmax.x / 2;
 
@@ -738,13 +696,13 @@ void ClusteredLightCuller::_injectLightIntoClusters(const Aabb3& clip_space_aabb
          {
             simdvec3 aabb_center;
             simdvec3 aabb_extent;
-            aabb_center.load((float*)_macro_cluster_info.center_cs.x, (float*)_macro_cluster_info.center_cs.y, (float*)_macro_cluster_info.center_cs.z, 4 * _toFlatMacroClusterIndex(x, y, z));
-            aabb_extent.load((float*)_macro_cluster_info.extent_cs.x, (float*)_macro_cluster_info.extent_cs.y, (float*)_macro_cluster_info.extent_cs.z, 4 * _toFlatMacroClusterIndex(x, y, z));
+            aabb_center.load((float*)_macro_froxel_info.center_cs.x, (float*)_macro_froxel_info.center_cs.y, (float*)_macro_froxel_info.center_cs.z, 4 * _toFlatMacroFroxelIndex(x, y, z));
+            aabb_extent.load((float*)_macro_froxel_info.extent_cs.x, (float*)_macro_froxel_info.extent_cs.y, (float*)_macro_froxel_info.extent_cs.z, 4 * _toFlatMacroFroxelIndex(x, y, z));
 
-            int overlap_mask = _aabbOverlapsFrustumOptim(aabb_center, aabb_extent, light_clip_planes_xyz, light_clip_planes_w, num_light_clip_planes);
+            int overlap_mask = _aabbOverlapsFroxel(aabb_center, aabb_extent, light_clip_planes_xyz, light_clip_planes_w, num_light_clip_planes);
 
             if (overlap_mask != 0)
-               _macro_clusters[_toFlatMacroClusterIndex(x, y, z)].lights[int(light_type)].emplace_back(LightCoverage(overlap_mask, light_index));
+               _macro_froxel[_toFlatMacroFroxelIndex(x, y, z)].lights[int(light_type)].emplace_back(LightCoverage(overlap_mask, light_index));
          }
       }
    }
@@ -752,22 +710,22 @@ void ClusteredLightCuller::_injectLightIntoClusters(const Aabb3& clip_space_aabb
 
 void ClusteredLightCuller::_initDebugData()
 {
-   _debug_draw_cluster_grid = createProgramFromFile("debug_clustered_shading.glsl");
+   _debug_draw_froxel_grid = createProgramFromFile("debug_clustered_shading.glsl");
    _debug_draw = createProgramFromFile("debug_draw.glsl");
-   _debug_cluster_grid = createBuffer(_light_clusters_dims.x * _light_clusters_dims.y * _light_clusters_dims.z * sizeof(vec3) * 24, GL_MAP_WRITE_BIT);
-   _debug_enabled_clusters = createBuffer(_light_clusters_dims.x * _light_clusters_dims.y * _light_clusters_dims.z * sizeof(int), GL_MAP_WRITE_BIT);
+   _debug_froxel_grid = createBuffer(_froxels_dims.x * _froxels_dims.y * _froxels_dims.z * sizeof(vec3) * 24, GL_MAP_WRITE_BIT);
+   _debug_enabled_froxels = createBuffer(_froxels_dims.x * _froxels_dims.y * _froxels_dims.z * sizeof(int), GL_MAP_WRITE_BIT);
 
-   vec3* vertices = (vec3*)_debug_cluster_grid->map(GL_MAP_WRITE_BIT);
+   vec3* vertices = (vec3*)_debug_froxel_grid->map(GL_MAP_WRITE_BIT);
 
    vec3 scale;
-   scale.x = 1.0f / float(_light_clusters_dims.x);
-   scale.y = 1.0f / float(_light_clusters_dims.y);
-   scale.z = 1.0f / float(_light_clusters_dims.z);
-   for (int z = 0; z <= _light_clusters_dims.z - 1; z++)
+   scale.x = 1.0f / float(_froxels_dims.x);
+   scale.y = 1.0f / float(_froxels_dims.y);
+   scale.z = 1.0f / float(_froxels_dims.z);
+   for (int z = 0; z <= _froxels_dims.z - 1; z++)
    {
-      for (int y = 0; y <= _light_clusters_dims.y - 1; y++)
+      for (int y = 0; y <= _froxels_dims.y - 1; y++)
       {
-         for (int x = 0; x <= _light_clusters_dims.x - 1; x++)
+         for (int x = 0; x <= _froxels_dims.x - 1; x++)
          {
             vertices[0] = vec3(x, y, z) * scale;
             vertices[1] = vec3(x + 1, y, z) * scale;
@@ -801,13 +759,13 @@ void ClusteredLightCuller::_initDebugData()
          }
       }
    }
-   _debug_cluster_grid->unmap();
+   _debug_froxel_grid->unmap();
 
-   _debug_cluster_grid_vertex_source = std::make_unique<GLVertexSource>();
-   _debug_cluster_grid_vertex_source->setVertexBuffer(*_debug_cluster_grid);
-   _debug_cluster_grid_vertex_source->setPrimitiveType(GL_LINES);
-   _debug_cluster_grid_vertex_source->setVertexCount(_light_clusters_dims.x * _light_clusters_dims.y * _light_clusters_dims.z * 24);
-   _debug_cluster_grid_vertex_source->setVertexAttribute(0, 3, GL_FLOAT, GLSLVecType::vec);
+   _debug_froxel_grid_vertex_source = std::make_unique<GLVertexSource>();
+   _debug_froxel_grid_vertex_source->setVertexBuffer(*_debug_froxel_grid);
+   _debug_froxel_grid_vertex_source->setPrimitiveType(GL_LINES);
+   _debug_froxel_grid_vertex_source->setVertexCount(_froxels_dims.x * _froxels_dims.y * _froxels_dims.z * 24);
+   _debug_froxel_grid_vertex_source->setVertexAttribute(0, 3, GL_FLOAT, GLSLVecType::vec);
 
    _debug_lines_buffer = createBuffer(sizeof(vec3) * 400, GL_MAP_WRITE_BIT);
 
@@ -819,22 +777,22 @@ void ClusteredLightCuller::_initDebugData()
 }
 
 
-float ClusteredLightCuller::_convertClusterZtoCameraZ(float cluster_z, float znear, float zfar)
+float ClusteredLightCuller::_convertFroxelZtoCameraZ(float froxel_z, float znear, float zfar)
 {
-   float z = pow(cluster_z, _settings.cluster_z_distribution_factor);
+   float z = pow(froxel_z, _settings.froxel_z_distribution_factor);
 
    return -mix(znear, zfar, z);
 }
 
-float ClusteredLightCuller::_convertCameraZtoClusterZ(float z_in_camera_space, float znear, float zfar)
+float ClusteredLightCuller::_convertCameraZtoFroxelZ(float z_in_camera_space, float znear, float zfar)
 {
    float z = (z_in_camera_space - znear) / (zfar - znear);
-   float cluster_z = pow(z, 1 / _settings.cluster_z_distribution_factor);
+   float froxel_z = pow(z, 1 / _settings.froxel_z_distribution_factor);
 
-   return clamp(cluster_z, 0.0f, 1.0f);
+   return clamp(froxel_z, 0.0f, 1.0f);
 }
 
-Aabb3 ClusteredLightCuller::_computeConvexMeshClusterBounds(const RenderData& render_data, const mat4& matrix_light_proj_local, vec3* vertices_in_local, int num_vertices)
+Aabb3 ClusteredLightCuller::_computeConvexMeshFroxelBounds(const RenderData& render_data, const mat4& matrix_light_proj_local, vec3* vertices_in_local, int num_vertices)
 {
    float znear = render_data.frustum.near;
    float zfar = render_data.frustum.far;
@@ -851,9 +809,9 @@ Aabb3 ClusteredLightCuller::_computeConvexMeshClusterBounds(const RenderData& re
       }
 
       float z_eye_space = 2.0f * znear * zfar / (znear + zfar - vertex_in_clip_space.z * (zfar - znear));
-      float cluster_z = _convertCameraZtoClusterZ(z_eye_space, znear, zfar);
+      float froxel_z = _convertCameraZtoFroxelZ(z_eye_space, znear, zfar);
 
-      res.extend(vec3(vertex_in_clip_space.xy, cluster_z));
+      res.extend(vec3(vertex_in_clip_space.xy, froxel_z));
    }
 
    res.pmin.xy = (res.pmin.xy + vec2(1.0f)) * 0.5f;
@@ -863,7 +821,7 @@ Aabb3 ClusteredLightCuller::_computeConvexMeshClusterBounds(const RenderData& re
 }
 
 
-Aabb3 ClusteredLightCuller::_computeSphereClusterBounds(const Scene& scene, const RenderData& render_data, const Light& light)
+Aabb3 ClusteredLightCuller::_computeSphereFroxelBounds(const Scene& scene, const RenderData& render_data, const Light& light)
 {
    vec3 sphere_center_in_vs = project(render_data.matrix_view_world, light.world_to_local_matrix[3]);
    float znear = render_data.frustum.near;
@@ -881,8 +839,8 @@ Aabb3 ClusteredLightCuller::_computeSphereClusterBounds(const Scene& scene, cons
    const mat4& matrix_proj_view = render_data.matrix_proj_view;
 
    Aabb3 res;
-   res.pmin = vec3(project(matrix_proj_view, left_right[0]).x, project(matrix_proj_view, bottom_top[0]).y, _convertCameraZtoClusterZ(z_light_min, znear, zfar));
-   res.pmax = vec3(project(matrix_proj_view, left_right[1]).x, project(matrix_proj_view, bottom_top[1]).y, _convertCameraZtoClusterZ(z_light_max, znear, zfar));
+   res.pmin = vec3(project(matrix_proj_view, left_right[0]).x, project(matrix_proj_view, bottom_top[0]).y, _convertCameraZtoFroxelZ(z_light_min, znear, zfar));
+   res.pmax = vec3(project(matrix_proj_view, left_right[1]).x, project(matrix_proj_view, bottom_top[1]).y, _convertCameraZtoFroxelZ(z_light_max, znear, zfar));
 
    res.pmin.xy = (res.pmin.xy + vec2(1.0f)) * 0.5f;
    res.pmax.xy = (res.pmax.xy + vec2(1.0f)) * 0.5f;
@@ -890,22 +848,22 @@ Aabb3 ClusteredLightCuller::_computeSphereClusterBounds(const Scene& scene, cons
    return res;
 }
 
-vec3 ClusteredLightCuller::_clusterCorner(const vec3 ndc_coords, const vec3& cluster_dims, const RenderData& render_data)
+vec3 ClusteredLightCuller::_froxelCorner(const vec3 ndc_coords, const vec3& froxel_dims, const RenderData& render_data)
 {
-   float z = _convertClusterZtoCameraZ(ndc_coords.z / cluster_dims.z, render_data.frustum.near, render_data.frustum.far);
+   float z = _convertFroxelZtoCameraZ(ndc_coords.z / froxel_dims.z, render_data.frustum.near, render_data.frustum.far);
 
    float ratio = -z / render_data.frustum.near;
-   float x = mix(render_data.frustum.left, render_data.frustum.right, ndc_coords.x / cluster_dims.x) * ratio;
-   float y = mix(render_data.frustum.bottom, render_data.frustum.top, ndc_coords.y / cluster_dims.y) * ratio;
+   float x = mix(render_data.frustum.left, render_data.frustum.right, ndc_coords.x / froxel_dims.x) * ratio;
+   float y = mix(render_data.frustum.bottom, render_data.frustum.top, ndc_coords.y / froxel_dims.y) * ratio;
 
    return vec3(x, y, z);
 }
 
 
-void ClusteredLightCuller::_clusterCenterAndExtent(const RenderData& render_data, const ivec3& light_clusters_dims, int x, int y, int z, vec3* center, vec3* extent)
+void ClusteredLightCuller::_froxelCenterAndExtent(const RenderData& render_data, const ivec3& light_froxels_dims, int x, int y, int z, vec3* center, vec3* extent)
 {
-   vec3 aabb_min = project(render_data.matrix_proj_view, _clusterCorner(vec3(x, y, z), light_clusters_dims, render_data));
-   vec3 aabb_max = project(render_data.matrix_proj_view, _clusterCorner(vec3(x + 1, y + 1, z + 1), light_clusters_dims, render_data));
+   vec3 aabb_min = project(render_data.matrix_proj_view, _froxelCorner(vec3(x, y, z), light_froxels_dims, render_data));
+   vec3 aabb_max = project(render_data.matrix_proj_view, _froxelCorner(vec3(x + 1, y + 1, z + 1), light_froxels_dims, render_data));
 
    *center = 0.5f * (aabb_min + aabb_max);
    *extent = 0.5f * (aabb_max - aabb_min);

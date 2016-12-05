@@ -3,6 +3,7 @@
 #include "GLTexture.h"
 #include "GLDevice.h"
 #include "GLProgram.h"
+#include "GLGPUTimer.h"
 #include "glsl_volumetric_fog_defines.h"
 #include "glsl_global_defines.h"
 #include "stl_helpers.h"
@@ -14,7 +15,7 @@ namespace yare {
 VolumetricFog::VolumetricFog(const RenderResources& render_resources)
    : _rr(render_resources)
 {
-   _fog_volume_size = ivec3(160, 90, 128);
+   _fog_volume_size = ivec3(30, 30, 64);
    _fog_volume = createTexture3D(_fog_volume_size.x, _fog_volume_size.y, _fog_volume_size.z, GL_RGBA16F);
 
    _fog_accumulate_program = createProgramFromFile("fog_accumulate.glsl");
@@ -30,7 +31,9 @@ void VolumetricFog::render(const RenderData& render_data)
    GLDevice::bindUniformMatrix4(BI_MATRIX_WORLD_VIEW, inverse(render_data.matrix_view_world));
    glUniform4f(BI_FRUSTUM, render_data.frustum.left, render_data.frustum.right, render_data.frustum.bottom, render_data.frustum.top);
 
+   _rr.volumetric_fog_timer->start();
    glDispatchCompute(_fog_volume_size.x, _fog_volume_size.y, 1);
+   _rr.volumetric_fog_timer->stop();
    /*float clear_val[4] = { 0.5f, 0.5f, 0.5f, 1.0f };
    glClearTexImage(_fog_volume->id(), 0, GL_RGBA, GL_FLOAT, clear_val);*/
 }

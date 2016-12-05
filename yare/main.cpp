@@ -182,7 +182,7 @@ int main()
       {
          handleInputs(window, &camera_manipulator);
          if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS)
-            render_engine.clustered_light_culler->debugUpdateClusteredGrid(render_engine.scene()->render_data[render_index]);
+            render_engine.froxeled_light_culler->debugUpdateFroxeledGrid(render_engine.scene()->render_data[render_index]);
       }
                 
       GLDynamicBuffer::moveActiveSegments();

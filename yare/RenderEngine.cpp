@@ -60,7 +60,7 @@ struct SceneUniforms
    float zfar;
    ivec4 viewport;
    float tessellation_edges_per_screen_height;
-   float cluster_distribution_factor;
+   float froxel_distribution_factor;
 };
 
 struct LightSphereSSBO
@@ -110,7 +110,7 @@ RenderEngine::RenderEngine(const ImageSize& framebuffer_size)
    , background_sky(new BackgroundSky(*render_resources))
    , film_processor(new FilmPostProcessor(*render_resources))
    , ssao_renderer(new SSAORenderer(*render_resources))
-   , clustered_light_culler(new ClusteredLightCuller(*render_resources, _settings))
+   , froxeled_light_culler(new ClusteredLightCuller(*render_resources, _settings))
    , volumetric_fog(new VolumetricFog(*render_resources))
 {    
    _z_pass_render_program = createProgramFromFile("z_pass_render.glsl");
@@ -167,7 +167,7 @@ void RenderEngine::updateScene(RenderData& render_data)
    _sortSurfacesByDistanceToCamera(render_data);
    _updateUniformBuffers(render_data, time_lapse, time_lapse - last_update_time);
    
-   clustered_light_culler->buildLightLists(_scene, render_data);
+   froxeled_light_culler->buildLightLists(_scene, render_data);
 
    last_update_time = time_lapse;
 }
@@ -179,7 +179,7 @@ void RenderEngine::renderScene(const RenderData& render_data)
    GLDevice::bindDefaultRasterizationState();
    glPatchParameteri(GL_PATCH_VERTICES, 3);
    
-   clustered_light_culler->updateLightListHeadTexture();
+   froxeled_light_culler->updateLightListHeadTexture();
 
    _renderSurfaces(render_data);
    film_processor->developFilm();
@@ -241,7 +241,7 @@ void RenderEngine::_bindSceneUniforms()
    glBindBufferRange(GL_UNIFORM_BUFFER, BI_SCENE_UNIFORMS, _scene_uniforms->id(),
                      _scene_uniforms->getRenderSegmentOffset(), _scene_uniforms->segmentSize());
 
-   clustered_light_culler->bindLightLists();
+   froxeled_light_culler->bindLightLists();
    volumetric_fog->bindFogVolume();
 }
 
@@ -300,7 +300,7 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
    _renderSurfacesMaterial(_scene.opaque_surfaces);
    render_resources->material_pass_timer->stop();
 
-   clustered_light_culler->drawClusterGrid(render_data, _settings.x + _settings.y*32 + _settings.z*(32*32));
+   froxeled_light_culler->drawFroxelGrid(render_data, _settings.x + _settings.y*32 + _settings.z*(32*32));
 
    render_resources->background_timer->start();
    background_sky->render(render_data);
@@ -323,7 +323,7 @@ void RenderEngine::_renderSurfacesMaterial(SurfaceRange surfaces)
       {
          GLDevice::bindProgram(*surface.material_program);
          glUniform1f(42, _settings.bias);         
-         GLDevice::bindUniformMatrix4(43, clustered_light_culler->_debug_render_data.matrix_proj_world);
+         GLDevice::bindUniformMatrix4(43, froxeled_light_culler->_debug_render_data.matrix_proj_world);
          surface.material->bindTextures();
          current_program = surface.material_program;
       }      
@@ -355,7 +355,7 @@ void RenderEngine::_createSceneLightsBuffer()
    _sun_lights_ssbo = createBuffer(sizeof(LightSunSSBO)*sun_light_count + sizeof(vec4), GL_MAP_WRITE_BIT);
 
    char* sphere_data = (char*)_sphere_lights_ssbo->map(GL_MAP_WRITE_BIT);
-   *((ivec3*)sphere_data) = clustered_light_culler->clustersDimensions();
+   *((ivec3*)sphere_data) = froxeled_light_culler->froxelsDimensions();
    sphere_data += sizeof(vec4);
    char* spot_data = (char*)_spot_lights_ssbo->map(GL_MAP_WRITE_BIT);
    spot_data += sizeof(vec4);
@@ -514,7 +514,7 @@ void RenderEngine::_updateUniformBuffers(const RenderData& render_data, float ti
    scene_uniforms->proj_coeff_11 = render_data.matrix_proj_view[1][1];
    float tessellation_pixels_per_edge = 30.0;
    scene_uniforms->tessellation_edges_per_screen_height = render_resources->framebuffer_size.height / tessellation_pixels_per_edge;
-   scene_uniforms->cluster_distribution_factor = _settings.cluster_z_distribution_factor;
+   scene_uniforms->froxel_distribution_factor = _settings.froxel_z_distribution_factor;
 
    if (_scene.ao_volume)
    {

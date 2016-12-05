@@ -44,11 +44,11 @@ AppGui::AppGui(GLFWwindow* window, RenderEngine* render_engine)
    bool enabled = true;
    FormHelper *gui = new FormHelper(screen);
    ref<Window> nanoguiWindow = gui->addWindow(Eigen::Vector2i(10, 10), "Tweaking");
-   gui->addGroup("Clustered shading debug");
+   gui->addGroup("Froxeled shading debug");
    gui->addVariable("x", render_engine->_settings.x)->setSpinnable(true);
    gui->addVariable("y", render_engine->_settings.y)->setSpinnable(true);
    gui->addVariable("z", render_engine->_settings.z)->setSpinnable(true);
-   gui->addVariable("z slices", render_engine->_settings.cluster_z_distribution_factor)->setSpinnable(true);
+   gui->addVariable("z slices", render_engine->_settings.froxel_z_distribution_factor)->setSpinnable(true);
    addSliderVariable(gui, nanoguiWindow, "bias", &render_engine->_settings.bias, -5.0, 5.0);
    addSliderVariable(gui, nanoguiWindow, "bias2", &render_engine->_settings.bias, -5.0, 5.0);
 
@@ -131,11 +131,12 @@ void AppGui::_updateHUDText()
 {
    RenderResources* render_resources = _render_engine->render_resources.get();
 
-   std::string hud_text = string_format("Z PREPASS: %.2fms\n SSAO: %.2fms\n MATERIALS: %.2fms BACKGROUND: %.2fms\n CPU Render:%.2fms\n CPU Update:%.2fms",
+   std::string hud_text = string_format("Z PREPASS: %.2fms\n SSAO: %.2fms\n VOLUM FOG:%.2fms\n MATERIALS: %.2fms BACKGROUND: %.2fms\n CPU Render:%.2fms\n CPU Update:%.2fms",
                                         render_resources->z_pass_timer->elapsedTimeInMs(),
                                         render_resources->ssao_timer->elapsedTimeInMs(),
+                                        render_resources->volumetric_fog_timer->elapsedTimeInMs(),
                                         render_resources->material_pass_timer->elapsedTimeInMs(),
-                                        render_resources->background_timer->elapsedTimeInMs(),
+                                        render_resources->background_timer->elapsedTimeInMs(),                                        
                                         _render_time_ms,
                                        _update_time_ms);
    _hud->setCaption(hud_text);

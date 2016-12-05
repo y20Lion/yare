@@ -19,7 +19,7 @@ class VolumetricFog;
 
 struct RenderSettings
 {
-   float cluster_z_distribution_factor = 2.0f;
+   float froxel_z_distribution_factor = 2.0f;
    float light_contribution_threshold = 0.05f;
    float bias = 0.0f;
    int x = 16;
@@ -45,7 +45,7 @@ public:
    Uptr<BackgroundSky> background_sky;
    Uptr<FilmPostProcessor> film_processor;
    Uptr<SSAORenderer> ssao_renderer;
-   Uptr<ClusteredLightCuller> clustered_light_culler;
+   Uptr<ClusteredLightCuller> froxeled_light_culler;
    Uptr<VolumetricFog> volumetric_fog;
 
    RenderSettings _settings;

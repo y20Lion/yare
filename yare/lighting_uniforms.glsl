@@ -45,7 +45,7 @@ layout(std430, binding = BI_LIGHT_LIST_DATA_SSBO) buffer LightDataSSBO
 
 layout(std430, binding = BI_SPHERE_LIGHTS_SSBO) buffer SphereLightsSSBO
 {
-   ivec3 light_clusters_dims;
+   ivec3 light_froxels_dims;
    int padding0;
    SphereLight sphere_lights[];
 };
@@ -68,10 +68,10 @@ layout(std430, binding = BI_SUN_LIGHTS_SSBO) buffer SunLightsSSBO
    SunLight sun_lights[];
 };
 
-struct ClusterLightLists
+struct FroxelLightLists
 {
    unsigned int start_offset;
    unsigned int sphere_light_count;
    unsigned int spot_light_count;
    unsigned int rectangle_light_count;
-} cluster_light_lists;
+} froxel_light_lists;

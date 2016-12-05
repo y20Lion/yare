@@ -589,7 +589,7 @@ void addRandomLights(Scene* scene)
       light.world_to_local_matrix[3] = vec3(real_rand()*10.0f-5.0f, real_rand()*10.0f-5.0f, real_rand());
       
       light.type = LightType::Sphere;
-      light.sphere.size = 0.02;
+      light.sphere.size = 0.02f;
       /*light.spot.angle = 1.0f;
       light.spot.angle = 0.5f;*/
       scene->lights.push_back(light);

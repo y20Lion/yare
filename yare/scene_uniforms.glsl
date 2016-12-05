@@ -29,7 +29,7 @@ layout(std140, binding = BI_SCENE_UNIFORMS) uniform SceneUniforms
    float zfar;
    ivec4 viewport;
    float tessellation_edges_per_screen_height;
-   float cluster_z_distribution_factor;
+   float froxel_z_distribution_factor;
 };
 
 
