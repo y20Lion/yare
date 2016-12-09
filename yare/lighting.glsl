@@ -3,32 +3,33 @@
 float spotLightAttenuation(vec3 light_direction, float cos_spot_max_angle, vec3 spot_direction, float spot_smooth)
 {
    float cos_angle = dot(light_direction, spot_direction);
+   float cos_angle_start_smooth = (1.0 - cos_spot_max_angle)*spot_smooth + cos_spot_max_angle;
 
-   float attenuation = cos_angle;
-
-   if (cos_angle <= cos_spot_max_angle) //outside of cone
-   {
-      attenuation = 0.0;
-   }
-   else
-   {
-      spot_smooth = 1.0 - spot_smooth;
-      float t = (1.0 - cos_angle) / (1.0 - cos_spot_max_angle);
-      if (t - spot_smooth > 0)
-      {
-         t = saturate((t - spot_smooth) / (1.0 - spot_smooth));
-         attenuation = smoothstep(0.0, 1.0, 1.0 - t);
-      }
-      else
-         attenuation = 1.0;
-   }
-
-   return attenuation;
+   return smoothstep(cos_spot_max_angle, cos_angle_start_smooth, cos_angle);  
 }
 
-vec3 pointLightIncidentRadiance(vec3 light_power, vec3 light_position, float light_radius, vec3 shade_position)
+vec3 sphereLightIncidentRadiance(SphereLight light, vec3 shade_position, float length)
 {
-   float light_distance = distance(light_position, shade_position);
-   float restrict_influence_factor = pow(saturate(1.0 - pow(light_distance / light_radius, 4.0)), 2.0);
-   return light_power / (4 * PI*light_distance*light_distance) * restrict_influence_factor;
+   vec3 light_dir = (light.position - shade_position);
+   float light_distance_sqr = max(dot(light_dir, light_dir), (length*length*0.5));
+   float rcp_light_distance_sqr = 1.0f / light_distance_sqr;
+   light_dir *= sqrt(rcp_light_distance_sqr);
+
+   float restrict_influence_factor = pow(saturate(1.0 - pow(light_distance_sqr / (light.radius*light.radius), 2.0)), 2.0);
+   return light.color / (4 * PI) * rcp_light_distance_sqr * restrict_influence_factor;
+}
+
+vec3 spotLightIncidentRadiance(SpotLight light, vec3 shade_position, float length)
+{
+   vec3 light_dir = (light.position - shade_position);
+   float light_distance_sqr = max(dot(light_dir, light_dir), (length*length*0.5));
+   float rcp_light_distance_sqr = 1.0f / light_distance_sqr;
+   light_dir *= sqrt(rcp_light_distance_sqr);
+
+   float spot_attenuation =  spotLightAttenuation(light_dir, light.cos_half_angle, light.direction, light.angle_smooth);
+   spot_attenuation *= smoothstep(0.0, 1.0, light_distance_sqr);
+
+   float restrict_influence_factor = pow(saturate(1.0 - pow(light_distance_sqr / (light.radius*light.radius), 2.0)), 2.0);
+   return light.color / (4 * PI) * rcp_light_distance_sqr * restrict_influence_factor * spot_attenuation;
+   
 }

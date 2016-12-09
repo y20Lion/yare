@@ -546,7 +546,7 @@ static Frustum _frustum(float fovy, float aspect, float znear, float zfar)
 
 void RenderEngine::_updateRenderMatrices(RenderData& render_data)
 {
-   _scene.camera.frustum = _frustum(3.14f / 2.0f, render_resources->framebuffer_size.ratio(), 0.05f, 200.0f);
+   _scene.camera.frustum = _frustum(3.14f / 2.0f, render_resources->framebuffer_size.ratio(), 0.05f, 20.0f);
    render_data.frustum = _scene.camera.frustum;
 
    auto matrix_view_world = lookAt(_scene.camera.point_of_view.from, _scene.camera.point_of_view.to, _scene.camera.point_of_view.up);
