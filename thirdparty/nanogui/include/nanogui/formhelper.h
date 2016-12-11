@@ -149,8 +149,8 @@ public:
         return label;
     }
 
-    void addSpace() {
-       mLayout->appendRow(10);
+    void addSpace(int size = 10) {
+       mLayout->appendRow(size);
     }
 
     /// Add a new data widget controlled using custom getter/setter functions

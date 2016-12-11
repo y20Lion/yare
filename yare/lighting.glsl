@@ -11,6 +11,8 @@ float spotLightAttenuation(vec3 light_direction, float cos_spot_max_angle, vec3 
 vec3 sphereLightIncidentRadiance(SphereLight light, vec3 shade_position, float length)
 {
    vec3 light_dir = (light.position - shade_position);
+   length = max(light.size, length);
+
    float light_distance_sqr = max(dot(light_dir, light_dir), (length*length*0.5));
    float rcp_light_distance_sqr = 1.0f / light_distance_sqr;
    light_dir *= sqrt(rcp_light_distance_sqr);

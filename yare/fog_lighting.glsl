@@ -9,7 +9,7 @@
 layout(binding = BI_INSCATTERING_EXTINCTION_VOLUME_IMAGE, rgba16f) uniform restrict writeonly image3D scattering_extinction_image;
 layout(location = BI_MATRIX_WORLD_VIEW) uniform mat4 matrix_world_view;
 layout(location = BI_FRUSTUM) uniform vec4 frustum;
-
+layout(location = BI_SCATTERING_ABSORPTION) uniform vec4 scattering_absorption;
 
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
@@ -34,14 +34,14 @@ vec3 convertFroxelToCameraCoords(vec3 froxel_coords)
 void main()
 {
    vec3 inv_fog_vol_size = 1.0 / vec3(imageSize(scattering_extinction_image));
-   float absorption = 0.01;
-   float scattering = 0.7f;
+   float absorption = scattering_absorption.w;
+   vec3 scattering = scattering_absorption.rgb;
 
    float current_depth = convertFroxelZtoDepth(float(gl_GlobalInvocationID.z) * inv_fog_vol_size.z, znear, zfar);
    float next_depth = convertFroxelZtoDepth(float(gl_GlobalInvocationID.z + 1) * inv_fog_vol_size.z, znear, zfar);
    float froxel_length = next_depth - current_depth;   
 
-   float extinction = max(0.000000001, absorption + scattering);
+   float extinction = max(0.000000001, absorption + (scattering.r+ scattering.g+ scattering.b)*0.33333);
    vec3 in_scattered_radiance = vec3(0.0);
    for (int j = 0; j < 1; ++j)
    {

@@ -80,6 +80,12 @@ void bindColorBlendState(const GLColorBlendState& state)
       glBlendFunc(GL_ONE, GL_SRC1_COLOR);
       glBlendEquation(GL_FUNC_ADD);
    }
+   else if (state.blending_mode == GLBlendingMode::Add)
+   {
+      glEnable(GL_BLEND);
+      glBlendFunc(GL_ONE, GL_ONE);
+      glBlendEquation(GL_FUNC_ADD);
+   }
    else
    {
       glDisable(GL_BLEND);

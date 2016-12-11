@@ -24,7 +24,7 @@ layout(location = 0) out vec4 color;
 void main()
 {   
    vec3 eye_vector = normalize(pos - eye_position);
-   color = vec4(vec3(0.0), 1.0);//vec4(texture(sky_cubemap, eye_vector).rgb, 1.0);
+   color = vec4(texture(sky_cubemap, eye_vector).rgb, 1.0);
 
    vec2 current_ndc01_pos = (gl_FragCoord.xy - viewport.xy) / (viewport.zw);
    vec4 fog_info = texture(fog_volume, vec3(current_ndc01_pos, 1.0));

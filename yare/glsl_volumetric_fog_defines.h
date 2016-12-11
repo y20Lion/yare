@@ -10,3 +10,4 @@
 // uniforms
 #define BI_MATRIX_WORLD_VIEW 0
 #define BI_FRUSTUM 4
+#define BI_SCATTERING_ABSORPTION 5

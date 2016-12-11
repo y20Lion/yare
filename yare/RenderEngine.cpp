@@ -111,7 +111,7 @@ RenderEngine::RenderEngine(const ImageSize& framebuffer_size)
    , film_processor(new FilmPostProcessor(*render_resources))
    , ssao_renderer(new SSAORenderer(*render_resources))
    , froxeled_light_culler(new ClusteredLightCuller(*render_resources, _settings))
-   , volumetric_fog(new VolumetricFog(*render_resources))
+   , volumetric_fog(new VolumetricFog(*render_resources, _settings))
 {    
    _z_pass_render_program = createProgramFromFile("z_pass_render.glsl");
 }
@@ -300,14 +300,21 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
    _renderSurfacesMaterial(_scene.opaque_surfaces);
    render_resources->material_pass_timer->stop();
 
-   froxeled_light_culler->drawFroxelGrid(render_data, _settings.x + _settings.y*32 + _settings.z*(32*32));
+   //froxeled_light_culler->drawFroxelGrid(render_data, _settings.x + _settings.y*32 + _settings.z*(32*32));
+
+   
 
    render_resources->background_timer->start();
    background_sky->render(render_data);
    render_resources->background_timer->stop();
+
+   volumetric_fog->renderLightSprites(render_data);
+
    GLDevice::bindColorBlendState({ GLBlendingMode::ModulateAdd });
    _renderSurfacesMaterial(_scene.transparent_surfaces);
    GLDevice::bindDefaultColorBlendState();
+
+   
 }
 
 void RenderEngine::_renderSurfacesMaterial(SurfaceRange surfaces)

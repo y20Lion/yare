@@ -30,6 +30,47 @@ static void addSliderVariable(FormHelper* gui, Window* nanogui_window, const std
    });
 }
 
+static void addColorVariable(FormHelper* gui, Window* nanogui_window, const std::string& name, vec3* color)
+{
+   auto popupBtn = new PopupButton(nanogui_window, "", 0);
+   popupBtn->setSide(Popup::Left);
+
+   popupBtn->setBackgroundColor(Color(255, 255, 255, 255));
+   popupBtn->setFontSize(16);
+   popupBtn->setFixedSize(Vector2i(100, 20));
+   auto popup = popupBtn->popup();
+   popup->setLayout(new GroupLayout());
+
+   ColorWheel *colorwheel = new ColorWheel(popup);
+   colorwheel->setColor(popupBtn->backgroundColor());
+
+   Button *colorBtn = new Button(popup, "Pick");
+   colorBtn->setFixedSize(Vector2i(100, 25));
+   Color c = colorwheel->color();
+   colorBtn->setBackgroundColor(c);
+   gui->addWidget("color", popupBtn);
+
+   colorwheel->setCallback([colorBtn, color](const Color &value)
+   {
+      colorBtn->setBackgroundColor(value);
+      color->r = colorBtn->backgroundColor().r();
+      color->g = colorBtn->backgroundColor().g();
+      color->b = colorBtn->backgroundColor().b();
+   });
+   
+   colorBtn->setChangeCallback([colorBtn, popupBtn, color](bool pushed)
+   {
+      if (pushed) 
+      {
+         popupBtn->setBackgroundColor(colorBtn->backgroundColor());
+         color->r = colorBtn->backgroundColor().r();
+         color->g = colorBtn->backgroundColor().g();
+         color->b = colorBtn->backgroundColor().b();
+         popupBtn->setPushed(false);
+      }
+   });
+}
+
 AppGui::AppGui(GLFWwindow* window, RenderEngine* render_engine)
    : _render_engine(render_engine)
 {
@@ -44,14 +85,18 @@ AppGui::AppGui(GLFWwindow* window, RenderEngine* render_engine)
    bool enabled = true;
    FormHelper *gui = new FormHelper(screen);
    ref<Window> nanoguiWindow = gui->addWindow(Eigen::Vector2i(10, 10), "Tweaking");
-   gui->addGroup("Froxeled shading debug");
+   gui->addGroup("Clustered shading debug");
    gui->addVariable("x", render_engine->_settings.x)->setSpinnable(true);
    gui->addVariable("y", render_engine->_settings.y)->setSpinnable(true);
    gui->addVariable("z", render_engine->_settings.z)->setSpinnable(true);
-   gui->addVariable("z slices", render_engine->_settings.froxel_z_distribution_factor)->setSpinnable(true);
+   gui->addVariable("z slices", render_engine->_settings.froxel_z_distribution_factor)->setSpinnable(true);  
    addSliderVariable(gui, nanoguiWindow, "bias", &render_engine->_settings.bias, -5.0, 5.0);
-   addSliderVariable(gui, nanoguiWindow, "bias2", &render_engine->_settings.bias, -5.0, 5.0);
-
+   gui->addGroup("Volumetric Fog");
+   gui->addVariable("scattering", render_engine->_settings.fog_scattering)->setSpinnable(true);   
+   gui->addVariable("absorption", render_engine->_settings.fog_absorption)->setSpinnable(true);
+   gui->addSpace(5);
+   addColorVariable(gui, nanoguiWindow, "color", &render_engine->_settings.fog_scattering_color);
+   
    nanoguiWindow->setPosition(Vector2i(width - nanoguiWindow->preferredSize(screen->nvgContext())[0] - 10, 5));
  
    ref<Window> hudWindow = new Window(screen, "");

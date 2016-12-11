@@ -21,7 +21,7 @@ struct GLDepthStencilState
    GLenum depth_function;   
 };
 
-enum class GLBlendingMode { Disabled, ModulateAdd };
+enum class GLBlendingMode { Disabled, ModulateAdd, Add };
 struct GLColorBlendState
 { 
    GLBlendingMode blending_mode;

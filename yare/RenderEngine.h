@@ -25,6 +25,9 @@ struct RenderSettings
    int x = 16;
    int y = 16;
    int z = 16;
+   float fog_scattering = 0.1f;
+   vec3 fog_scattering_color = vec3(1.0);
+   float fog_absorption = 0.01f;
 };
 
 
