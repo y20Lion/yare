@@ -329,7 +329,7 @@ void readEnvironment(const RenderEngine& render_engine, const Json::Value& json_
       light.strength = 1.0f;
       light.world_to_local_matrix = sunMatFromDirection(env_light.direction);
       light.sun.size = 1.0;
-      scene->lights.push_back(light);
+      scene->sun_lights.push_back(light);
    }
 }
 
@@ -360,20 +360,23 @@ static void readLights(const Json::Value& json_lights, Scene* scene)
       {
          case LightType::Sphere:
             light.sphere.size = json_light["Size"].asFloat();
-            break;
-         case LightType::Rectangle:
-            light.rectangle.size_x = json_light["SizeX"].asFloat();
-            light.rectangle.size_y = json_light["SizeY"].asFloat();
+            scene->sphere_lights.push_back(light);
             break;
          case LightType::Spot:
             light.spot.angle = json_light["Angle"].asFloat();
             light.spot.angle_blend = json_light["AngleBlend"].asFloat();
+            scene->spot_lights.push_back(light);
             break;
+         case LightType::Rectangle:
+            light.rectangle.size_x = json_light["SizeX"].asFloat();
+            light.rectangle.size_y = json_light["SizeY"].asFloat();
+            scene->rectangle_lights.push_back(light);
+            break;         
          case LightType::Sun:
             light.sun.size = json_light["Size"].asFloat();
+            scene->sun_lights.push_back(light);
             break;
-      }
-      scene->lights.push_back(light);
+      }     
    }
 }
 
@@ -592,7 +595,7 @@ void addRandomLights(Scene* scene)
       light.sphere.size = 0.02f+ real_rand()*0.02f;
       /*light.spot.angle = 1.0f;
       light.spot.angle = 0.5f;*/
-      scene->lights.push_back(light);
+      scene->sphere_lights.push_back(light);
    }
 }
 

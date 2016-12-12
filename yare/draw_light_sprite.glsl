@@ -9,7 +9,6 @@ layout(location = 0) in vec2 position;
 layout(location = BI_FRUSTUM) uniform vec4 frustum;
 
 out int light_index;
-out float depth;
 out float sprite_size;
 
 void main()
@@ -17,17 +16,12 @@ void main()
    vec3 light_position = sphere_lights[gl_VertexID].position;
 
    gl_Position = matrix_proj_world * vec4(light_position, 1.0);
-   depth = gl_Position.w;
-   sprite_size = 0.3;
-   /*float size =
+   float depth = gl_Position.w;
+   float viewport_width = viewport.z;
 
-   float size = depth/(right - left);*/
-   gl_PointSize = sprite_size* znear/(depth*(frustum.y - frustum.x))*1500;
-   //gl_Position = vec4(0.0, 0.0, 1.0, 1.0);
-   //gl_Position = vec4(position, 1.0, 1.0);
-
+   sprite_size = 0.2;      
+   gl_PointSize = sprite_size* znear/(depth*(frustum.y - frustum.x))* viewport_width;
    light_index = gl_VertexID;
-
 }
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ FragmentShader ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -40,7 +34,6 @@ void main()
 layout(location = BI_SCATTERING_ABSORPTION) uniform vec4 scattering_absorption;
 
 flat in int light_index;
-in float depth;
 in float sprite_size;
 
 layout(location = 0) out vec4 shading_result;
@@ -66,28 +59,21 @@ void main()
 {
    SphereLight light = sphere_lights[light_index];
   
-   float norm_distance = distance(gl_PointCoord.xy - vec2(0.5), vec2(0.0));
-   
-   
+   float norm_distance = distance(gl_PointCoord.xy - vec2(0.5), vec2(0.0));   
    float light_distance =sprite_size*norm_distance;
-
-   /*if (light_distance == light.size)
-      light_distance = 1000000.0f;*/
-
-   //light_distance = max(light_distance, light.size);
+   light_distance = max(light_distance, light.size);
    
    float light_distance_sqr = light_distance*light_distance;
    float restrict_influence_factor = pow(saturate(1.0 - pow(light_distance_sqr / (light.radius*light.radius), 2.0)), 2.0);
-   // *distance(gl_PointCoord.xy - vec2(0.5), vec2(0.0));
    
    vec3 light_color = light.color*scattering_absorption.rgb /(4*PI) / ((4 * PI) * light_distance_sqr)*restrict_influence_factor;
    light_color *= (1.0-smoothstep(0.0, 1.0, 2.0*norm_distance));
    shading_result = vec4(light_color, 1.0);
 
    vec2 current_ndc01_pos = (gl_FragCoord.xy - viewport.xy) / (viewport.zw);
-   vec4 fog_info = texture(fog_volume, positionInFrustumAlignedVolumeTextures()/*vec3(current_ndc01_pos, 1.0)*/);
+   vec4 fog_info = texture(fog_volume, positionInFrustumAlignedVolumeTextures());
    float fog_transmittance = fog_info.a;
    vec3 fog_in_scattering = fog_info.rgb;
 
-   shading_result = shading_result * (fog_transmittance);//vec4(current_ndc01_pos, 1.0, 1.0);//
+   shading_result = shading_result * (fog_transmittance);
 }

@@ -31,6 +31,7 @@ vec3 convertFroxelToCameraCoords(vec3 froxel_coords)
    return vec3(x, y, -z);
 }
 
+
 void main()
 {
    vec3 inv_fog_vol_size = 1.0 / vec3(imageSize(scattering_extinction_image));
@@ -42,37 +43,37 @@ void main()
    float froxel_length = next_depth - current_depth;   
 
    float extinction = max(0.000000001, absorption + (scattering.r+ scattering.g+ scattering.b)*0.33333);
+   
+   vec3 froxel_coords01 = (vec3(gl_GlobalInvocationID.xyz) + 0.5) * inv_fog_vol_size;
+   vec3 froxel_in_view = convertFroxelToCameraCoords(froxel_coords01);
+   vec3 froxel_center_in_world = mat4x3(matrix_world_view) * vec4(froxel_in_view, 1.0);
+
+   // put in function
+   ivec3 current_froxel_coords = ivec3(light_froxels_dims * froxel_coords01);
+   uvec2 froxel_data = texelFetch(light_list_head, current_froxel_coords, 0).xy;
+   unsigned int start_offset = froxel_data.x;
+   froxel_light_lists.sphere_light_count = froxel_data.y & 0x3FF;
+   froxel_light_lists.spot_light_count = (froxel_data.y >> 10) & 0x3FF;
+   froxel_light_lists.rectangle_light_count = (froxel_data.y >> 20) & 0x3FF;
+
    vec3 in_scattered_radiance = vec3(0.0);
-   for (int j = 0; j < 1; ++j)
+   for (unsigned int i = 0; i < froxel_light_lists.sphere_light_count; ++i)
    {
-      vec3 froxel_coords01 = (vec3(gl_GlobalInvocationID.xyz) + float(j+0.5)/20) * inv_fog_vol_size;
-      vec3 froxel_in_view = convertFroxelToCameraCoords(froxel_coords01);
-      vec3 froxel_center_in_world = mat4x3(matrix_world_view) * vec4(froxel_in_view, 1.0);
-
-      // put in function
-      ivec3 current_froxel_coords = ivec3(light_froxels_dims * froxel_coords01);
-      uvec2 froxel_data = texelFetch(light_list_head, current_froxel_coords, 0).xy;
-      unsigned int start_offset = froxel_data.x;
-      froxel_light_lists.sphere_light_count = froxel_data.y & 0x3FF;
-      froxel_light_lists.spot_light_count = (froxel_data.y >> 10) & 0x3FF;
-      froxel_light_lists.rectangle_light_count = (froxel_data.y >> 20) & 0x3FF;
-
-      
-      for (unsigned int i = 0; i < froxel_light_lists.sphere_light_count; ++i)
-      {
-         int light_index = light_list_data[start_offset + i];
-         in_scattered_radiance += 1 / (4 * PI)* scattering * sphereLightIncidentRadiance(sphere_lights[light_index], froxel_center_in_world, froxel_length);
-      }
-      start_offset += froxel_light_lists.sphere_light_count;
-
-      for (unsigned int i = 0; i < froxel_light_lists.spot_light_count; ++i)
-      {
-         int light_index = light_list_data[start_offset + i];
-         in_scattered_radiance += 1 / (4 * PI)* scattering * spotLightIncidentRadiance(spot_lights[light_index], froxel_center_in_world, froxel_length);
-      }
-      start_offset += froxel_light_lists.spot_light_count;
+      int light_index = light_list_data[start_offset + i];
+      in_scattered_radiance += sphereLightIncidentRadiance(sphere_lights[light_index], froxel_center_in_world, froxel_length);
    }
-   
-   
+   start_offset += froxel_light_lists.sphere_light_count;
+
+   for (unsigned int i = 0; i < froxel_light_lists.spot_light_count; ++i)
+   {
+      int light_index = light_list_data[start_offset + i];
+      in_scattered_radiance += spotLightIncidentRadiance(spot_lights[light_index], froxel_center_in_world, froxel_length);
+   }
+   start_offset += froxel_light_lists.spot_light_count;
+
+   in_scattered_radiance += textureLod(sky_diffuse_cubemap, vec3(0, 0, 1), 0).rgb;
+   in_scattered_radiance *= scattering * 1 / (4 * PI);
+
+
    imageStore(scattering_extinction_image, ivec3(gl_GlobalInvocationID.xyz), vec4(in_scattered_radiance, extinction));
 }

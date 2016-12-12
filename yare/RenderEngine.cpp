@@ -300,7 +300,7 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
    _renderSurfacesMaterial(_scene.opaque_surfaces);
    render_resources->material_pass_timer->stop();
 
-   //froxeled_light_culler->drawFroxelGrid(render_data, _settings.x + _settings.y*32 + _settings.z*(32*32));
+   froxeled_light_culler->drawFroxelGrid(render_data, _settings.x + _settings.y*32 + _settings.z*(32*32));
 
    
 
@@ -308,7 +308,7 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
    background_sky->render(render_data);
    render_resources->background_timer->stop();
 
-   volumetric_fog->renderLightSprites(render_data);
+   volumetric_fog->renderLightSprites(render_data, _scene);
 
    GLDevice::bindColorBlendState({ GLBlendingMode::ModulateAdd });
    _renderSurfacesMaterial(_scene.transparent_surfaces);
@@ -341,20 +341,10 @@ void RenderEngine::_renderSurfacesMaterial(SurfaceRange surfaces)
 
 void RenderEngine::_createSceneLightsBuffer()
 {  
-   int sphere_light_count = 0;
-   int spot_light_count = 0;
-   int rectangle_light_count = 0;
-   int sun_light_count = 0;
-   for (const auto& light : _scene.lights)
-   {
-      switch (light.type)
-      {
-      case LightType::Sphere: sphere_light_count++; break;
-      case LightType::Spot: spot_light_count++; break;
-      case LightType::Rectangle: rectangle_light_count++; break;
-      case LightType::Sun: sun_light_count++; break;      
-      }
-   }
+   int sphere_light_count = (int)_scene.sphere_lights.size();
+   int spot_light_count = (int)_scene.spot_lights.size();
+   int rectangle_light_count = (int)_scene.rectangle_lights.size();
+   int sun_light_count = (int)_scene.sun_lights.size();
 
    _sphere_lights_ssbo = createBuffer(sizeof(LightSphereSSBO)*sphere_light_count + sizeof(vec4), GL_MAP_WRITE_BIT);
    _spot_lights_ssbo = createBuffer(sizeof(LightSpotSSBO)*spot_light_count + sizeof(vec4), GL_MAP_WRITE_BIT);
@@ -371,55 +361,48 @@ void RenderEngine::_createSceneLightsBuffer()
    char* sun_data = (char*)_sun_lights_ssbo->map(GL_MAP_WRITE_BIT);
    sun_data += sizeof(vec4);
 
-   for (const auto& light : _scene.lights)
+   for (const auto& light : _scene.sphere_lights)
    {
-      switch (light.type)
-      {
-         case LightType::Sphere:
-         {
-            LightSphereSSBO* buffer_light = (LightSphereSSBO*)sphere_data;
-            buffer_light->color = light.color*light.strength; // light power is stored in color (Watt)
-            buffer_light->position = light.world_to_local_matrix[3];
-            buffer_light->size = light.sphere.size;
-            buffer_light->radius = light.radius;
-            sphere_data += sizeof(LightSphereSSBO);
-            break;
-         }
-         case LightType::Rectangle:
-         {
-            LightRectangleSSBO* buffer_light = (LightRectangleSSBO*)rectangle_data;
-            buffer_light->color = light.color*light.strength / (light.rectangle.size_x*light.rectangle.size_y); // radiant exitance is stored in color (Watt/m^2)
-            buffer_light->position = light.world_to_local_matrix[3];
-            buffer_light->direction_x = normalize(light.world_to_local_matrix[0]);
-            buffer_light->direction_y = normalize(light.world_to_local_matrix[1]);
-            buffer_light->size_x = light.rectangle.size_x;
-            buffer_light->size_y = light.rectangle.size_y;
-            buffer_light->radius = light.radius;
-            rectangle_data += sizeof(LightRectangleSSBO);
-            break;
-         }
-         case LightType::Sun:
-         {
-            LightSunSSBO* buffer_light = (LightSunSSBO*)sun_data;
-            buffer_light->color = light.color*light.strength; // incident radiance is stored in color (Watt/m^2/ster)
-            buffer_light->direction = light.world_to_local_matrix[2];
-            buffer_light->size = light.sun.size;
-            sun_data += sizeof(LightSunSSBO);
-            break;
-         }
-         case LightType::Spot:
-         {
-            LightSpotSSBO* buffer_light = (LightSpotSSBO*)spot_data;
-            buffer_light->color = light.color*light.strength; // light power is stored in color (Watt)
-            buffer_light->position = light.world_to_local_matrix[3];
-            buffer_light->direction = light.world_to_local_matrix[2];
-            buffer_light->cos_half_angle = cos(light.spot.angle / 2.0f);
-            buffer_light->angle_smooth = light.spot.angle_blend;
-            buffer_light->radius = light.radius;
-            spot_data += sizeof(LightSpotSSBO);
-            break;
-         }
-      }
+      LightSphereSSBO* buffer_light = (LightSphereSSBO*)sphere_data;
+      buffer_light->color = light.color*light.strength; // light power is stored in color (Watt)
+      buffer_light->position = light.world_to_local_matrix[3];
+      buffer_light->size = light.sphere.size;
+      buffer_light->radius = light.radius;
+      sphere_data += sizeof(LightSphereSSBO);
+   }
+
+   for (const auto& light : _scene.spot_lights)
+   {
+      LightSpotSSBO* buffer_light = (LightSpotSSBO*)spot_data;
+      buffer_light->color = light.color*light.strength; // light power is stored in color (Watt)
+      buffer_light->position = light.world_to_local_matrix[3];
+      buffer_light->direction = light.world_to_local_matrix[2];
+      buffer_light->cos_half_angle = cos(light.spot.angle / 2.0f);
+      buffer_light->angle_smooth = light.spot.angle_blend;
+      buffer_light->radius = light.radius;
+      spot_data += sizeof(LightSpotSSBO);
+   }
+
+   for (const auto& light : _scene.rectangle_lights)
+   {
+      LightRectangleSSBO* buffer_light = (LightRectangleSSBO*)rectangle_data;
+      buffer_light->color = light.color*light.strength / (light.rectangle.size_x*light.rectangle.size_y); // radiant exitance is stored in color (Watt/m^2)
+      buffer_light->position = light.world_to_local_matrix[3];
+      buffer_light->direction_x = normalize(light.world_to_local_matrix[0]);
+      buffer_light->direction_y = normalize(light.world_to_local_matrix[1]);
+      buffer_light->size_x = light.rectangle.size_x;
+      buffer_light->size_y = light.rectangle.size_y;
+      buffer_light->radius = light.radius;
+      rectangle_data += sizeof(LightRectangleSSBO);
+   }
+
+   for (const auto& light : _scene.sun_lights)
+   {
+      LightSunSSBO* buffer_light = (LightSunSSBO*)sun_data;
+      buffer_light->color = light.color*light.strength; // incident radiance is stored in color (Watt/m^2/ster)
+      buffer_light->direction = light.world_to_local_matrix[2];
+      buffer_light->size = light.sun.size;
+      sun_data += sizeof(LightSunSSBO);
    }
 
    _sphere_lights_ssbo->unmap();
@@ -582,56 +565,51 @@ vec4 _normalizePlane(vec4 plane)
 
 void RenderEngine::_computeLightsRadius()
 {
-   for (auto& light : _scene.lights)
-   {
-      if (light.type == LightType::Sun)
-         continue;
-      
-      if (light.type == LightType::Rectangle)      
-         light.radius = sqrtf(light.strength*light.rectangle.size_x*light.rectangle.size_y / (_settings.light_contribution_threshold * 4.0f * float(M_PI)));
-      else
-         light.radius = sqrtf(light.strength / (_settings.light_contribution_threshold * 4.0f * float(M_PI)));
-   }
-
-   for (auto& light : _scene.lights)
+   for (auto& light : _scene.sphere_lights)
    {
       removeScaling(light.world_to_local_matrix);
-      
-      if (light.type == LightType::Sphere)
-      {
-         light.frustum_planes_in_local[0] = vec4(1.0, 0.0, 0.0, light.radius);
-         light.frustum_planes_in_local[1] = vec4(-1.0, 0.0, 0.0, light.radius);
-         light.frustum_planes_in_local[2] = vec4(0.0, 1.0, 0.0, light.radius);
-         light.frustum_planes_in_local[3] = vec4(0.0, -1.0, 0.0, light.radius);
-         light.frustum_planes_in_local[4] = vec4(0.0, 0.0, 1.0, light.radius);
-         light.frustum_planes_in_local[5] = vec4(0.0, 0.0, -1.0, light.radius);
-      }
-      else if (light.type == LightType::Spot)
-      { 
-         mat4 matrix_proj_spot = transpose(perspective(light.spot.angle, 1.0f, light.radius*0.1f, light.radius));
+      light.radius = sqrtf(light.strength / (_settings.light_contribution_threshold * 4.0f * float(M_PI)));
 
-         light.frustum_planes_in_local[int(ClippingPlane::Left)] = _normalizePlane(matrix_proj_spot[0] + matrix_proj_spot[3]);
-         light.frustum_planes_in_local[int(ClippingPlane::Right)] = _normalizePlane(-matrix_proj_spot[0] + matrix_proj_spot[3]);
-         light.frustum_planes_in_local[int(ClippingPlane::Bottom)] = _normalizePlane(matrix_proj_spot[1] + matrix_proj_spot[3]);
-         light.frustum_planes_in_local[int(ClippingPlane::Top)] = _normalizePlane(-matrix_proj_spot[1] + matrix_proj_spot[3]);
-         light.frustum_planes_in_local[int(ClippingPlane::Far)] = _normalizePlane(-matrix_proj_spot[2] + matrix_proj_spot[3]);         
-      }
-      else if (light.type == LightType::Rectangle)
-      {
-         float depth = light.radius;
-         float half_width = light.radius;
-         float half_height = light.radius;
-         light.rectangle.bounds_width  = half_width;
-         light.rectangle.bounds_height = half_height;
-         light.rectangle.bounds_depth  = depth;
-                  
-         light.frustum_planes_in_local[0] = vec4(1.0, 0.0, 0.0, half_width);
-         light.frustum_planes_in_local[1] = vec4(-1.0, 0.0, 0.0, half_width);
-         light.frustum_planes_in_local[2] = vec4(0.0, 1.0, 0.0, half_height);
-         light.frustum_planes_in_local[3] = vec4(0.0, -1.0, 0.0, half_height);
-         light.frustum_planes_in_local[4] = vec4(0.0, 0.0, 1.0, depth);
-         light.frustum_planes_in_local[5] = vec4(0.0, 0.0, -1.0, 0.0);
-      } 
+      light.frustum_planes_in_local[0] = vec4(1.0, 0.0, 0.0, light.radius);
+      light.frustum_planes_in_local[1] = vec4(-1.0, 0.0, 0.0, light.radius);
+      light.frustum_planes_in_local[2] = vec4(0.0, 1.0, 0.0, light.radius);
+      light.frustum_planes_in_local[3] = vec4(0.0, -1.0, 0.0, light.radius);
+      light.frustum_planes_in_local[4] = vec4(0.0, 0.0, 1.0, light.radius);
+      light.frustum_planes_in_local[5] = vec4(0.0, 0.0, -1.0, light.radius);
+   }
+
+   for (auto& light : _scene.spot_lights)
+   {
+      removeScaling(light.world_to_local_matrix);
+      light.radius = sqrtf(light.strength / (_settings.light_contribution_threshold * 4.0f * float(M_PI)));
+
+      mat4 matrix_proj_spot = transpose(perspective(light.spot.angle, 1.0f, light.radius*0.1f, light.radius));
+
+      light.frustum_planes_in_local[int(ClippingPlane::Left)] = _normalizePlane(matrix_proj_spot[0] + matrix_proj_spot[3]);
+      light.frustum_planes_in_local[int(ClippingPlane::Right)] = _normalizePlane(-matrix_proj_spot[0] + matrix_proj_spot[3]);
+      light.frustum_planes_in_local[int(ClippingPlane::Bottom)] = _normalizePlane(matrix_proj_spot[1] + matrix_proj_spot[3]);
+      light.frustum_planes_in_local[int(ClippingPlane::Top)] = _normalizePlane(-matrix_proj_spot[1] + matrix_proj_spot[3]);
+      light.frustum_planes_in_local[int(ClippingPlane::Far)] = _normalizePlane(-matrix_proj_spot[2] + matrix_proj_spot[3]);
+   }   
+   
+   for (auto& light : _scene.rectangle_lights)
+   {
+      removeScaling(light.world_to_local_matrix);
+      light.radius = sqrtf(light.strength*light.rectangle.size_x*light.rectangle.size_y / (_settings.light_contribution_threshold * 4.0f * float(M_PI)));
+
+      float depth = light.radius;
+      float half_width = light.radius;
+      float half_height = light.radius;
+      light.rectangle.bounds_width = half_width;
+      light.rectangle.bounds_height = half_height;
+      light.rectangle.bounds_depth = depth;
+
+      light.frustum_planes_in_local[0] = vec4(1.0, 0.0, 0.0, half_width);
+      light.frustum_planes_in_local[1] = vec4(-1.0, 0.0, 0.0, half_width);
+      light.frustum_planes_in_local[2] = vec4(0.0, 1.0, 0.0, half_height);
+      light.frustum_planes_in_local[3] = vec4(0.0, -1.0, 0.0, half_height);
+      light.frustum_planes_in_local[4] = vec4(0.0, 0.0, 1.0, depth);
+      light.frustum_planes_in_local[5] = vec4(0.0, 0.0, -1.0, 0.0);
    }
 }
 

@@ -237,10 +237,9 @@ float renderScene(RenderEngine* render_engine, int data_index, AppGui* app_gui, 
    //render_engine.presentDebugTexture();  
    app_gui->drawWidgets();
    //std::cout << "r:" << render_engine->render_resources->material_pass_timer->elapsedTimeInMs() << std::endl;
-  
-   glfwSwapBuffers(window);
-
    float render_duration = std::chrono::duration<float>(std::chrono::steady_clock::now() - start).count();
+
+   glfwSwapBuffers(window);   
    return render_duration;
 }
 

@@ -530,11 +530,8 @@ void ClusteredLightCuller::_injectSphereLightsIntoFroxels(const Scene& scene, co
 {
 #ifdef USE_CHEAP_SPHERE_INJECTION
    unsigned short light_index = -1;
-   for (const auto& light : scene.lights)
+   for (const auto& light : scene.sphere_lights)
    {
-      if (light.type != LightType::Sphere)
-         continue;
-
       light_index++;
 
       mat4 matrix_light_proj_local = render_data.matrix_proj_world*toMat4(light.world_to_local_matrix);
@@ -600,11 +597,8 @@ void ClusteredLightCuller::_injectSphereLightsIntoFroxels(const Scene& scene, co
 void ClusteredLightCuller::_injectSpotLightsIntoFroxels(const Scene& scene, const RenderData& render_data)
 {
    unsigned short light_index = -1;
-   for (const auto& light : scene.lights)
+   for (const auto& light : scene.spot_lights)
    {
-      if (light.type != LightType::Spot)
-         continue;
-
       light_index++;
 
       mat4 matrix_light_proj_local = render_data.matrix_proj_world*toMat4(light.world_to_local_matrix);
@@ -638,11 +632,8 @@ void ClusteredLightCuller::_injectSpotLightsIntoFroxels(const Scene& scene, cons
 void ClusteredLightCuller::_injectRectangleLightsIntoFroxels(const Scene& scene, const RenderData& render_data)
 {
    unsigned short light_index = -1;
-   for (const auto& light : scene.lights)
+   for (const auto& light : scene.rectangle_lights)
    {
-      if (light.type != LightType::Rectangle)
-         continue;
-
       light_index++;
 
       mat4 matrix_light_proj_local = render_data.matrix_proj_world*toMat4(light.world_to_local_matrix);

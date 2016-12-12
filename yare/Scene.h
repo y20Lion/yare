@@ -150,7 +150,11 @@ public:
    Uptr<SDFVolume> sdf_volume;
    std::vector<Sptr<Skeleton>> skeletons;
    std::vector<Sptr<IMaterial>> materials;   
-   std::vector<Light> lights;
+   std::vector<Light> sphere_lights;
+   std::vector<Light> spot_lights;
+   std::vector<Light> rectangle_lights;
+   std::vector<Light> sun_lights;
+
    std::vector<SurfaceInstance> surfaces;
    SurfaceRange opaque_surfaces;
    SurfaceRange transparent_surfaces;
