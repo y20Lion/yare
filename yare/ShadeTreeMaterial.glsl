@@ -65,9 +65,10 @@ void main()
 ~~~~~~~~~~~~~~~~~~ FragmentShader ~~~~~~~~~~~~~~~~~~~~~~
 #include "glsl_global_defines.h"
 %s
+#include "common.glsl"
 #include "scene_uniforms.glsl"
 #include "lighting_uniforms.glsl"
-#include "common.glsl"
+#include "lighting.glsl"
 #include "common_node_mix.glsl"
 
 layout(std430, binding = BI_HAMMERSLEY_SAMPLES_SSBO) buffer HammersleySamples
@@ -97,41 +98,7 @@ vec3 tangent = normalize(attr_tangent);
 #endif
 vec3 view_vector = normalize(eye_position - attr_position);
 float ssao = 1.0;
-
-float convertCameraZtoFroxelZ(float z_in_camera_space, float znear, float zfar)
-{
-   float z = (z_in_camera_space - znear) / (zfar - znear);
-   float froxel_z = pow(z, 1.0f / froxel_z_distribution_factor);
-
-   return clamp(froxel_z, 0.0f, 1.0f);
-}
-
-vec3 positionInFrustumAlignedVolumeTextures()
-{
-   vec2 current_ndc01_pos = (gl_FragCoord.xy - viewport.xy) / (viewport.zw);
-   float z_eye_space = 2.0 * znear * zfar / (znear + zfar - (2.0*gl_FragCoord.z - 1.0) * (zfar - znear));
-   float froxel_z = convertCameraZtoFroxelZ(z_eye_space, znear, zfar);
-
-   return vec3(current_ndc01_pos, froxel_z);
-}
-
-void fetchCurrentFroxelLightLists(vec3 pos_in_frustum)
-{
-   /*vec4 p = debug_proj_world*vec4(attr_position, 1.0);
-   p /= p.w;*/
-
-   ivec3 current_froxel_coords = ivec3(light_froxels_dims * pos_in_frustum);
-   /*float z_eye_space = 2.0 * znear * zfar / (znear + zfar - p.z * (zfar - znear));
-   float froxel_z = (z_eye_space - znear) / (zfar - znear);
-
-   ivec3 current_froxel_coords = ivec3(light_froxels_dims * vec3((p.xy+1.0)*0.5, froxel_z));*/
-
-   uvec2 froxel_data = texelFetch(light_list_head, current_froxel_coords, 0).xy;
-   froxel_light_lists.start_offset = froxel_data.x;
-   froxel_light_lists.sphere_light_count = froxel_data.y & 0x3FF;
-   froxel_light_lists.spot_light_count = (froxel_data.y >> 10) & 0x3FF;
-   froxel_light_lists.rectangle_light_count = (froxel_data.y >> 20) & 0x3FF;
-}
+FroxelLightLists froxel_light_lists;
 
 void fetchAmbientOcclusion()
 {
@@ -143,7 +110,6 @@ void fetchAmbientOcclusion()
    ssao *= ao_encoded_val*ao_encoded_val;
 #endif
 }
-
 
 float vec3ToFloat(vec3 v)
 {
@@ -199,32 +165,6 @@ float rectangleLightIrradiance(vec3 light_pos, vec2 rec_size, vec3 plane_dir_x, 
       //irradiance = rectangleSolidAngle(p0, p1, p2, p3) * abs(dot(light_dir, normal));
    }
    return irradiance;
-}
-
-float spotLightAttenuation(vec3 light_direction, float cos_spot_max_angle, vec3 spot_direction, float spot_smooth)
-{
-   float cos_angle = dot(light_direction, spot_direction);
-
-   float attenuation = cos_angle;
-   
-   if (cos_angle <= cos_spot_max_angle) //outside of cone
-   {
-      attenuation = 0.0;
-   }
-   else
-   {
-      spot_smooth = 1.0 - spot_smooth;
-      float t = (1.0 - cos_angle) / (1.0 - cos_spot_max_angle);
-      if (t - spot_smooth > 0)
-      {
-         t = saturate((t - spot_smooth) / (1.0 - spot_smooth));
-         attenuation = smoothstep(0.0, 1.0, 1.0 - t);
-      }
-      else
-         attenuation = 1.0;      
-   }
-   
-   return attenuation;
 }
 
 vec3 pointLightIncidentRadiance(vec3 light_power, vec3 light_position, float light_radius)
@@ -435,7 +375,7 @@ vec3 evalGlossyBSDF(vec3 color, vec3 normal, float roughness)
    }
    start_offset += froxel_light_lists.spot_light_count;
 
-   for (unsigned int i = 0; i < froxel_light_lists.rectangle_light_count; ++i)
+   /*for (unsigned int i = 0; i < froxel_light_lists.rectangle_light_count; ++i)
    {
       int light_index = light_list_data[start_offset + i];
       RectangleLight light = rectangle_lights[light_index];
@@ -451,7 +391,7 @@ vec3 evalGlossyBSDF(vec3 color, vec3 normal, float roughness)
       vec3 light_dir = normalize(closest_point - attr_position);
 
       exit_radiance += evalMicrofacetGGX(roughness, normal, view_vector, light_dir) * pointLightIncidentRadiance(light.color, closest_point, light.radius);
-   }
+   }*/
    start_offset += froxel_light_lists.rectangle_light_count;
 
    for (int i = 0; i < sun_lights.length(); ++i)
@@ -625,7 +565,7 @@ void main()
 {    
    vec3 pos_in_frustum = positionInFrustumAlignedVolumeTextures();
    
-   fetchCurrentFroxelLightLists(pos_in_frustum);
+   froxel_light_lists = fetchCurrentFroxelLightLists(pos_in_frustum);
    fetchAmbientOcclusion();
 
    %s

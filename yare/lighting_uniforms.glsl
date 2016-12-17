@@ -74,4 +74,4 @@ struct FroxelLightLists
    unsigned int sphere_light_count;
    unsigned int spot_light_count;
    unsigned int rectangle_light_count;
-} froxel_light_lists;
+};

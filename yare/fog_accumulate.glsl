@@ -2,6 +2,9 @@
 #include "glsl_volumetric_fog_defines.h"
 #include "glsl_global_defines.h"
 #include "scene_uniforms.glsl"
+#include "lighting_uniforms.glsl"
+#include "common.glsl"
+#include "lighting.glsl"
 
 layout(binding = BI_FOG_VOLUME_IMAGE, rgba16f) uniform  writeonly image3D fog_image;
 layout(binding = BI_INSCATTERING_EXTINCTION_VOLUME) uniform sampler3D inscattering_extinction;
@@ -9,14 +12,7 @@ layout(binding = BI_INSCATTERING_EXTINCTION_VOLUME) uniform sampler3D inscatteri
 layout(location = BI_MATRIX_WORLD_VIEW) uniform mat4 matrix_world_view;
 layout(location = BI_FRUSTUM) uniform vec4 frustum;
 
-
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
-
-float convertFroxelZtoDepth(float froxel_z, float znear, float zfar)
-{
-   float z = pow(froxel_z, 2.0);
-   return mix(znear, zfar, z);
-}
 
 void main()
 {
@@ -30,12 +26,7 @@ void main()
    {
       float current_depth = convertFroxelZtoDepth(float(z) * inv_volume_size.z, znear, zfar);
       float froxel_length = current_depth - previous_depth;
-      
-     /* vec4 fog_info = texture(inscattering_extinction, (vec3(gl_GlobalInvocationID.xy, z) + vec3(0, 0, 0.0))*inv_volume_size)+
-         texture(inscattering_extinction, (vec3(gl_GlobalInvocationID.xy, z)+vec3(0,1,1))*inv_volume_size)+
-         texture(inscattering_extinction, (vec3(gl_GlobalInvocationID.xy, z) + vec3(1, 1, 0))*inv_volume_size)+
-         texture(inscattering_extinction, (vec3(gl_GlobalInvocationID.xy, z) + vec3(1, 0, 1))*inv_volume_size);
-      fog_info *= 0.25;*/
+
       vec4 fog_info = texture(inscattering_extinction, (vec3(gl_GlobalInvocationID.xy, z) + 0.5)*inv_volume_size);
      
       vec3 in_scattered_radiance = fog_info.rgb;

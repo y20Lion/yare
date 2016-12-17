@@ -13,25 +13,6 @@ layout(location = BI_SCATTERING_ABSORPTION) uniform vec4 scattering_absorption;
 
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
-float convertFroxelZtoDepth(float froxel_z, float znear, float zfar)
-{
-   float z = pow(froxel_z, 2.0);
-
-   return mix(znear, zfar, z);
-}
-
-vec3 convertFroxelToCameraCoords(vec3 froxel_coords)
-{
-   float z = convertFroxelZtoDepth(froxel_coords.z, znear, zfar);
-
-   float ratio = z / znear;
-   float x = mix(frustum.x, frustum.y, froxel_coords.x) * ratio;
-   float y = mix(frustum.z, frustum.w, froxel_coords.y) * ratio;
-
-   return vec3(x, y, -z);
-}
-
-
 void main()
 {
    vec3 inv_fog_vol_size = 1.0 / vec3(imageSize(scattering_extinction_image));
@@ -45,18 +26,14 @@ void main()
    float extinction = max(0.000000001, absorption + (scattering.r+ scattering.g+ scattering.b)*0.33333);
    
    vec3 froxel_coords01 = (vec3(gl_GlobalInvocationID.xyz) + 0.5) * inv_fog_vol_size;
-   vec3 froxel_in_view = convertFroxelToCameraCoords(froxel_coords01);
+   vec3 froxel_in_view = convertFroxelToCameraCoords(froxel_coords01, frustum);
    vec3 froxel_center_in_world = mat4x3(matrix_world_view) * vec4(froxel_in_view, 1.0);
 
-   // put in function
-   ivec3 current_froxel_coords = ivec3(light_froxels_dims * froxel_coords01);
-   uvec2 froxel_data = texelFetch(light_list_head, current_froxel_coords, 0).xy;
-   unsigned int start_offset = froxel_data.x;
-   froxel_light_lists.sphere_light_count = froxel_data.y & 0x3FF;
-   froxel_light_lists.spot_light_count = (froxel_data.y >> 10) & 0x3FF;
-   froxel_light_lists.rectangle_light_count = (froxel_data.y >> 20) & 0x3FF;
+   FroxelLightLists froxel_light_lists = fetchCurrentFroxelLightLists(froxel_coords01);  
 
+   unsigned int start_offset = froxel_light_lists.start_offset;
    vec3 in_scattered_radiance = vec3(0.0);
+   
    for (unsigned int i = 0; i < froxel_light_lists.sphere_light_count; ++i)
    {
       int light_index = light_list_data[start_offset + i];

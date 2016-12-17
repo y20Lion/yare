@@ -19,7 +19,7 @@ void main()
    float depth = gl_Position.w;
    float viewport_width = viewport.z;
 
-   sprite_size = 0.2;      
+   sprite_size = 0.3;      
    gl_PointSize = sprite_size* znear/(depth*(frustum.y - frustum.x))* viewport_width;
    light_index = gl_VertexID;
 }
@@ -30,6 +30,7 @@ void main()
 #include "common.glsl"
 #include "scene_uniforms.glsl"
 #include "lighting_uniforms.glsl"
+#include "lighting.glsl"
 
 layout(location = BI_SCATTERING_ABSORPTION) uniform vec4 scattering_absorption;
 
@@ -37,23 +38,6 @@ flat in int light_index;
 in float sprite_size;
 
 layout(location = 0) out vec4 shading_result;
-
-float convertCameraZtoFroxelZ(float z_in_camera_space, float znear, float zfar)
-{
-   float z = (z_in_camera_space - znear) / (zfar - znear);
-   float froxel_z = pow(z, 1.0f / froxel_z_distribution_factor);
-
-   return clamp(froxel_z, 0.0f, 1.0f);
-}
-
-vec3 positionInFrustumAlignedVolumeTextures()
-{
-   vec2 current_ndc01_pos = (gl_FragCoord.xy - viewport.xy) / (viewport.zw);
-   float z_eye_space = 2.0 * znear * zfar / (znear + zfar - (2.0*gl_FragCoord.z - 1.0) * (zfar - znear));
-   float froxel_z = convertCameraZtoFroxelZ(z_eye_space, znear, zfar);
-
-   return vec3(current_ndc01_pos, froxel_z);
-}
 
 void main()
 {
