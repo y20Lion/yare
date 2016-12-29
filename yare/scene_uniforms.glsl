@@ -28,8 +28,10 @@ layout(std140, binding = BI_SCENE_UNIFORMS) uniform SceneUniforms
    vec3 sdf_volume_size;
    float zfar;
    ivec4 viewport;
+
    float tessellation_edges_per_screen_height;
    float froxel_z_distribution_factor;
+   bool fog_enabled;
 };
 
 

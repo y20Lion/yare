@@ -34,6 +34,13 @@ VolumetricFog::~VolumetricFog(){}
 
 void VolumetricFog::render(const RenderData& render_data)
 {
+   if (!_settings.fog_enabled)
+   {
+      _rr.volumetric_fog_timer->start();
+      _rr.volumetric_fog_timer->stop();
+      return;
+   }
+   
    _rr.volumetric_fog_timer->start();
 
    GLDevice::bindProgram(*_fog_lighting_program);
@@ -47,9 +54,9 @@ void VolumetricFog::render(const RenderData& render_data)
    
    glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
 
-   vec3* value = (vec3*)_debug_buffer->map(GL_MAP_READ_BIT);
+   /*vec3* value = (vec3*)_debug_buffer->map(GL_MAP_READ_BIT);
    int a = 0;
-   _debug_buffer->unmap();
+   _debug_buffer->unmap();*/
 
    GLDevice::bindProgram(*_fog_accumulate_program);
    GLDevice::bindImage(BI_FOG_VOLUME_IMAGE, *_fog_volume, GL_WRITE_ONLY);   
@@ -64,6 +71,9 @@ void VolumetricFog::render(const RenderData& render_data)
 
 void VolumetricFog::renderLightSprites(const RenderData& render_data, const Scene& scene)
 {
+   if (!_settings.fog_enabled)
+      return;
+
    GLDevice::bindVertexSource(*_rr.fullscreen_triangle_source);
 
    glDepthMask(GL_FALSE);
@@ -83,11 +93,17 @@ void VolumetricFog::renderLightSprites(const RenderData& render_data, const Scen
 
 void VolumetricFog::bindFogVolume()
 {
+   if (!_settings.fog_enabled)
+      return;
+
    GLDevice::bindTexture(BI_FOG_VOLUME, *_fog_volume, *_rr.samplers.linear_clampToEdge);
 }
 
 void VolumetricFog::computeMemBarrier()
 {
+   if (!_settings.fog_enabled)
+      return;
+
    glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
 }
 

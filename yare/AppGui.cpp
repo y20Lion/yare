@@ -92,6 +92,7 @@ AppGui::AppGui(GLFWwindow* window, RenderEngine* render_engine)
    gui->addVariable("z slices", render_engine->_settings.froxel_z_distribution_factor)->setSpinnable(true);  
    addSliderVariable(gui, nanoguiWindow, "bias", &render_engine->_settings.bias, -5.0, 5.0);
    gui->addGroup("Volumetric Fog");
+   gui->addVariable("enabled", render_engine->_settings.fog_enabled);
    gui->addVariable("scattering", render_engine->_settings.fog_scattering)->setSpinnable(true);   
    gui->addVariable("absorption", render_engine->_settings.fog_absorption)->setSpinnable(true);
    gui->addSpace(5);

@@ -26,12 +26,15 @@ void main()
    vec3 eye_vector = normalize(pos - eye_position);
    color = vec4(texture(sky_cubemap, eye_vector).rgb, 1.0);
 
-   vec2 current_ndc01_pos = (gl_FragCoord.xy - viewport.xy) / (viewport.zw);
-   vec4 fog_info = texture(fog_volume, vec3(current_ndc01_pos, 1.0));
-   float fog_transmittance = fog_info.a;
-   vec3 fog_in_scattering = fog_info.rgb;
+   if (fog_enabled)
+   {
+	   vec2 current_ndc01_pos = (gl_FragCoord.xy - viewport.xy) / (viewport.zw);
+	   vec4 fog_info = texture(fog_volume, vec3(current_ndc01_pos, 1.0));
+	   float fog_transmittance = fog_info.a;
+	   vec3 fog_in_scattering = fog_info.rgb;
 
-   color.rgb = color.rgb * fog_transmittance + fog_in_scattering;
+	   color.rgb = color.rgb * fog_transmittance + fog_in_scattering;
+   }   
 }
 /*
 

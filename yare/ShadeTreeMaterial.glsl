@@ -570,11 +570,14 @@ void main()
 
    %s
 
-   vec4 fog_info = texture(fog_volume, pos_in_frustum);
-   float fog_transmittance = fog_info.a;
-   vec3 fog_in_scattering = fog_info.rgb;
+   if (fog_enabled)
+   {
+	   vec4 fog_info = texture(fog_volume, pos_in_frustum);
+	   float fog_transmittance = fog_info.a;
+	   vec3 fog_in_scattering = fog_info.rgb;
 
-   shading_result.rgb =  shading_result.rgb * fog_transmittance + fog_in_scattering;
+	   shading_result.rgb =  shading_result.rgb * fog_transmittance + fog_in_scattering;
+   }   
    
       //shading_result.rgb = vec3(ssao);
 

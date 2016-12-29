@@ -61,6 +61,7 @@ struct SceneUniforms
    ivec4 viewport;
    float tessellation_edges_per_screen_height;
    float froxel_distribution_factor;
+   bool fog_enabled;
 };
 
 struct LightSphereSSBO
@@ -505,6 +506,7 @@ void RenderEngine::_updateUniformBuffers(const RenderData& render_data, float ti
    float tessellation_pixels_per_edge = 30.0;
    scene_uniforms->tessellation_edges_per_screen_height = render_resources->framebuffer_size.height / tessellation_pixels_per_edge;
    scene_uniforms->froxel_distribution_factor = _settings.froxel_z_distribution_factor;
+   scene_uniforms->fog_enabled = _settings.fog_enabled;
 
    if (_scene.ao_volume)
    {

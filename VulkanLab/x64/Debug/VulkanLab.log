@@ -1,0 +1,3 @@
+﻿  main.cpp
+e:\code\yare\vulkanlab\main.cpp(161): warning C4267: '=': conversion from 'size_t' to 'uint32_t', possible loss of data
+e:\code\yare\vulkanlab\main.cpp(175): fatal error C1057: unexpected end of file in macro expansion
