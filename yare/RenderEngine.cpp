@@ -32,6 +32,7 @@
 #include "SSAORenderer.h"
 #include "ClusteredLightCuller.h"
 #include "VolumetricFog.h"
+#include "Voxelizer.h"
 
 namespace yare {
 
@@ -113,6 +114,7 @@ RenderEngine::RenderEngine(const ImageSize& framebuffer_size)
    , ssao_renderer(new SSAORenderer(*render_resources))
    , froxeled_light_culler(new ClusteredLightCuller(*render_resources, _settings))
    , volumetric_fog(new VolumetricFog(*render_resources, _settings))
+   , voxelizer(new Voxelizer(*render_resources))
 {    
    _z_pass_render_program = createProgramFromFile("z_pass_render.glsl");
 }
@@ -197,6 +199,18 @@ void RenderEngine::presentDebugTexture()
    GLDevice::draw(*render_resources->fullscreen_triangle_source);
 }
 
+void RenderEngine::drawSurfaces(const RenderData& render_data)
+{
+   for (auto& sorted_surface : render_data.surfaces_sorted_by_distance)
+   {
+      int surface_index = sorted_surface.surface_index;
+      const auto& surface = _scene.surfaces[surface_index];
+      _bindSurfaceUniforms(surface_index, surface);
+
+      GLDevice::draw(*surface.vertex_source_position_normal);
+   }
+}
+
 static void _debugDrawBasis(const mat4x3& mat)
 {
    glLineWidth(3);
@@ -263,11 +277,13 @@ void RenderEngine::_bindSurfaceUniforms(int suface_index, const SurfaceInstance&
 
 void RenderEngine::_renderSurfaces(const RenderData& render_data)
 {
-   glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-   glViewport(0, 0, render_resources->main_framebuffer->width(), render_resources->main_framebuffer->height());
+   
    
    _bindSceneUniforms();   
-   
+   voxelizer->bakeVoxels(this, render_data);
+
+   glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+   glViewport(0, 0, render_resources->main_framebuffer->width(), render_resources->main_framebuffer->height());
    volumetric_fog->render(render_data);
 
    // Z Pass   
@@ -287,6 +303,10 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
    render_resources->z_pass_timer->stop();
 
+   // trace GI   
+   voxelizer->traceGlobalIlluminationRays(render_data);
+   voxelizer->bindGlobalIlluminationTexture();
+
    // SSAO render
    ssao_renderer->render(render_data);
    auto& ssao_texture = render_resources->ssao_framebuffer->attachedTexture(GL_COLOR_ATTACHMENT0);
@@ -302,7 +322,7 @@ void RenderEngine::_renderSurfaces(const RenderData& render_data)
    render_resources->material_pass_timer->stop();
 
    froxeled_light_culler->drawFroxelGrid(render_data, _settings.x + _settings.y*32 + _settings.z*(32*32));
-
+   voxelizer->debugDrawVoxels(render_data);
    
 
    render_resources->background_timer->start();

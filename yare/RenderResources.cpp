@@ -65,6 +65,8 @@ RenderResources::RenderResources(const ImageSize& framebuffer_size_)
    timer = std::make_unique<GLGPUTimer>();
    ssao_timer = std::make_unique<GLGPUTimer>(); 
    z_pass_timer = std::make_unique<GLGPUTimer>();
+   voxelize_timer = std::make_unique<GLGPUTimer>();
+   raytrace_timer = std::make_unique<GLGPUTimer>();
    material_pass_timer = std::make_unique<GLGPUTimer>();
    background_timer = std::make_unique<GLGPUTimer>();
    volumetric_fog_timer = std::make_unique<GLGPUTimer>();

@@ -22,6 +22,7 @@
 #include "AppGui.h"
 #include "RenderResources.h"
 #include "GLGPUTimer.h"
+#include "Voxelizer.h"
 
 
 using namespace yare;
@@ -161,9 +162,9 @@ int main()
    CameraManipulator camera_manipulator(&render_engine.scene()->camera.point_of_view);
     
    //char* file = "D:\\BlenderTests\\Sintel_Lite_Cycles_V2.3dy";
-   //char* file = "D:\\BlenderTests\\stanford_bunny.3dy";
+   char* file = "D:\\BlenderTests\\stanford_bunny.3dy";
    //char* file = "D:\\BlenderTests\\DeLorean.3dy";
-   char* file = "D:\\BlenderTests\\test_clustered_shading.3dy";
+   //char* file = "D:\\BlenderTests\\test_clustered_shading.3dy";
    import3DY(file, render_engine, render_engine.scene());
    render_engine.offlinePrepareScene();
    bakeSDForAOVolume(file, render_engine);
@@ -173,7 +174,7 @@ int main()
    int update_index = 0;
    int render_index = 1;
    updateScene(&render_engine, render_index, update_context); // bootstrap the update/render multithreaded cycle
-
+   //render_engine.voxelizer->bakeVoxels(&render_engine, render_engine.scene()->render_data[render_index]);
    int i = 0;
    while (!glfwWindowShouldClose(window))
    {

@@ -36,6 +36,7 @@ struct GLRasterizationState
 namespace GLDevice 
 {   
    void bindUniformMatrix4(GLint location, const mat4& matrix);
+   void bindUniformMatrix4Array(GLint location, const mat4* matrices, int count);
       
    // state setting
    void bindFramebuffer(const GLFramebuffer* framebuffer, int color_attachment);

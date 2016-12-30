@@ -16,6 +16,7 @@ class FilmPostProcessor;
 class SSAORenderer;
 class ClusteredLightCuller;
 class VolumetricFog;
+class Voxelizer;
 
 struct RenderSettings
 {
@@ -44,6 +45,8 @@ public:
    void presentDebugTexture();
    Scene* scene() { return &_scene; }
 
+   void drawSurfaces(const RenderData& render_data);
+
    Uptr<RenderResources> render_resources;
    Uptr<CubemapFiltering> cubemap_converter;
    Uptr<BackgroundSky> background_sky;
@@ -51,6 +54,7 @@ public:
    Uptr<SSAORenderer> ssao_renderer;
    Uptr<ClusteredLightCuller> froxeled_light_culler;
    Uptr<VolumetricFog> volumetric_fog;
+   Uptr<Voxelizer> voxelizer;
 
    RenderSettings _settings;
    

@@ -593,4 +593,5 @@ void main()
    //shading_result.rgb = vec3(int(out_val*light_froxels_dims)/20.0);
 
 // shading_result.rgb = out_val;
+   shading_result.rgb = texelFetch(gi_texture, ivec2(gl_FragCoord.xy), 0).rgb;;
 }

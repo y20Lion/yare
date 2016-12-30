@@ -42,6 +42,8 @@ struct RenderResources
    Uptr<GLGPUTimer> timer;
    Uptr<GLGPUTimer> ssao_timer;
    Uptr<GLGPUTimer> z_pass_timer;
+   Uptr<GLGPUTimer> voxelize_timer;
+   Uptr<GLGPUTimer> raytrace_timer;
    Uptr<GLGPUTimer> material_pass_timer;
    Uptr<GLGPUTimer> background_timer;
    Uptr<GLGPUTimer> volumetric_fog_timer;

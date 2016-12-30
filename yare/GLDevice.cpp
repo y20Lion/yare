@@ -16,6 +16,11 @@ void bindUniformMatrix4(GLint location, const mat4& matrix)
    glUniformMatrix4fv(location, 1, false, value_ptr(matrix));
 }
 
+void bindUniformMatrix4Array(GLint location, const mat4* matrices, int count)
+{
+   glUniformMatrix4fv(location, count, false, value_ptr(*matrices));
+}
+
 void bindFramebuffer(const GLFramebuffer* framebuffer, int color_attachment)
 {
    if (framebuffer)

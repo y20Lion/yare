@@ -2,6 +2,7 @@
 layout(binding = BI_SKY_CUBEMAP) uniform samplerCube sky_cubemap;
 layout(binding = BI_SKY_DIFFUSE_CUBEMAP) uniform samplerCube sky_diffuse_cubemap;
 layout(binding = BI_SSAO_TEXTURE) uniform sampler2D ssao_texture;
+layout(binding = BI_GI_TEXTURE) uniform sampler2D gi_texture;
 
 #ifdef USE_AO_VOLUME
 layout(binding = BI_AO_VOLUME) uniform sampler3D ao_volume;

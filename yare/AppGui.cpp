@@ -177,12 +177,14 @@ void AppGui::_updateHUDText()
 {
    RenderResources* render_resources = _render_engine->render_resources.get();
 
-   std::string hud_text = string_format("Z PREPASS: %.2fms\n SSAO: %.2fms\n VOLUM FOG:%.2fms\n MATERIALS: %.2fms BACKGROUND: %.2fms\n CPU Render:%.2fms\n CPU Update:%.2fms",
+   std::string hud_text = string_format("Z PREPASS: %.2fms\n SSAO: %.2fms\n VOLUM FOG:%.2fms\n MATERIALS: %.2fms BACKGROUND: %.2fms\n VOXELIZE: %.2fms\n RAYTRACE: %.2fms\n CPU Render:%.2fms\n CPU Update:%.2fms",
                                         render_resources->z_pass_timer->elapsedTimeInMs(),
                                         render_resources->ssao_timer->elapsedTimeInMs(),
                                         render_resources->volumetric_fog_timer->elapsedTimeInMs(),
                                         render_resources->material_pass_timer->elapsedTimeInMs(),
-                                        render_resources->background_timer->elapsedTimeInMs(),                                        
+                                        render_resources->background_timer->elapsedTimeInMs(),
+                                        render_resources->voxelize_timer->elapsedTimeInMs(),
+                                        render_resources->raytrace_timer->elapsedTimeInMs(),
                                         _render_time_ms,
                                        _update_time_ms);
    _hud->setCaption(hud_text);

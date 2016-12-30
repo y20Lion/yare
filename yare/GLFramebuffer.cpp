@@ -8,6 +8,8 @@ GLFramebuffer::GLFramebuffer(const GLFramebufferDesc& desc)
    , _height(0)
 {
    glGenFramebuffers(1, &_framebuffer_id);
+   glNamedFramebufferParameteri(_framebuffer_id, GL_FRAMEBUFFER_DEFAULT_WIDTH, desc.default_width);
+   glNamedFramebufferParameteri(_framebuffer_id, GL_FRAMEBUFFER_DEFAULT_HEIGHT, desc.default_height);
 
    for (const auto& attachment : desc.attachments)
    {
@@ -55,6 +57,14 @@ void blitColor(const GLFramebuffer& source, int src_attachment, const GLFramebuf
    glBlitNamedFramebuffer(source.id(), destination_id, 0, 0, source.width(), source.height(), 0, 0, source.width(), source.height(), GL_COLOR_BUFFER_BIT, GL_NEAREST);
 }
 
+
+Uptr<GLFramebuffer> createEmptyFramebuffer(const ImageSize& size)
+{
+   GLFramebufferDesc desc;
+   desc.default_width = size.width;
+   desc.default_height = size.height;
+   return std::make_unique<GLFramebuffer>(desc);
+}
 
 Uptr<GLFramebuffer> createFramebuffer(const ImageSize& size, GLenum color_format, int color_attachments_count, GLenum depth_format)
 {

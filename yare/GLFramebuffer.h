@@ -19,7 +19,10 @@ struct GLFramebufferAttachmentDesc
 
 struct GLFramebufferDesc
 {
-    std::vector<GLFramebufferAttachmentDesc> attachments;
+   GLFramebufferDesc() : default_width(1), default_height(1) {}
+   std::vector<GLFramebufferAttachmentDesc> attachments;
+   int default_width;
+   int default_height;
 };
 
 class GLFramebuffer
@@ -45,6 +48,7 @@ private:
 
 static GLFramebuffer* default_framebuffer = nullptr;
 
+Uptr<GLFramebuffer> createEmptyFramebuffer(const ImageSize& size);
 Uptr<GLFramebuffer> createFramebuffer(const ImageSize& size, GLenum color_format, int color_attachments_count, GLenum depth_format = GL_NONE);
 void blitColor(const GLFramebuffer& source, int src_attachment, const GLFramebuffer* destination, int dst_attachment);
 
