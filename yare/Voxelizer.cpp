@@ -3,6 +3,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <random>
+#include <functional>
 
 #include "GLFramebuffer.h"
 #include "GLProgram.h"
@@ -17,22 +19,72 @@
 
 namespace yare {
 
-Voxelizer::Voxelizer(const RenderResources& render_resources)
-   : _rr(render_resources)
+float radicalInverseVdC(unsigned int bits) 
 {
-   _texture_size = 64;
+   bits = (bits << 16u) | (bits >> 16u);
+   bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+   bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+   bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+   bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+   return float(bits) * 2.3283064365386963e-10f; // / 0x100000000
+}
+
+vec2 hammersley2D(unsigned int i, unsigned int N)
+{
+   return vec2(float(i) / float(N), radicalInverseVdC(i));
+}
+
+vec3 hemisphereSampleUniform(float u, float v)
+{
+   float phi = v * 2.0f * float(M_PI);
+   float cosTheta = 1.0f - u;
+   float sinTheta = sqrt(1.0f - cosTheta * cosTheta);
+   return vec3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
+}
+
+vec3 hemisphereSampleCos(float u, float v)
+{
+   float phi = v * 2.0f * float(M_PI);
+   float cosTheta = sqrt(1.0f - u);
+   float sinTheta = sqrt(1.0f - cosTheta * cosTheta);
+   return vec3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
+}
+
+
+Voxelizer::Voxelizer(const RenderResources& render_resources, const RenderSettings& render_settings)
+   : _rr(render_resources), _settings(render_settings)
+{
+   _texture_size = 128;
 
    _empty_framebuffer = createEmptyFramebuffer(ImageSize(_texture_size, _texture_size));
    _rasterize_voxels = createProgramFromFile("rasterize_voxels.glsl");
-
+   _fill_occlusion_voxels = createProgramFromFile("fill_occlusion_voxels.glsl");
+   _shade_voxels = createProgramFromFile("shade_voxels.glsl");
+   _gather_gi_horizontal = createProgramFromFile("gather_gi.glsl", "BLUR_HORIZONTAL");
+   _gather_gi_vertical = createProgramFromFile("gather_gi.glsl", "BLUR_VERTICAL");
 
    _debug_draw_voxels = createProgramFromFile("debug_draw_voxels.glsl");  
    _debug_voxels_wireframe = createBuffer(_texture_size * _texture_size * _texture_size * sizeof(vec3) * 24, GL_MAP_WRITE_BIT); 
 
-   _voxels = createTexture3D(_texture_size, _texture_size, _texture_size, GL_RGBA16F);
+   _voxels_gbuffer = createTexture3D(_texture_size, _texture_size, _texture_size, GL_RGBA16F);
+   _voxels_occlusion = createTexture3D(_texture_size, _texture_size, _texture_size, GL_R8);
+   _voxels_illumination = createTexture3D(_texture_size, _texture_size, _texture_size, GL_RGBA16F);
+   
+
+   auto real_rand = std::bind(std::uniform_real_distribution<float>(0.0, 1.0), std::mt19937());
+
+   constexpr int hammersley_sample_count = SAMPLES_SIDE*SAMPLES_SIDE*RAY_COUNT;
+   vec3 samples[hammersley_sample_count];
+   for (int i = 0; i < hammersley_sample_count; ++i)
+   {
+      vec2 uv = hammersley2D(i, hammersley_sample_count);
+      //samples[i] = hemisphereSampleCos(real_rand(), real_rand()); //hemisphereSampleCos(uv.x, uv.y);
+      samples[i] = hemisphereSampleCos(uv.x, uv.y);
+   }
+   _hemisphere_samples = createTexture1D(hammersley_sample_count, GL_RGB16F, samples);
 
    float clear_color[] = { 0.0f, 0.0f, 0.0f, 0.0f };
-   glClearTexImage(_voxels->id(), 0, GL_RGBA, GL_FLOAT, clear_color);
+   glClearTexImage(_voxels_gbuffer->id(), 0, GL_RGBA, GL_FLOAT, clear_color);
    
    float size = 8.0;
    _voxels_aabb.extend(-vec3(size));
@@ -105,7 +157,7 @@ void Voxelizer::bakeVoxels(RenderEngine* render_engine, const RenderData& render
    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
    glDepthMask(GL_FALSE);
 
-   GLDevice::bindImage(BI_VOXELS_IMAGE, *_voxels, GL_WRITE_ONLY);
+   GLDevice::bindImage(BI_VOXELS_GBUFFER_IMAGE, *_voxels_gbuffer, GL_WRITE_ONLY);
    GLDevice::bindProgram(*_rasterize_voxels);
    glViewport(0, 0, _texture_size, _texture_size);
    mat4 ortho_matrix_world[3];
@@ -133,39 +185,73 @@ void Voxelizer::bakeVoxels(RenderEngine* render_engine, const RenderData& render
    glDepthMask(GL_TRUE);
 
    glMemoryBarrier(GL_ALL_BARRIER_BITS);
+   
+   GLDevice::bindProgram(*_fill_occlusion_voxels);
+   GLDevice::bindImage(BI_VOXELS_GBUFFER_IMAGE, *_voxels_gbuffer, GL_READ_ONLY);
+   GLDevice::bindImage(BI_VOXELS_OCCLUSION_IMAGE, *_voxels_occlusion, GL_WRITE_ONLY);
+   glDispatchCompute(_texture_size / 4, _texture_size / 4, _texture_size / 4);
+   //glMemoryBarrier(GL_ALL_BARRIER_BITS);
+   GLDevice::bindProgram(*_shade_voxels);
+   GLDevice::bindImage(BI_VOXELS_GBUFFER_IMAGE, *_voxels_gbuffer, GL_READ_ONLY);
+   GLDevice::bindImage(BI_VOXELS_ILLUMINATION_IMAGE, *_voxels_illumination, GL_WRITE_ONLY);
+   glDispatchCompute(_texture_size / 4, _texture_size / 4, _texture_size / 4);
+
+   glMemoryBarrier(GL_ALL_BARRIER_BITS);
    _rr.voxelize_timer->stop();
 }
 
 void Voxelizer::debugDrawVoxels(const RenderData& render_data)
 {
+   if (!_settings.show_voxel_grid)
+      return;
+
+   GLDevice::bindTexture(BI_VOXELS_OCCLUSION_TEXTURE, *_voxels_occlusion, *_rr.samplers.linear_clampToEdge);
+
    GLDevice::bindProgram(*_debug_draw_voxels);   
    glUniform3fv(BI_VOXELS_AABB_PMIN, 1, value_ptr(_voxels_aabb.pmin));
    glUniform3fv(BI_VOXELS_AABB_PMAX, 1, value_ptr(_voxels_aabb.pmax));
-   GLDevice::bindTexture(BI_VOXELS_TEXTURE, *_voxels, *_rr.samplers.linear_clampToEdge);
+   
    GLDevice::draw(*_debug_voxel_wireframe_vertex_source);
+}
+
+void Voxelizer::shadeVoxels(const RenderData& render_data)
+{
+
 }
 
 void Voxelizer::traceGlobalIlluminationRays(const RenderData& render_data)
 {
+   /*float clear_color[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+   glClearTexImage(_voxels_illumination->id(), 0, GL_RGBA, GL_FLOAT, clear_color);
+   glMemoryBarrier(GL_ALL_BARRIER_BITS);*/
    _rr.raytrace_timer->start();
    // fixme glviewport
    GLDevice::bindFramebuffer(_gi_framebuffer.get(), 0);
    GLDevice::bindProgram(*_trace_gi_rays);
    GLDevice::bindTexture(BI_DEPTH_TEXTURE, _rr.main_framebuffer->attachedTexture(GL_DEPTH_ATTACHMENT), *_rr.samplers.nearest_clampToEdge);
-   GLDevice::bindTexture(BI_VOXELS_TEXTURE, *_voxels, *_rr.samplers.linear_clampToEdge);
+   GLDevice::bindTexture(BI_VOXELS_ILLUMINATION_TEXTURE, *_voxels_illumination, *_rr.samplers.linear_clampToEdge);   
+   GLDevice::bindTexture(BI_VOXELS_OCCLUSION_TEXTURE, *_voxels_occlusion, *_rr.samplers.linear_clampToEdge);
+   GLDevice::bindTexture(BI_HEMISPHERE_SAMPLES_TEXTURE, *_hemisphere_samples, *_rr.samplers.nearest_clampToEdge);
    glUniform3fv(BI_VOXELS_AABB_PMIN, 1, value_ptr(_voxels_aabb.pmin));
    glUniform3fv(BI_VOXELS_AABB_PMAX, 1, value_ptr(_voxels_aabb.pmax));
    GLDevice::bindUniformMatrix4(BI_MATRIX_WORLD_PROJ, inverse(render_data.matrix_proj_world));
    GLDevice::draw(*_rr.fullscreen_triangle_source);
-   _rr.raytrace_timer->stop();
+
+   gatherGlobalIllumination();
+   _rr.raytrace_timer->stop();   
 }
 
 void Voxelizer::gatherGlobalIllumination()
 {
-   /*GLDevice::bindFramebuffer(_gi_framebuffer.get(), 1);
-   GLDevice::bindTexture(BI_GI_TEXTURE, _rr.main_framebuffer->attachedTexture(GL_COLOR_ATTACHMENT0), *_rr.samplers.nearest_clampToEdge);
-   GLDevice::bindProgram(*_gather_gi);
-   GLDevice::draw(*_rr.fullscreen_triangle_source);*/
+   GLDevice::bindFramebuffer(_gi_framebuffer.get(), 1);
+   GLDevice::bindTexture(BI_GATHER_GI_TEXTURE, _gi_framebuffer->attachedTexture(GL_COLOR_ATTACHMENT0), *_rr.samplers.nearest_clampToEdge);
+   GLDevice::bindProgram(*_gather_gi_horizontal);
+   GLDevice::draw(*_rr.fullscreen_triangle_source);
+
+   GLDevice::bindFramebuffer(_gi_framebuffer.get(), 0);
+   GLDevice::bindTexture(BI_GATHER_GI_TEXTURE, _gi_framebuffer->attachedTexture(GL_COLOR_ATTACHMENT1), *_rr.samplers.nearest_clampToEdge);
+   GLDevice::bindProgram(*_gather_gi_vertical);
+   GLDevice::draw(*_rr.fullscreen_triangle_source);
 }
 
 void Voxelizer::bindGlobalIlluminationTexture()

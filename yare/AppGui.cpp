@@ -97,6 +97,8 @@ AppGui::AppGui(GLFWwindow* window, RenderEngine* render_engine)
    gui->addVariable("absorption", render_engine->_settings.fog_absorption)->setSpinnable(true);
    gui->addSpace(5);
    addColorVariable(gui, nanoguiWindow, "color", &render_engine->_settings.fog_scattering_color);
+   gui->addGroup("Voxels");
+   gui->addVariable("show grid", render_engine->_settings.show_voxel_grid);   
    
    nanoguiWindow->setPosition(Vector2i(width - nanoguiWindow->preferredSize(screen->nvgContext())[0] - 10, 5));
  

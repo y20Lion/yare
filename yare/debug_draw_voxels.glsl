@@ -3,7 +3,7 @@
 #include "glsl_voxelizer_defines.h"
 #include "scene_uniforms.glsl"
 
-layout(location = BI_VOXELS_TEXTURE) uniform sampler3D voxels;
+layout(binding = BI_VOXELS_OCCLUSION_TEXTURE) uniform sampler3D voxels;
 layout(location = BI_VOXELS_AABB_PMIN) uniform vec3 aabb_pmin;
 layout(location = BI_VOXELS_AABB_PMAX) uniform vec3 aabb_pmax;
 
@@ -21,7 +21,7 @@ void main()
    voxel_coords.y = slice_flat / (size.x);
    voxel_coords.x = slice_flat % (size.x);
 
-   float opacity = texelFetch(voxels, voxel_coords, 0).a;
+   float opacity = texelFetch(voxels, voxel_coords, 0).r;
    if (opacity > 0.0)
    {
       vec3 position_in_world = position * (aabb_pmax-aabb_pmin) + aabb_pmin;

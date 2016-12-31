@@ -557,7 +557,7 @@ static void readSDFVolume(const Json::Value& json_sdf_volume, const std::string&
 {
    scene->sdf_volume = std::make_unique<SDFVolume>();
    SDFVolume& sdf_volume = *scene->sdf_volume;
-   sdf_volume.transform_node_index = scene->object_name_to_transform_node_index.at(json_sdf_volume["Name"].asString());
+   // FIXME sdf_volume.transform_node_index = scene->object_name_to_transform_node_index.at(json_sdf_volume["Name"].asString());
    sdf_volume.size = readVec3(json_sdf_volume["Size"]);
    sdf_volume.position = readVec3(json_sdf_volume["Position"]);
    sdf_volume.resolution = readIVec3(json_sdf_volume["Resolution"]);
@@ -599,6 +599,15 @@ void addRandomLights(Scene* scene)
    }
 }
 
+void addSDFVolume(Scene* scene)
+{
+   scene->sdf_volume = std::make_unique<SDFVolume>();
+   SDFVolume& sdf_volume = *scene->sdf_volume;
+   sdf_volume.transform_node_index = 0;
+   sdf_volume.size = vec3(8.0);
+   sdf_volume.position = vec3(0.0);
+   sdf_volume.resolution = ivec3(128);
+}
 
 
 void import3DY(const std::string& filename, const RenderEngine& render_engine, Scene* scene)
@@ -620,6 +629,7 @@ void import3DY(const std::string& filename, const RenderEngine& render_engine, S
 
    readLights(root["Lights"], scene);
    //addRandomLights(scene);
+   //addSDFVolume(scene);
 
    readEnvironment(render_engine, root["Environment"], scene);
    readActions(root["Actions"], scene);

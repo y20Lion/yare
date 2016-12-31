@@ -13,19 +13,22 @@ class GLProgram;
 class RenderEngine;
 struct RenderData;
 class GLTexture3D;
+class GLTexture1D;
 class GLVertexSource;
 class GLBuffer;
 class GLFramebuffer;
+struct RenderSettings;
 
 class Voxelizer
 {
 public:
-   Voxelizer(const RenderResources& render_resources);
+   Voxelizer(const RenderResources& render_resources, const RenderSettings& render_settings);
    ~Voxelizer();
 
    void bakeVoxels(RenderEngine* render_engine, const RenderData& render_data);
    void debugDrawVoxels(const RenderData& render_data);
 
+   void shadeVoxels(const RenderData& render_data);
    void traceGlobalIlluminationRays(const RenderData& render_data);
    void gatherGlobalIllumination();
    void bindGlobalIlluminationTexture();
@@ -33,7 +36,12 @@ public:
 private:
    Uptr<GLFramebuffer> _empty_framebuffer;
    Uptr<GLProgram> _rasterize_voxels;
-   Uptr<GLTexture3D> _voxels;
+   Uptr<GLProgram> _fill_occlusion_voxels;
+   Uptr<GLProgram> _shade_voxels;   
+   Uptr<GLTexture3D> _voxels_gbuffer;
+   Uptr<GLTexture3D> _voxels_occlusion;
+   Uptr<GLTexture3D> _voxels_illumination;
+   Uptr<GLTexture1D> _hemisphere_samples;
    int _texture_size;
    Aabb3 _voxels_aabb;
 
@@ -42,10 +50,12 @@ private:
    Uptr<GLBuffer> _debug_voxels_wireframe;
 
    Uptr<GLProgram> _trace_gi_rays;
-   Uptr<GLProgram> _gather_gi;
+   Uptr<GLProgram> _gather_gi_horizontal;
+   Uptr<GLProgram> _gather_gi_vertical;
    Uptr<GLFramebuffer> _gi_framebuffer;
 
    const RenderResources& _rr;
+   const RenderSettings& _settings;
 };
 
 }

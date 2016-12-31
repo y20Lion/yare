@@ -114,7 +114,7 @@ RenderEngine::RenderEngine(const ImageSize& framebuffer_size)
    , ssao_renderer(new SSAORenderer(*render_resources))
    , froxeled_light_culler(new ClusteredLightCuller(*render_resources, _settings))
    , volumetric_fog(new VolumetricFog(*render_resources, _settings))
-   , voxelizer(new Voxelizer(*render_resources))
+   , voxelizer(new Voxelizer(*render_resources, _settings))
 {    
    _z_pass_render_program = createProgramFromFile("z_pass_render.glsl");
 }
