@@ -13,11 +13,11 @@ public:
    }
 
    VkHandle(T object, VkInstance instance, std::function<void(VkInstance, T, VkAllocationCallbacks*)> deletef) : object(object ){
-      this->deleter = [&instance, deletef](T obj) { deletef(instance, obj, nullptr); };
+      this->deleter = [instance, deletef](T obj) { deletef(instance, obj, nullptr); };
    }
 
    VkHandle(T object, VkDevice device, std::function<void(VkDevice, T, VkAllocationCallbacks*)> deletef): object(object) {
-      this->deleter = [&device, deletef](T obj) { deletef(device, obj, nullptr); };
+      this->deleter = [device, deletef](T obj) { deletef(device, obj, nullptr); };
    }
 
    ~VkHandle() {
@@ -27,7 +27,7 @@ public:
    VkHandle(VkHandle<T> && other) noexcept
    {
       cleanup();      
-      deleter = other.deleter;
+      deleter = std::move(other.deleter);
       object = other.object;
       other.object = VK_NULL_HANDLE;
    }
@@ -35,7 +35,7 @@ public:
    VkHandle& operator =(VkHandle<T> && other)
    {
       cleanup();      
-      deleter = other.deleter;
+      deleter = std::move(other.deleter);
       object = other.object;
       other.object = VK_NULL_HANDLE;
       return *this;

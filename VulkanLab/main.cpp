@@ -1,6 +1,10 @@
 #include "stdafx.h"
 
 //#define VK_NO_PROTOTYPES
+#include <cstdint>
+
+using uint8=std::uint8_t;
+
 #define GLFW_INCLUDE_VULKAN
 #include <glfw/glfw3.h>
 #include <vulkan/vulkan.hpp>
@@ -22,7 +26,7 @@ VkHandle<VkShaderModule> createShaderModule(VkDevice vk_device, const char* spir
    
    VkShaderModuleCreateInfo createInfo = {};
    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-   createInfo.codeSize = code.size();
+   createInfo.codeSize =  code.size();
    createInfo.pCode = (uint32_t*)code.data();
 
    VkShaderModule vk_shader;
@@ -48,6 +52,10 @@ VkShaderStageFlagBits getShaderStage(const std::string& filename)
    if (endsWith(filename, "vert.spv"))
    {
       return VK_SHADER_STAGE_VERTEX_BIT;
+   }
+   else if (endsWith(filename, "frag.spv"))
+   {
+      return VK_SHADER_STAGE_FRAGMENT_BIT;
    }
    else if (endsWith(filename, "tesc.spv"))
    {
@@ -205,7 +213,7 @@ VkHandle<VkRenderPass> createRenderPass(VkDevice vk_device, VkFormat color_attac
    renderPassInfo.pSubpasses = &subpass;
 
    VkRenderPass render_pass;
-   VK_CHECK(vkCreateRenderPass(vk_device, &renderPassInfo, nullptr, render_pass));
+   VK_CHECK(vkCreateRenderPass(vk_device, &renderPassInfo, nullptr, &render_pass));
    return VkHandle<VkRenderPass>(render_pass, vk_device, vkDestroyRenderPass);
 }
 
@@ -246,12 +254,13 @@ int main()
    VulkanContext context(window);
    VulkanSwapChain swapchain(context.vk_phys_device, context.vk_device, context.vk_surface, width, height);
 
-   /*auto vertex_shader = createShaderModule(context.vk_device, "shader.vert");
-   auto fragment_shader = createShaderModule(context.vk_device, "shader.frag");*/
+   auto vertex_shader = createShaderModule(context.vk_device, "shader.vert.spv");
+   VkHandle<VkShaderModule> a = std::move(vertex_shader);
+   /*auto fragment_shader = createShaderModule(context.vk_device, "shader.frag.spv");*/
    
-   auto vk_render_pass = createRenderPass(vk_device, swapchain.image_format);
-   auto vk_pipeline = createGraphicsPipeline(context.vk_device, vk_render_pass, { "shader.vert" , "shader.frag" }, width, height);
-   auto vk_framebuffer = createFramebuffer();
+   auto vk_render_pass = createRenderPass(context.vk_device, swapchain.image_format);
+   auto vk_pipeline = createGraphicsPipeline(context.vk_device, vk_render_pass, { "shader.vert.spv" , "shader.frag.spv" }, width, height);
+   /*auto vk_framebuffer = createFramebuffer();*/uint32_t
 
 
    uint32_t extensionCount = 0;
