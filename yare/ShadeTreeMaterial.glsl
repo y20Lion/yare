@@ -584,7 +584,7 @@ void main()
 #ifdef USE_SDF_VOLUME
    float theta = time;    
    vec3 light_dir = vec3(cos(time), sin(time), 0.5);
-   shading_result.rgb = vec3(raymarchSDF(normalize(light_dir), attr_position))*max(dot(light_dir,normal), 0.0);
+   //shading_result.rgb = vec3(raymarchSDF(normalize(light_dir), attr_position))*max(dot(light_dir,normal), 0.0);
 #endif
 /* vec3 uvw2 = (attr_position - sdf_volume_bound_min) / sdf_volume_size;
    float distance = texture(sdf_volume, uvw2).r;*/
@@ -593,5 +593,6 @@ void main()
    //shading_result.rgb = vec3(int(out_val*light_froxels_dims)/20.0);
 
 // shading_result.rgb = out_val;
-   shading_result.rgb = texelFetch(gi_texture, ivec2(gl_FragCoord.xy), 0).rgb;;
+   shading_result.rgb += texelFetch(gi_texture, ivec2(gl_FragCoord.xy), 0).rgb;
+   //shading_result.rgb = vec3(ssao);
 }

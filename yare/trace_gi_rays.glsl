@@ -17,16 +17,16 @@ void main()
 #include "common.glsl"
 #include "scene_uniforms.glsl"
 
-layout(binding = BI_DEPTH_TEXTURE) uniform sampler2D depths_texture;
-layout(binding = BI_VOXELS_OCCLUSION_TEXTURE) uniform sampler3D occlusion_voxels;
+layout(binding = BI_DEPTH_TEXTURE)               uniform sampler2D depths_texture;
+layout(binding = BI_VOXELS_OCCLUSION_TEXTURE)    uniform sampler3D occlusion_voxels;
 layout(binding = BI_VOXELS_ILLUMINATION_TEXTURE) uniform sampler3D illumination_voxels;
-layout(binding = BI_HEMISPHERE_SAMPLES_TEXTURE) uniform sampler1D hemisphere_samples;
-layout(location = BI_MATRIX_WORLD_PROJ) uniform mat4 matrix_world_proj;
-layout(location = BI_VOXELS_AABB_PMIN) uniform vec3 aabb_pmin;
-layout(location = BI_VOXELS_AABB_PMAX) uniform vec3 aabb_pmax;
+layout(binding = BI_HEMISPHERE_SAMPLES_TEXTURE)  uniform sampler1D hemisphere_samples;
+layout(location = BI_MATRIX_WORLD_PROJ)          uniform mat4 matrix_world_proj;
+layout(location = BI_VOXELS_AABB_PMIN)           uniform vec3 aabb_pmin;
+layout(location = BI_VOXELS_AABB_PMAX)           uniform vec3 aabb_pmax;
 
 in vec2 pixel_uv;
-out vec3 out_color;
+out vec4 out_color;
 
 vec3 transform(mat4 mat, vec3 v)
 {
@@ -44,11 +44,15 @@ const int max_steps = 32;
 
 vec4 traceRay(vec3 start_voxel_pos, vec3 trace_dir)
 {
+   
+   
    vec3 abs_trace_dir = abs(trace_dir);
    vec3 trace_step = trace_dir / max(max(abs_trace_dir.x, abs_trace_dir.y), abs_trace_dir.z);   
    
    vec3 voxel_pos = start_voxel_pos+trace_step;
    float opacity = 0.0;
+
+   //return vec4(texelFetch(illumination_voxels, ivec3(start_voxel_pos), 0).rgb, 1.0);
    
    int i = 0;
    while (i < max_steps && opacity == 0.0)
@@ -62,9 +66,9 @@ vec4 traceRay(vec3 start_voxel_pos, vec3 trace_dir)
       return vec4(0,0,0,1);
 
    vec3 result = texelFetch(illumination_voxels, ivec3(voxel_pos), 0).rgb* (1.0 - smoothstep(max_steps*0.8, float(max_steps), float(i)));
-   float weight = 1.0;//float(i)/max_steps;
+   float weight = 1.0;//float(max_steps+1-i)/max_steps;
     //return vec4(vec3(1.0), 1.0);
-   return vec4(result, weight);
+   return vec4(result*weight, weight);
 }
 
 float traceRaySDF(vec3 start_voxel_pos, vec3 trace_dir)
@@ -107,11 +111,20 @@ vec3 transformLocalSpaceToWorldSpace(vec3 H, vec3 N)
    return TangentX * H.x + TangentY * H.y + N * H.z;
 }
 
+float rand()
+{
+   vec2 co = gl_FragCoord.xy;
+   return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
 void main()
 {
    float depth = texture(depths_texture, 0.5*(pixel_uv + 1.0)).x;
    if (depth == 1.0)
       discard;
+
+
+   float z_eye_space = 2.0f * znear * zfar / (znear + zfar - (2.0*depth-1.0) * (zfar - znear));
 
    vec3 position_ws = positionInWorldFromDepthBuffer(pixel_uv, depth);
    vec3 normal_ws = normalize(cross(dFdx(position_ws.xyz), dFdy(position_ws.xyz)));
@@ -125,10 +138,11 @@ void main()
    int sample_index = repeat_coords.x + repeat_coords.y * SAMPLES_SIDE;
 
    vec4 color = vec4(0);
-   start_voxel_pos += normal_ws*(1.0*voxel_size.x);
+   start_voxel_pos += normal_ws*(2.0*voxel_size.x);
    for (int i = 0; i < RAY_COUNT; ++i)
    {
-      vec3 diffuse_dir = texelFetch(hemisphere_samples, RAY_COUNT*sample_index+i, 0).xyz;
+      //vec3 diffuse_dir = texelFetch(hemisphere_samples, RAY_COUNT*sample_index+i, 0).xyz;
+      vec3 diffuse_dir = texelFetch(hemisphere_samples, (int(rand()*12000) + i) % (12000), 0).xyz;
       diffuse_dir = transformLocalSpaceToWorldSpace(diffuse_dir, normal_ws);
       color += traceRay(start_voxel_pos, diffuse_dir);
    }
@@ -136,5 +150,5 @@ void main()
    //color += traceRay(start_voxel_pos, normal_ws);
    /*vec3 color = vec3(traceRaySDF(position_ws, trace_dir));
    color += traceRay(position_ws, normal_ws);*/
-   out_color = vec3(1.0) - color.rgb;
+   out_color = vec4(color.rgb, z_eye_space);
 }

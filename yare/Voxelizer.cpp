@@ -50,11 +50,10 @@ vec3 hemisphereSampleCos(float u, float v)
    return vec3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
 }
 
-
 Voxelizer::Voxelizer(const RenderResources& render_resources, const RenderSettings& render_settings)
    : _rr(render_resources), _settings(render_settings)
 {
-   _texture_size = 128;
+   _texture_size = 64;
 
    _empty_framebuffer = createEmptyFramebuffer(ImageSize(_texture_size, _texture_size));
    _rasterize_voxels = createProgramFromFile("rasterize_voxels.glsl");
@@ -73,25 +72,34 @@ Voxelizer::Voxelizer(const RenderResources& render_resources, const RenderSettin
 
    auto real_rand = std::bind(std::uniform_real_distribution<float>(0.0, 1.0), std::mt19937());
 
-   constexpr int hammersley_sample_count = SAMPLES_SIDE*SAMPLES_SIDE*RAY_COUNT;
+   /*constexpr int hammersley_sample_count = SAMPLES_SIDE*SAMPLES_SIDE*RAY_COUNT;
    vec3 samples[hammersley_sample_count];
    for (int i = 0; i < hammersley_sample_count; ++i)
    {
       vec2 uv = hammersley2D(i, hammersley_sample_count);
       //samples[i] = hemisphereSampleCos(real_rand(), real_rand()); //hemisphereSampleCos(uv.x, uv.y);
       samples[i] = hemisphereSampleCos(uv.x, uv.y);
+   }*/
+   constexpr int hammersley_sample_count = 12000;
+   vec3 samples[hammersley_sample_count];
+   for (int i = 0; i < hammersley_sample_count; ++i)
+   {
+      vec2 uv = hammersley2D(i, hammersley_sample_count);
+      samples[i] = hemisphereSampleCos(real_rand(), real_rand()); //hemisphereSampleCos(uv.x, uv.y);
+      //samples[i] = hemisphereSampleCos(uv.x, uv.y);
    }
+
    _hemisphere_samples = createTexture1D(hammersley_sample_count, GL_RGB16F, samples);
 
    float clear_color[] = { 0.0f, 0.0f, 0.0f, 0.0f };
    glClearTexImage(_voxels_gbuffer->id(), 0, GL_RGBA, GL_FLOAT, clear_color);
-   
+
    float size = 8.0;
    _voxels_aabb.extend(-vec3(size));
    _voxels_aabb.extend(vec3(size));
 
    _trace_gi_rays = createProgramFromFile("trace_gi_rays.glsl");
-   _gi_framebuffer = createFramebuffer(_rr.framebuffer_size, GL_RGB16F, 2);
+   _gi_framebuffer = createFramebuffer(_rr.framebuffer_size, GL_RGBA16F, 2);
 
    vec3* vertices = (vec3*)_debug_voxels_wireframe->map(GL_MAP_WRITE_BIT);
 
@@ -194,6 +202,8 @@ void Voxelizer::bakeVoxels(RenderEngine* render_engine, const RenderData& render
    GLDevice::bindProgram(*_shade_voxels);
    GLDevice::bindImage(BI_VOXELS_GBUFFER_IMAGE, *_voxels_gbuffer, GL_READ_ONLY);
    GLDevice::bindImage(BI_VOXELS_ILLUMINATION_IMAGE, *_voxels_illumination, GL_WRITE_ONLY);
+   glUniform3fv(BI_VOXELS_AABB_PMIN, 1, value_ptr(_voxels_aabb.pmin));
+   glUniform3fv(BI_VOXELS_AABB_PMAX, 1, value_ptr(_voxels_aabb.pmax));
    glDispatchCompute(_texture_size / 4, _texture_size / 4, _texture_size / 4);
 
    glMemoryBarrier(GL_ALL_BARRIER_BITS);

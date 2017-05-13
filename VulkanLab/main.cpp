@@ -260,7 +260,7 @@ int main()
    
    auto vk_render_pass = createRenderPass(context.vk_device, swapchain.image_format);
    auto vk_pipeline = createGraphicsPipeline(context.vk_device, vk_render_pass, { "shader.vert.spv" , "shader.frag.spv" }, width, height);
-   /*auto vk_framebuffer = createFramebuffer();*/uint32_t
+   /*auto vk_framebuffer = createFramebuffer();*/
 
 
    uint32_t extensionCount = 0;

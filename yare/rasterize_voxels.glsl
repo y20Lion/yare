@@ -3,12 +3,16 @@
 #include "glsl_voxelizer_defines.h"
 
 layout(location = 0) in vec3 position;
+//layout(location = 1) in vec3 normal;
 
 #include "surface_uniforms.glsl"
+
+//out vec3 vertex_normal;
 
 void main()
 {
    gl_Position = vec4(matrix_world_local * vec4(position, 1.0), 1.0);  
+   //vertex_normal = mat3(normal_matrix_world_local)*normal;
 }
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ GeometryShader ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -22,6 +26,7 @@ layout(location = BI_ORTHO_MATRICES) uniform mat4 matrix_ortho_world[3];
 
 flat out int main_axis; 
 flat out vec4 triangle_aabb; 
+flat out vec3 normal;
 out vec2 pos_cs;
 
 vec4 aabbOfDilatedTriangle(vec4 pos[3], vec2 half_pixel_size)
@@ -70,17 +75,17 @@ void dilateTriangle(vec2 half_pixel, inout vec4[3] pos)
 
 void main() 
 {
-	vec3 triangle_normal = cross(gl_in[1].gl_Position.xyz - gl_in[0].gl_Position.xyz, gl_in[2].gl_Position.xyz - gl_in[0].gl_Position.xyz);
-   triangle_normal = abs(normalize(triangle_normal));
+	vec3 triangle_normal = normalize(cross(gl_in[1].gl_Position.xyz - gl_in[0].gl_Position.xyz, gl_in[2].gl_Position.xyz - gl_in[0].gl_Position.xyz));
+   vec3 abs_triangle_normal = abs(triangle_normal);
 
    vec2 half_pixel;
    vec3 voxels_size = vec3(imageSize(voxels));
-   if (triangle_normal.x > triangle_normal.y && triangle_normal.x > triangle_normal.z)
+   if (abs_triangle_normal.x > abs_triangle_normal.y && abs_triangle_normal.x > abs_triangle_normal.z)
    {     
       main_axis = 0;
       half_pixel = 1.0 / voxels_size.yz;
 	}
-	else if (triangle_normal.y > triangle_normal.x && triangle_normal.y > triangle_normal.z)
+	else if (abs_triangle_normal.y > abs_triangle_normal.x && abs_triangle_normal.y > abs_triangle_normal.z)
    {      
       main_axis = 1;
       half_pixel = 1.0 / voxels_size.zx;
@@ -98,11 +103,11 @@ void main()
    }
 
    triangle_aabb = aabbOfDilatedTriangle(pos, half_pixel);
-
+   normal = triangle_normal;
    dilateTriangle(half_pixel, pos);   
    
    for (int i = 0; i < 3; ++i)
-   {
+   {      
       gl_Position = pos[i];
       pos_cs = pos[i].xy;
       EmitVertex();
@@ -117,7 +122,21 @@ layout(binding = BI_VOXELS_GBUFFER_IMAGE, rgba16f) uniform writeonly image3D vox
 
 flat in int main_axis;
 flat in vec4 triangle_aabb; 
+flat in vec3 normal;
 in vec2 pos_cs;
+
+void imageAtomicFloatAdd( layout (r32ui) coherent volatile uimage3D imgUI, ivec3 coords, float val)
+{
+   uint newVal = floatBitsToUint(val);
+   uint prevVal = 0; uint curVal ;
+   // Loop as long as destination value gets changed by other threads
+   while ( ( curVal = imageAtomicCompSwap( imgUI , coords , prevVal , newVal ) ) != prevVal )
+   {
+      prevVal = curVal ;
+      newVal = floatBitsToUint(( val + uintBitsToFloat( curVal )));
+   }
+}
+
 
 void main()
 {
@@ -144,10 +163,10 @@ void main()
       voxel_coord = voxel_coord.xyz;
    }
    
-   imageStore(voxels, ivec3(voxel_coord), vec4(1.0));
-   if (fwidth(tex_size*gl_FragCoord.z) > 0.5)
+   imageStore(voxels, ivec3(voxel_coord), vec4(normal, 1.0));
+   if (fwidthFine(tex_size*gl_FragCoord.z) > 0.5)
    {
-      imageStore(voxels, ivec3(voxel_coord)+main_dir_step, vec4(1.0));
-      imageStore(voxels, ivec3(voxel_coord)-main_dir_step, vec4(1.0));
+      imageStore(voxels, ivec3(voxel_coord)+main_dir_step, vec4(normal, 1.0));
+      imageStore(voxels, ivec3(voxel_coord)-main_dir_step, vec4(normal, 1.0));
    }
 }

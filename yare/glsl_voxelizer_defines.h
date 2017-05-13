@@ -14,4 +14,4 @@
 #define BI_MATRIX_WORLD_PROJ 6
 
 #define SAMPLES_SIDE 4
-#define RAY_COUNT 1
+#define RAY_COUNT 10
