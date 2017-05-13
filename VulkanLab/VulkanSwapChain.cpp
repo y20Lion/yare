@@ -97,6 +97,18 @@ VulkanSwapChain::VulkanSwapChain(VkPhysicalDevice vk_phys_device, VkDevice vk_de
 {
    _createSwapChain(vk_phys_device, vk_device, vk_surface, surface_width, surface_height);
    _createSwapChainImages(vk_device);
+   surfaceWidth = surface_width;
+   surfaceHeight = surface_height;
+
+
+   VkSemaphoreCreateInfo semaphoreInfo = {};
+   semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+   VkSemaphore semaphore;
+   VK_CHECK(vkCreateSemaphore(vk_device, &semaphoreInfo, nullptr, &semaphore));
+   imageAvailableSemaphore = VkHandle<VkSemaphore>(semaphore, vk_device, vkDestroySemaphore);
+   VK_CHECK(vkCreateSemaphore(vk_device, &semaphoreInfo, nullptr, &semaphore));
+   renderFinishedSemaphore = VkHandle<VkSemaphore>(semaphore, vk_device, vkDestroySemaphore);
 }
 
 VulkanSwapChain::~VulkanSwapChain()

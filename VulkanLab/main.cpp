@@ -217,28 +217,135 @@ VkHandle<VkRenderPass> createRenderPass(VkDevice vk_device, VkFormat color_attac
    return VkHandle<VkRenderPass>(render_pass, vk_device, vkDestroyRenderPass);
 }
 
-/*std::vector<VkHandle<VkFramebuffer>> createFramebuffers(VkDevice vk_device, VkRenderPass render_pass, const VulkanSwapChain& swapchain)
+std::vector<VkHandle<VkFramebuffer>> createFramebuffers(VkDevice vk_device, VkRenderPass renderPass, const VulkanSwapChain& swapchain)
 {
    //swapChainFramebuffers.resize(swapChainImageViews.size(), VDeleter<VkFramebuffer>{device, vkDestroyFramebuffer});
    std::vector<VkHandle<VkFramebuffer>> framebuffers;
-   for (size_t i = 0; i < swapChainImageViews.size(); i++) {
-      VkImageView attachments[] = { swapchain.[i] };
+   for (size_t i = 0; i < swapchain.swap_chain_image_views.size(); i++) 
+   {
+      VkImageView attachments[] = { swapchain.swap_chain_image_views[i] };
 
       VkFramebufferCreateInfo framebufferInfo = {};
       framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
       framebufferInfo.renderPass = renderPass;
       framebufferInfo.attachmentCount = 1;
       framebufferInfo.pAttachments = attachments;
-      framebufferInfo.width = swapChainExtent.width;
-      framebufferInfo.height = swapChainExtent.height;
+      framebufferInfo.width = swapchain.surfaceWidth;
+      framebufferInfo.height = swapchain.surfaceHeight;
       framebufferInfo.layers = 1;
 
-      if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, swapChainFramebuffers[i].replace()) != VK_SUCCESS) {
-         throw std::runtime_error("failed to create framebuffer!");
+      VkFramebuffer framebuffer;
+      VK_CHECK(vkCreateFramebuffer(vk_device, &framebufferInfo, nullptr, &framebuffer));
+      framebuffers.push_back(VkHandle<VkFramebuffer>(framebuffer, vk_device, vkDestroyFramebuffer));
    }
 
    return framebuffers;
-}*/
+}
+
+VkHandle<VkCommandPool> createCommandPool(VkDevice device)
+{
+
+   VkCommandPoolCreateInfo poolInfo = {};
+   poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+   poolInfo.queueFamilyIndex = 0;
+
+   VkCommandPool commandPool;
+   VK_CHECK(vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool));
+
+   return VkHandle<VkCommandPool>(commandPool, device, vkDestroyCommandPool);
+}
+
+std::vector<VkCommandBuffer> createCommandBuffers(const std::vector<VkHandle<VkFramebuffer>>& swapChainFramebuffers,
+                                                            const VulkanSwapChain& swapchain, VkDevice device, VkCommandPool commandPool,
+                                                            VkRenderPass renderPass, VkPipeline graphicsPipeline)
+{
+   std::vector<VkCommandBuffer> commandBuffers;
+   commandBuffers.resize(swapchain.swap_chain_images.size());
+
+   VkCommandBufferAllocateInfo allocInfo = {};
+   allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+   allocInfo.commandPool = commandPool;
+   allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+   allocInfo.commandBufferCount = (uint32_t)commandBuffers.size();
+
+   VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, commandBuffers.data()));
+   
+
+   for (size_t i = 0; i < commandBuffers.size(); i++)
+   {
+      VkCommandBufferBeginInfo beginInfo = {};
+      beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+      beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+
+      vkBeginCommandBuffer(commandBuffers[i], &beginInfo);
+
+      
+      VkExtent2D swapChainExtent = { uint32_t(swapchain.surfaceWidth), uint32_t(swapchain.surfaceHeight) };
+      
+      VkRenderPassBeginInfo renderPassInfo = {};
+      renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+      renderPassInfo.renderPass = renderPass;
+      renderPassInfo.framebuffer = swapChainFramebuffers[i];
+      renderPassInfo.renderArea.offset = { 0, 0 };
+      renderPassInfo.renderArea.extent = swapChainExtent;
+
+      VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+      renderPassInfo.clearValueCount = 1;
+      renderPassInfo.pClearValues = &clearColor;
+
+      vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+      vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+
+      vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
+
+      vkCmdEndRenderPass(commandBuffers[i]);
+
+      VK_CHECK(vkEndCommandBuffer(commandBuffers[i]));
+   }
+
+   return commandBuffers;
+}
+
+
+void drawFrame(const VulkanContext& context, const VulkanSwapChain& swapchain, VkDevice device, const std::vector<VkCommandBuffer>& commandBuffers)
+{
+   uint32_t imageIndex;
+   vkAcquireNextImageKHR(device, swapchain.vk_swap_chain, std::numeric_limits<uint64_t>::max(), swapchain.imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+
+   VkSubmitInfo submitInfo = {};
+   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+   VkSemaphore waitSemaphores[] = { swapchain.imageAvailableSemaphore };
+   VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+   submitInfo.waitSemaphoreCount = 1;
+   submitInfo.pWaitSemaphores = waitSemaphores;
+   submitInfo.pWaitDstStageMask = waitStages;
+
+   submitInfo.commandBufferCount = 1;
+   submitInfo.pCommandBuffers = &commandBuffers[imageIndex];
+
+   VkSemaphore signalSemaphores[] = { swapchain.renderFinishedSemaphore };
+   submitInfo.signalSemaphoreCount = 1;
+   submitInfo.pSignalSemaphores = signalSemaphores;
+
+   VK_CHECK(vkQueueSubmit(context.vk_graphics_queue, 1, &submitInfo, VK_NULL_HANDLE)) 
+
+   VkPresentInfoKHR presentInfo = {};
+   presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+
+   presentInfo.waitSemaphoreCount = 1;
+   presentInfo.pWaitSemaphores = signalSemaphores;
+
+   VkSwapchainKHR swapChains[] = { swapchain.vk_swap_chain };
+   presentInfo.swapchainCount = 1;
+   presentInfo.pSwapchains = swapChains;
+
+   presentInfo.pImageIndices = &imageIndex;
+
+   vkQueuePresentKHR(context.vk_present_queue, &presentInfo);
+}
+
 
 int main()
 {
@@ -260,8 +367,9 @@ int main()
    
    auto vk_render_pass = createRenderPass(context.vk_device, swapchain.image_format);
    auto vk_pipeline = createGraphicsPipeline(context.vk_device, vk_render_pass, { "shader.vert.spv" , "shader.frag.spv" }, width, height);
-   /*auto vk_framebuffer = createFramebuffer();*/
-
+   auto vk_framebuffer = createFramebuffers(context.vk_device, vk_render_pass, swapchain);
+   auto commandPool = createCommandPool(context.vk_device);
+   auto commandBuffers = createCommandBuffers(vk_framebuffer, swapchain, context.vk_device, commandPool, vk_render_pass, vk_pipeline);
 
    uint32_t extensionCount = 0;
    vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
@@ -275,6 +383,7 @@ int main()
    while (!glfwWindowShouldClose(window))
    {
       glfwPollEvents();
+      drawFrame(context, swapchain, context.vk_device, commandBuffers);
    } 
 
    glfwDestroyWindow(window);

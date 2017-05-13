@@ -15,6 +15,11 @@ public:
    std::vector<VkImage> swap_chain_images;
    std::vector<VkHandle<VkImageView>> swap_chain_image_views;
    VkFormat image_format;
+   int surfaceWidth;
+   int surfaceHeight;
+
+   VkHandle<VkSemaphore> imageAvailableSemaphore;
+   VkHandle<VkSemaphore> renderFinishedSemaphore;
 
 private:
    void _createSwapChain(VkPhysicalDevice vk_phys_device, VkDevice vk_device, VkSurfaceKHR vk_surface, int surface_width, int surface_height);
